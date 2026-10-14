@@ -120,10 +120,12 @@ function required()
                     $current_user_id = $CI->ion_auth->user()->row()->id;
                     $CI->hospital_id = $CI->db->get_where('hospital', array('ion_user_id' => $current_user_id))->row()->id;
                     if (!empty($CI->hospital_id)) {
-                        $newdata = array(
-                            'hospital_id' => $CI->hospital_id,
-                        );
-                        $CI->session->set_userdata($newdata);
+                        if ($CI->session->userdata('hospital_id') != $CI->hospital_id) {
+                            $newdata = array(
+                                'hospital_id' => $CI->hospital_id,
+                            );
+                            $CI->session->set_userdata($newdata);
+                        }
                     }
                 } else {
                     $current_user_id = $CI->ion_auth->user()->row()->id;
@@ -132,19 +134,23 @@ function required()
                     $group_name = strtolower($group_name);
                     $CI->hospital_id = $CI->db->get_where($group_name, array('ion_user_id' => $current_user_id))->row()->hospital_id;
                     if (!empty($CI->hospital_id)) {
-                        $newdata = array(
-                            'hospital_id' => $CI->hospital_id,
-                        );
-                        $CI->session->set_userdata($newdata);
+                        if ($CI->session->userdata('hospital_id') != $CI->hospital_id) {
+                            $newdata = array(
+                                'hospital_id' => $CI->hospital_id,
+                            );
+                            $CI->session->set_userdata($newdata);
+                        }
                     }
                 }
             } else {
                 $CI->hospital_id = 'superadmin';
                 if (!empty($CI->hospital_id)) {
-                    $newdata = array(
-                        'hospital_id' => $CI->hospital_id,
-                    );
-                    $CI->session->set_userdata($newdata);
+                    if ($CI->session->userdata('hospital_id') != $CI->hospital_id) {
+                        $newdata = array(
+                            'hospital_id' => $CI->hospital_id,
+                        );
+                        $CI->session->set_userdata($newdata);
+                    }
                 }
             }
         }

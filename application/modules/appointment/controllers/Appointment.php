@@ -1335,18 +1335,24 @@ class Appointment extends MX_Controller
 
     function getAppointmentByJason()
     {
-
-
-
         if ($this->ion_auth->in_group(array('Doctor'))) {
             $doctor_ion_id = $this->ion_auth->get_user_id();
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $doctor = $this->db->get_where('doctor', array('ion_user_id' => $doctor_ion_id))->row()->id;
             $query = $this->appointment_model->getAppointmentByDoctor($doctor);
         } elseif ($this->ion_auth->in_group(array('Patient'))) {
             $patient_ion_id = $this->ion_auth->get_user_id();
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $patient = $this->db->get_where('patient', array('ion_user_id' => $patient_ion_id))->row()->id;
             $query = $this->appointment_model->getAppointmentByPatient($patient);
         } else {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $query = $this->appointment_model->getAppointmentForCalendar();
         }
         $jsonevents = array();

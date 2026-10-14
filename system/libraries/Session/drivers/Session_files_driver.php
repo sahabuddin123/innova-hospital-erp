@@ -177,16 +177,27 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 			{
 				log_message('error', "Session: Unable to open file '".$this->_file_path.$session_id."'.");
 				$this->_fingerprint = md5('');
-				return '';
+				return $this->_failure;
 			}
 
-			if (@flock($this->_file_handle, LOCK_EX) === FALSE)
+			$lock_acquired = false;
+			for ($attempt = 0; $attempt < 20; $attempt++)
+			{
+				if (@flock($this->_file_handle, LOCK_EX))
+				{
+					$lock_acquired = true;
+					break;
+				}
+				usleep(25000); // Wait 25ms, retry up to 500ms
+			}
+
+			if (!$lock_acquired)
 			{
 				log_message('error', "Session: Unable to obtain lock for file '".$this->_file_path.$session_id."'.");
 				@fclose($this->_file_handle);
 				$this->_file_handle = NULL;
 				$this->_fingerprint = md5('');
-				return '';
+				return $this->_failure;
 			}
 
 			// Needed by write() to detect session_regenerate_id() calls
@@ -204,12 +215,14 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 		elseif ($this->_file_handle === FALSE)
 		{
 			$this->_fingerprint = md5('');
-			return '';
+			return $this->_failure;
 		}
 		else
 		{
 			rewind($this->_file_handle);
 		}
+
+		rewind($this->_file_handle);
 
 		$session_data = '';
 		clearstatcache(TRUE, $this->_file_path.$session_id);
@@ -252,7 +265,7 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 	{
 		// If the two IDs don't match, we have a session_regenerate_id() call
 		// and we need to close the old handle and open a new one
-		if ($session_id !== $this->_session_id && ($this->close() === $this->_failure OR $this->read($session_id) === ''))
+		if ($session_id !== $this->_session_id && ($this->close() === $this->_failure OR $this->read($session_id) === $this->_failure))
 		{
 			return $this->_failure;
 		}

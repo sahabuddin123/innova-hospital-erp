@@ -387,30 +387,35 @@ Class Chat extends MX_Controller {
     
     
     public function checkChat2() {
-        $id = $this->ion_auth->user()->row()->id;
+        $user = $this->ion_auth->user()->row();
+        $id = !empty($user->id) ? $user->id : 0;
+        $hospital_id = $this->session->userdata('hospital_id');
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
          
-            $hospital = $this->db->get_where('hospital', array('id' => $this->session->userdata('hospital_id')))->row();
-            $admins = $this->db->get_where('users', array('id' => $hospital->ion_user_id))->result_array();
-            
-            $this->db->select('*');
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $array1 = $this->db->get('accountant')->result_array();
-            $this->db->select('*');
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $array2 = $this->db->get('laboratorist')->result_array();
-            $this->db->select('*');
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $array3 = $this->db->get('receptionist')->result_array();
-            $this->db->select('*');
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $array4 = $this->db->get('pharmacist')->result_array();
-            $this->db->select('*');
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $array5 = $this->db->get('nurse')->result_array();
-            $this->db->select('*');
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $array6 = $this->db->get('doctor')->result_array();
-            $employees = array_merge( $array1, $array2, $array3, $array4, $array5, $array6);
+        $hospital = !empty($hospital_id) ? $this->db->get_where('hospital', array('id' => $hospital_id))->row() : null;
+        $admins = (!empty($hospital) && !empty($hospital->ion_user_id)) ? $this->db->get_where('users', array('id' => $hospital->ion_user_id))->result_array() : array();
+        
+        $this->db->select('*');
+        $this->db->where('hospital_id', $hospital_id);
+        $array1 = $this->db->get('accountant')->result_array();
+        $this->db->select('*');
+        $this->db->where('hospital_id', $hospital_id);
+        $array2 = $this->db->get('laboratorist')->result_array();
+        $this->db->select('*');
+        $this->db->where('hospital_id', $hospital_id);
+        $array3 = $this->db->get('receptionist')->result_array();
+        $this->db->select('*');
+        $this->db->where('hospital_id', $hospital_id);
+        $array4 = $this->db->get('pharmacist')->result_array();
+        $this->db->select('*');
+        $this->db->where('hospital_id', $hospital_id);
+        $array5 = $this->db->get('nurse')->result_array();
+        $this->db->select('*');
+        $this->db->where('hospital_id', $hospital_id);
+        $array6 = $this->db->get('doctor')->result_array();
+        $employees = array_merge( $array1, $array2, $array3, $array4, $array5, $array6);
             
             $data['unreads'] = array();
             
