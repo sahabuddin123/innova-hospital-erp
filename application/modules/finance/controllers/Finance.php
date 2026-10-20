@@ -2567,6 +2567,10 @@ class Finance extends MX_Controller
 
             $options2 = '<a class="btn btn-warning btn-sm mt-1" title="' . lang('invoice') . '" href="finance/invoice?id=' . $payment->id . '"><i class="fa fa-file-invoice"></i> ' . lang('') . '</a>';
             $options4 = '<a class="btn btn-info btn-sm mr-1 mt-1" title="' . lang('print') . '" href="finance/printInvoice?id=' . $payment->id . '"target="_blank"> <i class="fa fa-print"></i> ' . lang('') . '</a>';
+            $options5 = '';
+            if ($this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) {
+                $options5 = '<a class="dropdown-item add_discount_btn text-primary font-weight-bold" href="javascript:void(0)" data-id="' . $payment->id . '"><i class="fa fa-percent mr-2 text-warning"></i>' . (lang('add_discount') ?: 'Add Discount') . '</a>';
+            }
             if ($this->ion_auth->in_group(array('admin', 'Accountant'))) {
                 if ($payment->payment_from == 'payment' || empty($payment->payment_from)) {
                     if (count($lab_reports_previous) == count($lab_pending) || empty($lab_reports_previous)) {
@@ -2634,6 +2638,7 @@ class Finance extends MX_Controller
                     ' . ($options1 ? '<a class="dropdown-item" href="' . $href . '"><i class="fa fa-edit mr-2"></i>' . lang('edit') . '</a>' : '') . '
                     ' . ($options2 ? '<a class="dropdown-item" href="' . site_url("finance/invoice?id=" . $payment->id) . '"><i class="fa fa-file-invoice mr-2"></i>' . lang('invoice') . '</a>' : '') . '
                     ' . ($options4 ? '<a class="dropdown-item" href="' . site_url("finance/printInvoice?id=" . $payment->id) . '" target="_blank"><i class="fa fa-print mr-2"></i>' . lang('print') . '</a>' : '') . '
+                    ' . $options5 . '
                     ' . ($options3 ? '<div class="dropdown-divider"></div><a class="dropdown-item text-danger" href="' . site_url("finance/delete?id=" . $payment->id) . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash mr-2"></i>' . lang('delete') . '</a>' : '') . '
                 </div>
             </div>';
@@ -2727,6 +2732,266 @@ class Finance extends MX_Controller
 
 
         echo json_encode($output);
+    }
+
+    public function getInvoiceDiscountDetails()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            echo json_encode(array('status' => 'error', 'message' => 'Unauthorized'));
+            return;
+        }
+
+        $id = $this->input->get('id');
+        if (empty($id)) {
+            $id = $this->input->post('id');
+        }
+
+        $payment = $this->finance_model->getPaymentById($id);
+        if (empty($payment)) {
+            echo json_encode(array('status' => 'error', 'message' => 'Invoice not found.'));
+            return;
+        }
+
+        $hospital_id = $this->session->userdata('hospital_id');
+        if (!empty($payment->hospital_id) && $payment->hospital_id != $hospital_id) {
+            echo json_encode(array('status' => 'error', 'message' => 'Unauthorized hospital access.'));
+            return;
+        }
+
+        $settings = $this->settings_model->getSettings();
+        $currency = !empty($settings->currency) ? $settings->currency : '৳';
+
+        $subtotal = floatval($payment->amount ?? 0);
+        $vat = floatval($payment->vat ?? 0);
+        $existing_discount = floatval($payment->discount ?? 0);
+        $gross_total = floatval($payment->gross_total ?? 0);
+        $paid = floatval($this->finance_model->getDepositAmountByPaymentId($payment->id) ?? 0);
+        $due = $gross_total - $paid;
+
+        $patient_name = !empty($payment->patient_name) ? $payment->patient_name : '';
+        if (empty($patient_name) && !empty($payment->patient)) {
+            $p_info = $this->db->get_where('patient', array('id' => $payment->patient))->row();
+            if ($p_info) {
+                $patient_name = $p_info->name;
+            }
+        }
+
+        echo json_encode(array(
+            'status' => 'success',
+            'invoice_id' => $payment->id,
+            'patient_name' => $patient_name,
+            'patient_phone' => !empty($payment->patient_phone) ? $payment->patient_phone : '',
+            'currency' => $currency,
+            'subtotal' => $subtotal,
+            'vat' => $vat,
+            'existing_discount' => $existing_discount,
+            'gross_total' => $gross_total,
+            'paid' => $paid,
+            'due' => $due,
+            'date' => date('d-m-Y', $payment->date)
+        ));
+    }
+
+    public function saveInvoiceDiscount()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            echo json_encode(array('status' => 'error', 'message' => 'Unauthorized'));
+            return;
+        }
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) {
+            echo json_encode(array('status' => 'error', 'message' => 'You do not have permission to modify invoice discounts.'));
+            return;
+        }
+
+        $id = $this->input->post('id');
+        $discount_amount = $this->input->post('discount_amount');
+        $discount_mode = $this->input->post('discount_mode'); // 'additional' or 'total'
+        $remarks = trim((string)$this->input->post('remarks'));
+
+        if (empty($id)) {
+            echo json_encode(array('status' => 'error', 'message' => 'Invalid Invoice ID.'));
+            return;
+        }
+
+        if (!is_numeric($discount_amount) || floatval($discount_amount) < 0) {
+            echo json_encode(array('status' => 'error', 'message' => 'Please enter a valid discount amount.'));
+            return;
+        }
+
+        $payment = $this->finance_model->getPaymentById($id);
+        if (empty($payment)) {
+            echo json_encode(array('status' => 'error', 'message' => 'Invoice not found.'));
+            return;
+        }
+
+        $hospital_id = $this->session->userdata('hospital_id');
+        if (!empty($payment->hospital_id) && $payment->hospital_id != $hospital_id) {
+            echo json_encode(array('status' => 'error', 'message' => 'Unauthorized hospital access.'));
+            return;
+        }
+
+        $subtotal = floatval($payment->amount ?? 0);
+        $vat = floatval($payment->vat ?? 0);
+        $existing_discount = floatval($payment->discount ?? 0);
+
+        if ($discount_mode === 'total') {
+            $new_discount = floatval($discount_amount);
+            $added_discount = $new_discount - $existing_discount;
+        } else {
+            $added_discount = floatval($discount_amount);
+            $new_discount = $existing_discount + $added_discount;
+        }
+
+        if ($new_discount < 0) {
+            echo json_encode(array('status' => 'error', 'message' => 'Total discount cannot be negative.'));
+            return;
+        }
+
+        if ($new_discount > $subtotal) {
+            echo json_encode(array('status' => 'error', 'message' => 'Discount cannot exceed the total bill amount (' . number_format($subtotal, 2) . ').'));
+            return;
+        }
+
+        $new_gross_total = max(0.00, round($subtotal - $new_discount + $vat, 2));
+        $net_invoice = max(0.00, $subtotal - $new_discount);
+
+        // Recalculate commissions proportionally if category_name is present
+        $doctor_amount_by_category = array();
+        $referral_amount_by_category = array();
+        $invoice_items_data = array();
+
+        if (!empty($payment->category_name)) {
+            $all_cat_name = explode(',', $payment->category_name);
+            $parsed_items = array();
+            foreach ($all_cat_name as $indiviual_cat_nam) {
+                if (empty(trim($indiviual_cat_nam))) continue;
+                $indiviual_cat_nam1 = explode('*', $indiviual_cat_nam);
+                if (count($indiviual_cat_nam1) >= 4) {
+                    $cat_id = $indiviual_cat_nam1[0];
+                    $unit_price = floatval($indiviual_cat_nam1[1]);
+                    $qty = floatval($indiviual_cat_nam1[3]);
+                    $line_total = round($unit_price * $qty, 2);
+
+                    $cat_details = $this->finance_model->getPaymentCategoryById($cat_id);
+                    $cat_item_name = !empty($cat_details->category) ? $cat_details->category : 'Item ' . $cat_id;
+
+                    $d_rate = (!empty($payment->doctor) && isset($cat_details->d_commission)) ? floatval($cat_details->d_commission) : 0.00;
+                    $r_rate = (!empty($payment->referrer) && isset($cat_details->r_commission)) ? floatval($cat_details->r_commission) : 0.00;
+
+                    $parsed_items[] = array(
+                        'cat_id' => $cat_id,
+                        'cat_item_name' => $cat_item_name,
+                        'unit_price' => $unit_price,
+                        'qty' => $qty,
+                        'line_total' => $line_total,
+                        'd_rate' => $d_rate,
+                        'r_rate' => $r_rate
+                    );
+                }
+            }
+
+            $num_items = count($parsed_items);
+            $allocated_net_so_far = 0.00;
+
+            for ($i = 0; $i < $num_items; $i++) {
+                $p_item = $parsed_items[$i];
+                $line_total = $p_item['line_total'];
+
+                if ($subtotal > 0 && $net_invoice > 0) {
+                    if ($i === $num_items - 1) {
+                        $item_net_base = max(0.00, round($net_invoice - $allocated_net_so_far, 2));
+                    } else {
+                        $item_net_base = round(($line_total / $subtotal) * $net_invoice, 2);
+                        $allocated_net_so_far += $item_net_base;
+                    }
+                } else {
+                    $item_net_base = 0.00;
+                }
+
+                $d_comm_line = round(($item_net_base * $p_item['d_rate']) / 100, 2);
+                $r_comm_line = round(($item_net_base * $p_item['r_rate']) / 100, 2);
+
+                $doctor_amount_by_category[] = $d_comm_line;
+                $referral_amount_by_category[] = $r_comm_line;
+
+                $invoice_items_data[] = array(
+                    'item_id' => $p_item['cat_id'],
+                    'item_name' => $p_item['cat_item_name'],
+                    'item_price' => $p_item['unit_price'],
+                    'quantity' => $p_item['qty'],
+                    'subtotal' => $line_total,
+                    'net_subtotal' => $item_net_base,
+                    'doctor_commission_rate' => $p_item['d_rate'],
+                    'doctor_commission_amount' => $d_comm_line,
+                    'referral_commission_rate' => $p_item['r_rate'],
+                    'referral_commission_amount' => $r_comm_line
+                );
+            }
+
+            $doctor_amount = array_sum($doctor_amount_by_category);
+            $referral_amount = array_sum($referral_amount_by_category);
+            $hospital_amount = $new_gross_total - $doctor_amount - $referral_amount;
+        } else {
+            $doctor_amount = floatval($payment->doctor_amount ?? 0);
+            $referral_amount = floatval($payment->referral_amount ?? 0);
+            $hospital_amount = max(0.00, $new_gross_total - $doctor_amount - $referral_amount);
+        }
+
+        $this->db->trans_start();
+
+        $update_data = array(
+            'discount' => $new_discount,
+            'flat_discount' => $new_discount,
+            'gross_total' => $new_gross_total,
+            'hospital_amount' => $hospital_amount,
+            'doctor_amount' => $doctor_amount,
+            'referral_amount' => $referral_amount
+        );
+
+        if (!empty($remarks)) {
+            $existing_remarks = !empty($payment->remarks) ? $payment->remarks . ' | ' : '';
+            $update_data['remarks'] = $existing_remarks . 'Discount: ' . $remarks;
+        }
+
+        $this->finance_model->updatePayment($id, $update_data);
+
+        // Sync commission snapshot if items present
+        if (!empty($invoice_items_data) && !empty($this->referral_model)) {
+            $this->referral_model->syncInvoiceCommissions($id, $invoice_items_data, $payment->referrer, $payment->doctor, $hospital_id);
+        }
+
+        // Insert log
+        if (class_exists('Logs_model') || file_exists(APPPATH . 'modules/logs/models/Logs_model.php')) {
+            $this->load->model('logs/logs_model');
+            $log_data = array(
+                'date_time' => date('d-m-Y H:i'),
+                'patientname' => !empty($payment->patient_name) ? $payment->patient_name : '',
+                'invoice_id' => $id,
+                'action' => 'Discount Updated: Added ' . $added_discount . ' (New Total: ' . $new_discount . ')' . (!empty($remarks) ? ' - ' . $remarks : ''),
+                'user' => $this->ion_auth->get_user_id()
+            );
+            $this->logs_model->insertTransactionLogs($log_data);
+        }
+
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            echo json_encode(array('status' => 'error', 'message' => 'Database error while saving discount.'));
+            return;
+        }
+
+        $paid = floatval($this->finance_model->getDepositAmountByPaymentId($id) ?? 0);
+        $new_due = $new_gross_total - $paid;
+
+        echo json_encode(array(
+            'status' => 'success',
+            'message' => 'Discount successfully applied to Invoice #' . $id,
+            'new_discount' => number_format($new_discount, 2),
+            'gross_total' => number_format($new_gross_total, 2),
+            'paid' => number_format($paid, 2),
+            'due' => number_format($new_due, 2)
+        ));
     }
 
     function previousInvoice()

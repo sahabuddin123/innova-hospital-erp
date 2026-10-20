@@ -2590,3 +2590,5 @@ $lang['reject'] = 'Reject';
 $lang['internal_commission_summary'] = 'Internal Commission Summary';
 $lang['hospital_accounting'] = 'Hospital Accounting';
 $lang['commissions_are_internal_expenses'] = 'Commissions are internal hospital expenses and do not affect customer payable total.';
+$lang['add_discount'] = 'Add Discount';
+$lang['discount_added_successfully'] = 'Discount added successfully!';

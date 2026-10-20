@@ -4,6 +4,12 @@
  * LifeCare Hospital ERP
  */
 
+// Restrict to command line interface (CLI) only
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    die("Access Denied: This maintenance script can only be executed via CLI.\n");
+}
+
 // Determine project root
 $rootDir = __DIR__;
 $envFile = $rootDir . '/.env';

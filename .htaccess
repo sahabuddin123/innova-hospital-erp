@@ -1,13 +1,41 @@
 RewriteEngine On
+
+# Enforce HTTPS on production domains (exclude localhost and 127.0.0.1 for local dev)
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php?/$1 [L]
 
+# Prevent directory indexing
+Options -Indexes
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+</IfModule>
+
 # Block direct access to sensitive files
-<FilesMatch "(^\.env|^\.git|\.sql$|deploy\.sh$)">
-    Order allow,deny
-    Deny from all
+<FilesMatch "(^\.env|^\.git|\.sql$|deploy\.sh$|clean_demo_data\.php$|composer\.(json|lock)$|package(-lock)?\.json$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
+
+# Block access to hidden files and directories
+RewriteCond %{REQUEST_URI} "!(^|/)\.well-known([^/]+)?(/.*)?$" [NC]
+RewriteRule "(^|/)\." - [F]
 
 php_value max_input_vars 20000
 php_value max_multipart_body_parts 20000

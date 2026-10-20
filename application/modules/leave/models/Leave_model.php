@@ -173,23 +173,23 @@ class Leave_model extends CI_Model {
         if (!empty($searchTerm)) {
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $this->db->group_start()->like('name', $searchTerm)->or_like('id', $searchTerm)->group_end();
             $fetched_records1 = $this->db->get('accountant')->result_array();
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $this->db->group_start()->like('name', $searchTerm)->or_like('id', $searchTerm)->group_end();
             $fetched_records2 = $this->db->get('laboratorist')->result_array();
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $this->db->group_start()->like('name', $searchTerm)->or_like('id', $searchTerm)->group_end();
             $fetched_records3 = $this->db->get('receptionist')->result_array();
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $this->db->group_start()->like('name', $searchTerm)->or_like('id', $searchTerm)->group_end();
             $fetched_records4 = $this->db->get('pharmacist')->result_array();
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $this->db->group_start()->like('name', $searchTerm)->or_like('id', $searchTerm)->group_end();
             $fetched_records5 = $this->db->get('nurse')->result_array();
             $users = array_merge($fetched_records1, $fetched_records2, $fetched_records3, $fetched_records4, $fetched_records5);
         } else {

@@ -121,7 +121,10 @@ class Symptom_model extends CI_model
         if (!empty($searchTerm)) {
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $this->db->group_start()
+                ->like('name', $searchTerm)
+                ->or_like('id', $searchTerm)
+            ->group_end();
             $fetched_records = $this->db->get('symptom');
             $users = $fetched_records->result_array();
         } else {

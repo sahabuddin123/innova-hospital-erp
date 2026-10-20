@@ -197,7 +197,7 @@ class Sms_model extends CI_model {
         if (!empty($searchTerm)) { 
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' ");
+            $this->db->like('name', $searchTerm);
             $this->db->where('type', $type);
             $fetched_records = $this->db->get('manual_sms_template');
             $users = $fetched_records->result_array();

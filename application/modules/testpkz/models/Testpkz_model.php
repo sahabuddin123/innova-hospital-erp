@@ -103,8 +103,10 @@ class Testpkz_model extends CI_model {
         if (!empty($searchTerm)) {
             $this->db->select('*');
             $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' ");
-            $this->db->or_where("id like '%" . $searchTerm . "%' ");
+            $this->db->group_start()
+                ->like('name', $searchTerm)
+                ->or_like('id', $searchTerm)
+            ->group_end();
             $fetched_records = $this->db->get('testpkz');
             $users = $fetched_records->result_array();
         } else {
@@ -125,8 +127,10 @@ class Testpkz_model extends CI_model {
         if (!empty($searchTerm)) {
             $this->db->select('*');
             $this->db->where('hospital_id', $hospital_id);
-            $this->db->where("name like '%" . $searchTerm . "%' ");
-            $this->db->or_where("id like '%" . $searchTerm . "%' ");
+            $this->db->group_start()
+                ->like('name', $searchTerm)
+                ->or_like('id', $searchTerm)
+            ->group_end();
             $fetched_records = $this->db->get('testpkz');
             $users = $fetched_records->result_array();
         } else {

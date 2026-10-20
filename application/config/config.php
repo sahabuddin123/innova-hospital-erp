@@ -331,8 +331,7 @@ $config['cache_query_string'] = false;
 |
 | https://codeigniter.com/user_guide/libraries/encryption.html
 |
-*/
-$config['encryption_key'] = '';
+$config['encryption_key'] = isset($_SERVER['APP_KEY']) ? $_SERVER['APP_KEY'] : (getenv('APP_KEY') ?: 'LifeCareHospitalERP_SecureKey_2026_9e8b7c6d5a4f3e2b1a0c9d8e7f6a5b4c');
 
 /*
 |--------------------------------------------------------------------------
@@ -418,6 +417,7 @@ $config['cookie_domain']	= '';
 $config['cookie_path']		= '/';
 $config['cookie_secure']	= $is_https;
 $config['cookie_httponly'] 	= true;
+$config['cookie_samesite'] 	= 'Lax';
 
 /*
 |--------------------------------------------------------------------------

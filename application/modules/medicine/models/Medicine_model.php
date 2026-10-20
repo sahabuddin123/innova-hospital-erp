@@ -311,7 +311,15 @@ class Medicine_model extends CI_model
         $query = $this->db->select('*')
             ->from('medicine')
             ->where('hospital_id', $this->session->userdata('hospital_id'))
-            ->where("(id LIKE '%" . $search . "%' OR category LIKE '%" . $search . "%' OR name LIKE '%" . $search . "%' OR e_date LIKE '%" . $search . "%'OR generic LIKE '%" . $search . "%'OR company LIKE '%" . $search . "%'OR effects LIKE '%" . $search . "%')", NULL, FALSE)
+            ->group_start()
+                ->like('id', $search)
+                ->or_like('category', $search)
+                ->or_like('name', $search)
+                ->or_like('e_date', $search)
+                ->or_like('generic', $search)
+                ->or_like('company', $search)
+                ->or_like('effects', $search)
+            ->group_end()
             ->get();
         return $query->result();
     }
@@ -340,7 +348,15 @@ class Medicine_model extends CI_model
         $query = $this->db->select('*')
             ->from('medicine')
             ->where('hospital_id', $this->session->userdata('hospital_id'))
-            ->where("(id LIKE '%" . $search . "%' OR category LIKE '%" . $search . "%' OR name LIKE '%" . $search . "%' OR e_date LIKE '%" . $search . "%'OR generic LIKE '%" . $search . "%'OR company LIKE '%" . $search . "%'OR effects LIKE '%" . $search . "%')", NULL, FALSE)
+            ->group_start()
+                ->like('id', $search)
+                ->or_like('category', $search)
+                ->or_like('name', $search)
+                ->or_like('e_date', $search)
+                ->or_like('generic', $search)
+                ->or_like('company', $search)
+                ->or_like('effects', $search)
+            ->group_end()
             ->get();
         return $query->result();
     }
@@ -474,8 +490,10 @@ class Medicine_model extends CI_model
         if (!empty($searchTerm)) {
             $this->db->select('*');
 
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("id LIKE '%" . $searchTerm . "%' OR generic LIKE '%" . $searchTerm . "%'");
+            $this->db->group_start()
+                ->like('id', $searchTerm)
+                ->or_like('generic', $searchTerm)
+            ->group_end();
             $fetched_records = $this->db->get('medicine');
             $users = $fetched_records->result_array();
         } else {

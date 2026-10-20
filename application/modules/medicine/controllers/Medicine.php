@@ -347,14 +347,14 @@ class Medicine extends MX_Controller
     function getMedicineList()
     {
         $requestData = $_REQUEST;
-        $start = $requestData['start'];
-        $limit = $requestData['length'];
-        $search = $this->input->post('search')['value'];
+        $start = isset($requestData['start']) ? $requestData['start'] : 0;
+        $limit = isset($requestData['length']) ? $requestData['length'] : 100;
+        $search = !empty($this->input->post('search')['value']) ? $this->input->post('search')['value'] : '';
 
         $order = $this->input->post("order");
         $columns_valid = array(
             "0" => "id",
-            "1" => "namee",
+            "1" => "name",
             "2" => "category",
             "3" => "box",
             "4" => "price",
@@ -371,7 +371,7 @@ class Medicine extends MX_Controller
 
         if ($limit == -1) {
             if (!empty($search)) {
-                $data['medicines'] = $this->medicine_model->getMedicineBysearch($search, $order, $dir);
+                $data['medicines'] = $this->medicine_model->getMedicineBySearch($search, $order, $dir);
             } else {
                 $data['medicines'] = $this->medicine_model->getMedicineWithoutSearch($order, $dir);
             }
@@ -383,72 +383,47 @@ class Medicine extends MX_Controller
             }
         }
 
+        $info = array();
         $i = 0;
-        foreach ($data['medicines'] as $medicine) {
-            $i = $i + 1;
-            $settings = $this->settings_model->getSettings();
-            if ($medicine->quantity <= 0) {
-                $quan = '<p class="os">Stock Out</p>';
-            } else {
-                $quan = $medicine->quantity;
-            }
-            // Load button removed - quantity is now calculated automatically
-            $option1 = '<a type="button" class="btn btn-primary btn-sm btn_width editbutton" data-toggle="modal" data-id="' . $medicine->id . '"><i class="fa fa-edit"> </i> ' . lang('') . '</a>';
-
-            $option2 = '<a class="btn btn-danger btn-sm btn_width delete_button" href="medicine/delete?id=' . $medicine->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash"> </i> ' . lang('') . '</a>';
-
-
-
-
-            $dropdownOptions = '';
-            $dropdownOptions = '
-            <div class="btn-group">
-            <button type="button" class="btn btn-info btn-sm label-primary dropdown-toggle action_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="">
-            <i class="fas fa-bars"></i> ' . lang('actions') . ' <span class="caret"></span>
-        </button>
-                <ul class="dropdown-menu">
-                    ' . ($option1 ? '<li><a class="editbutton" title="' . lang('edit') . '" data-toggle = "modal" data-id="' . $medicine->id . '">  <i class="fa fa-edit"></i> ' . lang('') . '</a></li>' : '') . '
-                    ' . ($option2 ? '<li><a href="' . site_url("medicine/delete?id=" . $medicine->id) . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"> <i class="fa fa-trash"></i> ' . lang('') . ' </a></li>' : '') . '
-                </ul>
-            </div>';
-
-
-
-
-
-            $info[] = array(
-                $i,
-                $medicine->name,
-                $medicine->category,
-                $medicine->box,
-                $settings->currency . $medicine->price,
-                $settings->currency . $medicine->s_price,
-                $quan . '<br>' . $load,
-                $medicine->generic,
-                $medicine->company,
-                $medicine->effects,
-                $medicine->e_date,
-                // $dropdownOptions
-                '<span class="d-flex gap-2">' . $option1 . ' ' . $option2 . '</span>'
-                //  $options2
-            );
-        }
-
         if (!empty($data['medicines'])) {
-            $output = array(
-                "draw" => intval($requestData['draw']),
-                "recordsTotal" => count($this->medicine_model->getMedicine()),
-                "recordsFiltered" =>count($this->medicine_model->getMedicine()),
-                "data" => $info
-            );
-        } else {
-            $output = array(
-                // "draw" => 1,
-                "recordsTotal" => 0,
-                "recordsFiltered" => 0,
-                "data" => []
-            );
+            $settings = $this->settings_model->getSettings();
+            $currency = !empty($settings->currency) ? $settings->currency : '$';
+            foreach ($data['medicines'] as $medicine) {
+                $i = $i + 1;
+                if ($medicine->quantity <= 0) {
+                    $quan = '<p class="os">Stock Out</p>';
+                } else {
+                    $quan = $medicine->quantity;
+                }
+                $option1 = '<a type="button" class="btn btn-primary btn-sm btn_width editbutton" data-toggle="modal" data-id="' . $medicine->id . '"><i class="fa fa-edit"> </i> ' . lang('edit') . '</a>';
+                $option2 = '<a class="btn btn-danger btn-sm btn_width delete_button" href="medicine/delete?id=' . $medicine->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash"> </i> ' . lang('delete') . '</a>';
+
+                $info[] = array(
+                    $i,
+                    $medicine->name,
+                    $medicine->category,
+                    $medicine->box,
+                    $currency . $medicine->price,
+                    $currency . $medicine->s_price,
+                    $quan,
+                    $medicine->generic,
+                    $medicine->company,
+                    $medicine->effects,
+                    $medicine->e_date,
+                    '<span class="d-flex gap-2">' . $option1 . ' ' . $option2 . '</span>'
+                );
+            }
         }
+
+        $totalMedicines = count($this->medicine_model->getMedicine());
+        $filteredMedicines = !empty($search) ? count($this->medicine_model->getMedicineBySearch($search, $order, $dir)) : $totalMedicines;
+
+        $output = array(
+            "draw" => isset($requestData['draw']) ? intval($requestData['draw']) : 1,
+            "recordsTotal" => $totalMedicines,
+            "recordsFiltered" => $filteredMedicines,
+            "data" => $info
+        );
 
         echo json_encode($output);
     }
