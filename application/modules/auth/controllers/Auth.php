@@ -46,6 +46,7 @@ class Auth extends MX_Controller {
         //validate form input
         $this->form_validation->set_rules('identity', 'Identity', 'required');
         $this->form_validation->set_rules('password', 'Password', 'required');
+        $this->form_validation->set_rules('captcha_answer', 'Security Answer', 'required');
 
         if ($this->form_validation->run() == true) {
             // Verify Math Security Captcha
@@ -54,24 +55,21 @@ class Auth extends MX_Controller {
             $captcha_token = $this->input->post('captcha_token');
             $captcha_salt = 'InnovaHospitalERP_Captcha_Salt_2026';
 
-            $captcha_verified = false;
+            $math_verified = false;
             if ($user_math_answer !== null && trim($user_math_answer) !== '') {
                 $ans_trimmed = trim($user_math_answer);
-                if ($session_math_answer !== null && (int)$ans_trimmed === (int)$session_math_answer) {
-                    $captcha_verified = true;
-                    $this->session->unset_userdata('login_math_captcha_answer');
-                } elseif (!empty($captcha_token) && hash_equals(hash_hmac('sha256', $ans_trimmed, $captcha_salt), $captcha_token)) {
-                    $captcha_verified = true;
-                    $this->session->unset_userdata('login_math_captcha_answer');
+                if (!empty($captcha_token) && hash_equals(hash_hmac('sha256', $ans_trimmed, $captcha_salt), $captcha_token)) {
+                    $math_verified = true;
+                } elseif ($session_math_answer !== null && (int)$ans_trimmed === (int)$session_math_answer) {
+                    $math_verified = true;
                 }
             }
 
-            if (!$captcha_verified) {
-                $this->session->set_flashdata('message', 'Captcha answer is incorrect! Please try again.');
+            if (!$math_verified) {
+                $this->session->set_flashdata('message', 'Mathematical security answer is incorrect! Please try again.');
                 redirect('auth/login', 'refresh');
                 return;
             }
-
             $remember = (bool) $this->input->post('remember');
 
             if ($this->ion_auth->login($this->input->post('identity'), $this->input->post('password'), $remember)) {
@@ -159,10 +157,9 @@ class Auth extends MX_Controller {
             $data['math_captcha_question'] = "$num1 + $num2 = ?";
             $captcha_salt = 'InnovaHospitalERP_Captcha_Salt_2026';
             $data['math_captcha_token'] = hash_hmac('sha256', (string)($num1 + $num2), $captcha_salt);
-            $this->session->set_userdata('login_math_captcha_answer', $num1 + $num2);
-
-            $this->load->model('settings/settings_model');
-            $data['googleReCaptchaSettings'] = $this->settings_model->getGoogleReCaptchaSettings();
+            if (!$this->ion_auth->logged_in()) {
+                $this->session->set_userdata('login_math_captcha_answer', $num1 + $num2);
+            }
 
             $this->_render_page('auth/login', $data);
         }
@@ -173,9 +170,11 @@ class Auth extends MX_Controller {
         $num1 = rand(1, 15);
         $num2 = rand(1, 9);
         $answer = $num1 + $num2;
-        $this->session->set_userdata('login_math_captcha_answer', $answer);
         $captcha_salt = 'InnovaHospitalERP_Captcha_Salt_2026';
         $token = hash_hmac('sha256', (string)$answer, $captcha_salt);
+        if (!$this->ion_auth->logged_in()) {
+            $this->session->set_userdata('login_math_captcha_answer', $answer);
+        }
 
         header('Content-Type: application/json');
         echo json_encode([

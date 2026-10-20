@@ -396,12 +396,11 @@
             $num2 = rand(1, 9);
             $math_captcha_question = "$num1 + $num2 = ?";
             $math_captcha_token = hash_hmac('sha256', (string)($num1 + $num2), $captcha_salt);
-            $this->session->set_userdata('login_math_captcha_answer', $num1 + $num2);
         }
         ?>
 
         <form id="loginForm" method="post" action="<?php echo site_url('auth/login'); ?>">
-            <input type="hidden" name="captcha_token" id="loginCaptchaToken" value="<?php echo $math_captcha_token; ?>">
+            <input type="hidden" name="captcha_token" id="loginCaptchaToken" value="<?php echo htmlspecialchars($math_captcha_token); ?>">
             <div class="input-group">
               <input type="email" name="identity" class="form-control" placeholder="<?php echo lang('email') ?>" required>
             <div class="input-group-append">
@@ -418,6 +417,8 @@
               </div>
             </div>
           </div>
+
+
           <!-- Math Security Captcha -->
           <div class="form-group mb-4">
             <div id="mathCaptchaBox">
@@ -425,14 +426,14 @@
                     <div class="d-flex align-items-center" style="gap: 8px;">
                         <span class="badge text-white py-2 px-3" style="font-size: 0.95rem; font-weight: 700; border-radius: 8px; background: var(--gradient-primary); letter-spacing: 0.5px;">
                             <i class="fas fa-shield-alt mr-1"></i>
-                            <span class="loginMathQuestion"><?php echo $math_captcha_question; ?></span>
+                            <span class="loginMathQuestion"><?php echo htmlspecialchars($math_captcha_question); ?></span>
                         </span>
                         <button type="button" class="btn btn-sm btn-light border-0 text-muted refreshLoginCaptchaBtn" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="Change Captcha">
                             <i class="fas fa-sync-alt refreshLoginIcon"></i>
                         </button>
                     </div>
                     <div style="width: 110px;">
-                        <input type="number" name="captcha_answer" placeholder="<?php echo lang('answer') ? lang('answer') : 'Answer'; ?>*" required class="form-control text-center font-weight-bold loginCaptchaAnswer" style="padding: 6px 10px; font-size: 1rem; border-radius: 8px; border: 2px solid #ced4da; height: 38px;">
+                        <input type="number" name="captcha_answer" id="loginCaptchaAnswer" placeholder="<?php echo lang('answer') ? lang('answer') : 'Answer'; ?>*" required class="form-control text-center font-weight-bold loginCaptchaAnswer" style="padding: 6px 10px; font-size: 1rem; border-radius: 8px; border: 2px solid #ced4da; height: 38px;">
                     </div>
                 </div>
             </div>
@@ -531,6 +532,7 @@
           captchaInput.focus();
           return false;
         }
+
       });
     });
   </script>
