@@ -752,16 +752,16 @@ body {
                 <tr>
                     <td style="width: 50%; text-align: left;">
                         <div style="width: 140px; text-align: center;">
+                            <div class="sig-val"><?php echo html_escape($cashier_name); ?></div>
                             <div class="sig-line"></div>
                             <div class="sig-lbl">Prepared By</div>
-                            <div class="sig-val"><?php echo html_escape($cashier_name); ?></div>
                         </div>
                     </td>
                     <td style="width: 50%; text-align: right;">
                         <div style="width: 140px; text-align: center; float: right;">
+                            <div class="sig-val">&nbsp;</div>
                             <div class="sig-line"></div>
                             <div class="sig-lbl">Authorized Signature</div>
-                            <div class="sig-val">&nbsp;</div>
                         </div>
                     </td>
                 </tr>

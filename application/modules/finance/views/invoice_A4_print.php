@@ -662,9 +662,9 @@ if (!function_exists('invoiceAmountInWords')) {
 
                     <!-- Left Signature Block -->
                     <div class="sig-block-left">
+                        <div class="sig-name"><?php echo !empty($cashier_name) ? html_escape($cashier_name) : 'Hospital Admin'; ?></div>
                         <div class="sig-line">-----------------------------</div>
                         <div class="sig-label">PREPARED BY</div>
-                        <div class="sig-name"><?php echo !empty($cashier_name) ? html_escape($cashier_name) : 'Hospital Admin'; ?></div>
                     </div>
                 </div>
 
@@ -723,6 +723,7 @@ if (!function_exists('invoiceAmountInWords')) {
 
                     <!-- Right Signature Block -->
                     <div class="sig-block-right">
+                        <div class="sig-space">&nbsp;</div>
                         <div class="sig-line">-----------------------------</div>
                         <div class="sig-label">AUTHORIZED SIGNATURE</div>
                     </div>
