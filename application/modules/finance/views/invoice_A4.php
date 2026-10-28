@@ -429,8 +429,8 @@ if (!function_exists('invoiceAmountInWords')) {
 <link rel="stylesheet" href="common/extranal/css/finance/modern_invoice.css?v=<?php echo time(); ?>">
 <style>
 @page {
-    size: 176mm 250mm;
-    margin: 5mm;
+    size: 148mm 210mm;
+    margin: 4mm 5mm;
 }
 @media print {
     html, body {

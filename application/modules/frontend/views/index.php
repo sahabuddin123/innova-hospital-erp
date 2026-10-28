@@ -1375,8 +1375,6 @@ function switchPlan(plan) {
 </script>
 
     <?php if (!empty($settings->chat_js)) { 
-        $this->db->where('hospital_id', 'superadmin');
-        // $settings1 = $this->db->get('settings')->row()->show_tawkto_in_website;
         if ($settings->tawk_to_status == 'yes') {
         ?>
     <!-- Chat Widget -->

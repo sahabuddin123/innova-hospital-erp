@@ -487,6 +487,123 @@ class Referral extends MX_Controller
         redirect('referral/withdrawals');
     }
 
+    public function withdrawalSlip()
+    {
+        if (!$this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Receptionist'))) {
+            redirect('home/permission');
+        }
+
+        $id = $this->input->get('id');
+        if (empty($id)) {
+            $id = $this->input->get('ref');
+        }
+        if (empty($id)) {
+            $id = $this->input->get('withdrawal_id');
+        }
+        if (empty($id)) {
+            $id = $this->input->get('txn_id');
+        }
+
+        if (empty($id)) {
+            show_swal('Invalid withdrawal request or missing slip identifier.', 'error', 'Error');
+            redirect('referral/withdrawals');
+            return;
+        }
+
+        $hospital_id = $this->session->userdata('hospital_id');
+        $slip_data = $this->referral_model->getWithdrawalSlipData($id, $hospital_id);
+
+        if (empty($slip_data) || empty($slip_data['withdrawal'])) {
+            show_swal('Withdrawal record not found or access denied.', 'error', 'Record Not Found');
+            redirect('referral/withdrawals');
+            return;
+        }
+
+        $withdrawal = $slip_data['withdrawal'];
+
+        // Strict Requirement: Do not allow a slip to be generated as a completed receipt for pending, rejected, or non-paid transactions
+        if ($withdrawal->status !== 'Paid') {
+            show_swal('An official withdrawal slip can only be generated for completed/paid withdrawals. The current status is: ' . $withdrawal->status, 'warning', 'Withdrawal Not Completed');
+            redirect('referral/withdrawals');
+            return;
+        }
+
+        $data = $slip_data;
+        $data['settings'] = $slip_data['settings'];
+        $data['redirect'] = '';
+
+        $this->load->view('home/dashboard');
+        $this->load->view('withdrawal_slip', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function downloadWithdrawalSlip()
+    {
+        if (!$this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Receptionist'))) {
+            redirect('home/permission');
+        }
+
+        $id = $this->input->get('id');
+        if (empty($id)) {
+            $id = $this->input->get('ref');
+        }
+        if (empty($id)) {
+            $id = $this->input->get('withdrawal_id');
+        }
+        if (empty($id)) {
+            $id = $this->input->get('txn_id');
+        }
+
+        if (empty($id)) {
+            show_swal('Invalid withdrawal request or missing slip identifier.', 'error', 'Error');
+            redirect('referral/withdrawals');
+            return;
+        }
+
+        $hospital_id = $this->session->userdata('hospital_id');
+        $slip_data = $this->referral_model->getWithdrawalSlipData($id, $hospital_id);
+
+        if (empty($slip_data) || empty($slip_data['withdrawal'])) {
+            show_swal('Withdrawal record not found or access denied.', 'error', 'Record Not Found');
+            redirect('referral/withdrawals');
+            return;
+        }
+
+        $withdrawal = $slip_data['withdrawal'];
+
+        if ($withdrawal->status !== 'Paid') {
+            show_swal('An official withdrawal slip can only be downloaded for completed/paid withdrawals. The current status is: ' . $withdrawal->status, 'warning', 'Withdrawal Not Completed');
+            redirect('referral/withdrawals');
+            return;
+        }
+
+        $data = $slip_data;
+        $data['settings'] = $slip_data['settings'];
+        $data['redirect'] = 'download';
+
+        error_reporting(0);
+        require_once APPPATH . '../vendor/autoload.php';
+
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'A5',
+            'orientation' => 'P',
+            'margin_left' => 5,
+            'margin_right' => 5,
+            'margin_top' => 5,
+            'margin_bottom' => 5,
+            'autoScriptToLang' => true,
+            'autoLangToFont' => true,
+            'default_font' => 'freeserif'
+        ]);
+
+        $html = $this->load->view('withdrawal_slip_pdf', $data, true);
+        $mpdf->WriteHTML($html);
+
+        $filename = "Withdrawal-Slip-" . preg_replace('/[^A-Za-z0-9_\-]/', '', $withdrawal->withdrawal_id) . ".pdf";
+        $mpdf->Output($filename, 'D');
+    }
+
+
     // ==========================================
     // COMMISSION RULES CONFIGURATION
     // ==========================================

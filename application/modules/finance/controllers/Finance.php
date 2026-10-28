@@ -1819,7 +1819,7 @@ class Finance extends MX_Controller
 
         if (!empty($id)) {
             $expense_details = $this->finance_model->getExpenseById($id);
-            if ($expense_details->hospital_id != $this->session->userdata('hospital_id')) {
+            if (!$this->ion_auth->in_group('superadmin') && !empty($expense_details) && $expense_details->hospital_id != $this->session->userdata('hospital_id')) {
                 redirect('home/permission');
             }
         }
@@ -1827,9 +1827,52 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['expense'] = $this->finance_model->getExpenseById($id);
         $this->load->view('home/dashboard');
-        $this->load->view('expense_invoice', $data);
+        $this->load->view('finance/expense_invoice', $data);
         $this->load->view('home/footer');
     }
+
+    function downloadExpenseInvoice()
+    {
+        $id = $this->input->get('id');
+
+        if (!empty($id)) {
+            $expense_details = $this->finance_model->getExpenseById($id);
+            if (!$this->ion_auth->in_group('superadmin') && !empty($expense_details) && $expense_details->hospital_id != $this->session->userdata('hospital_id')) {
+                redirect('home/permission');
+            }
+        } else {
+            redirect('finance/expense');
+        }
+
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['expense'] = $this->finance_model->getExpenseById($id);
+
+        if (empty($data['expense'])) {
+            redirect('finance/expense');
+        }
+
+        error_reporting(0);
+        require_once APPPATH . '../vendor/autoload.php';
+
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'B5',
+            'orientation' => 'P',
+            'margin_left' => 6,
+            'margin_right' => 6,
+            'margin_top' => 6,
+            'margin_bottom' => 6,
+            'autoScriptToLang' => true,
+            'autoLangToFont' => true,
+            'default_font' => 'freeserif'
+        ]);
+
+        $html = $this->load->view('finance/expense_invoice_pdf', $data, true);
+        $mpdf->WriteHTML($html);
+
+        $filename = "Expense-Invoice-" . sprintf('%08d', $data['expense']->id) . ".pdf";
+        $mpdf->Output($filename, 'D');
+    }
+
 
     function amountReceived()
     {

@@ -128,6 +128,7 @@
                                     <th>Credit (+)</th>
                                     <th>Debit (-)</th>
                                     <th>Balance After</th>
+                                    <th class="no-print text-center" style="width: 140px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -158,11 +159,23 @@
                                             <td class="font-weight-bold text-dark">
                                                 <?php echo $settings->currency . ' ' . number_format($txn->balance_after, 2); ?>
                                             </td>
+                                            <td class="no-print text-center">
+                                                <?php if ($txn->source == 'withdrawal' && !empty($txn->reference_id)) { ?>
+                                                    <a href="referral/withdrawalSlip?ref=<?php echo urlencode($txn->reference_id); ?>" class="btn btn-xs btn-outline-primary py-1 px-2 shadow-sm mr-1" target="_blank" title="Print Withdrawal Slip">
+                                                        <i class="fas fa-print mr-1"></i> Print Slip
+                                                    </a>
+                                                    <a href="referral/downloadWithdrawalSlip?ref=<?php echo urlencode($txn->reference_id); ?>" class="btn btn-xs btn-outline-secondary py-1 px-2 shadow-sm" title="Download PDF">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                <?php } else { ?>
+                                                    <span class="text-muted small">-</span>
+                                                <?php } ?>
+                                            </td>
                                         </tr>
                                     <?php }
                                 } else { ?>
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">No transactions found for the selected period.</td>
+                                        <td colspan="6" class="text-center py-4 text-muted">No transactions found for the selected period.</td>
                                     </tr>
                                 <?php } ?>
                             </tbody>

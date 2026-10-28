@@ -799,14 +799,163 @@ class Referral_model extends CI_Model
         return $this->db->get()->result();
     }
 
-    function getWithdrawalById($id)
+    function getWithdrawalById($id, $hospital_id = null)
     {
-        $this->db->select('referral_withdrawals.*, referrer.name as referrer_name, referrer.phone as referrer_phone');
+        $this->db->select('referral_withdrawals.*, referrer.name as referrer_name, referrer.phone as referrer_phone, referrer.type as referrer_type, referrer.address as referrer_address, referrer.email as referrer_email');
         $this->db->from('referral_withdrawals');
         $this->db->join('referrer', 'referrer.id = referral_withdrawals.referrer_id', 'left');
         $this->db->where('referral_withdrawals.id', $id);
+        if (!empty($hospital_id)) {
+            $this->db->where('referral_withdrawals.hospital_id', $hospital_id);
+        }
         return $this->db->get()->row();
     }
+
+    function getWithdrawalByCode($withdrawal_id, $hospital_id = null)
+    {
+        $this->db->select('referral_withdrawals.*, referrer.name as referrer_name, referrer.phone as referrer_phone, referrer.type as referrer_type, referrer.address as referrer_address, referrer.email as referrer_email');
+        $this->db->from('referral_withdrawals');
+        $this->db->join('referrer', 'referrer.id = referral_withdrawals.referrer_id', 'left');
+        $this->db->where('referral_withdrawals.withdrawal_id', (string)$withdrawal_id);
+        if (!empty($hospital_id)) {
+            $this->db->where('referral_withdrawals.hospital_id', $hospital_id);
+        }
+        return $this->db->get()->row();
+    }
+
+    function getWithdrawalByAnyIdentifier($identifier, $hospital_id = null)
+    {
+        if (empty($identifier)) {
+            return null;
+        }
+        if (empty($hospital_id)) {
+            $hospital_id = $this->session->userdata('hospital_id');
+        }
+
+        // 1. Try by numeric primary key
+        if (is_numeric($identifier)) {
+            $res = $this->getWithdrawalById(intval($identifier), $hospital_id);
+            if (!empty($res)) {
+                return $res;
+            }
+        }
+
+        // 2. Try by withdrawal_id string
+        $res = $this->getWithdrawalByCode((string)$identifier, $hospital_id);
+        if (!empty($res)) {
+            return $res;
+        }
+
+        // 3. Try looking up through referral_wallet_transactions
+        $txn = null;
+        if (is_numeric($identifier)) {
+            $txn = $this->db->get_where('referral_wallet_transactions', array('id' => intval($identifier)))->row();
+        }
+        if (empty($txn)) {
+            $txn = $this->db->get_where('referral_wallet_transactions', array('reference_id' => (string)$identifier))->row();
+        }
+        if (!empty($txn) && !empty($txn->reference_id)) {
+            return $this->getWithdrawalByCode($txn->reference_id, $hospital_id);
+        }
+
+        return null;
+    }
+
+    function getWithdrawalTransactionRecord($withdrawal_id, $referrer_id = null)
+    {
+        $this->db->where('source', 'withdrawal');
+        $this->db->where('reference_id', (string)$withdrawal_id);
+        if (!empty($referrer_id)) {
+            $this->db->where('referrer_id', $referrer_id);
+        }
+        $this->db->order_by('id', 'desc');
+        return $this->db->get('referral_wallet_transactions')->row();
+    }
+
+    function getProcessorStaffName($user_id)
+    {
+        if (empty($user_id)) {
+            return 'Hospital Admin';
+        }
+        $staff = $this->db->get_where('accountant', array('ion_user_id' => $user_id))->row();
+        if (empty($staff) || empty($staff->name)) {
+            $staff = $this->db->get_where('receptionist', array('ion_user_id' => $user_id))->row();
+        }
+        if (empty($staff) || empty($staff->name)) {
+            $staff = $this->db->get_where('laboratorist', array('ion_user_id' => $user_id))->row();
+        }
+        if (empty($staff) || empty($staff->name)) {
+            $staff = $this->db->get_where('pharmacist', array('ion_user_id' => $user_id))->row();
+        }
+        if (!empty($staff) && !empty($staff->name)) {
+            return trim($staff->name);
+        }
+
+        $user = $this->db->get_where('users', array('id' => $user_id))->row();
+        if (!empty($user)) {
+            $full_name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+            if (!empty($full_name)) {
+                return $full_name;
+            }
+            if (!empty($user->username)) {
+                return trim($user->username);
+            }
+        }
+        return 'Hospital Admin';
+    }
+
+    function getWithdrawalSlipData($identifier, $hospital_id = null)
+    {
+        if (empty($hospital_id)) {
+            $hospital_id = $this->session->userdata('hospital_id');
+        }
+
+        $withdrawal = $this->getWithdrawalByAnyIdentifier($identifier, $hospital_id);
+        if (empty($withdrawal)) {
+            return null;
+        }
+
+        $referrer = $this->getReferrerById($withdrawal->referrer_id, $withdrawal->hospital_id);
+        $wallet = $this->getOrCreateWallet($withdrawal->referrer_id, $withdrawal->hospital_id);
+
+        // Find corresponding wallet debit transaction
+        $wallet_txn = $this->getWithdrawalTransactionRecord($withdrawal->withdrawal_id, $withdrawal->referrer_id);
+
+        $withdrawal_amount = floatval($withdrawal->amount);
+        if (!empty($wallet_txn)) {
+            $remaining_balance = floatval($wallet_txn->balance_after);
+            $previous_balance = round($remaining_balance + $withdrawal_amount, 2);
+            $transaction_date = !empty($wallet_txn->created_at) ? $wallet_txn->created_at : (!empty($withdrawal->payment_date) ? $withdrawal->payment_date : $withdrawal->created_at);
+        } else {
+            $remaining_balance = floatval($wallet->available_balance);
+            $previous_balance = round($remaining_balance + $withdrawal_amount, 2);
+            $transaction_date = !empty($withdrawal->payment_date) ? $withdrawal->payment_date : $withdrawal->created_at;
+        }
+
+        // Processed / Authorized staff
+        $processor_name = $this->getProcessorStaffName($withdrawal->processed_by);
+
+        // Hospital settings
+        $settings = $this->db->get_where('settings', array('hospital_id' => $withdrawal->hospital_id))->row();
+        if (empty($settings)) {
+            $this->load->model('settings/settings_model');
+            $settings = $this->settings_model->getSettings();
+        }
+
+        return array(
+            'withdrawal' => $withdrawal,
+            'referrer' => $referrer,
+            'wallet' => $wallet,
+            'wallet_txn' => $wallet_txn,
+            'previous_balance' => $previous_balance,
+            'withdrawal_amount' => $withdrawal_amount,
+            'remaining_balance' => $remaining_balance,
+            'transaction_date' => $transaction_date,
+            'processor_name' => $processor_name,
+            'settings' => $settings
+        );
+    }
+
 
     function requestWithdrawal($referrer_id, $amount, $payment_method, $account_number, $notes, $user_id, $hospital_id)
     {

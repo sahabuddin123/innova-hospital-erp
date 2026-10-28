@@ -1,16 +1,136 @@
-/*
-To change this license header, choose License Headers in Project Properties.
-To change this template file, choose Tools | Templates
-and open the template in the editor.
-*/
-/* 
-    Created on : May 11, 2021, 12:32:14 PM
-    Author     : sahas
-*/
-#invoice{
-    font-size: 10px;
+/**
+ * Lifecare Hospital Management System - Expense Invoice Stylesheet
+ * Engineered specifically for ISO B5 Paper Format (176mm x 250mm)
+ * Matches the existing Lifecare Money Receipt design, typography, and print format.
+ */
+
+.expense-toolbar-b5 {
+    max-width: 176mm !important;
 }
-.options{
-    font-size: 10px;
-    float: right;
+
+.expense-b5-container {
+    width: 100%;
+    max-width: 176mm;
+    margin: 0 auto;
+}
+
+.expense-b5-paper {
+    width: 100%;
+    max-width: 176mm;
+    min-height: 235mm;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 6mm 8mm;
+    box-sizing: border-box;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.09);
+    border-radius: 6px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #334155;
+    font-size: 11px;
+    line-height: 1.4;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Ensure B5 Table Column Proportions */
+.expense-b5-paper .invoice-items-table th.col-desc,
+.expense-b5-paper .invoice-items-table td.col-desc {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.expense-b5-paper .invoice-items-table th.col-note,
+.expense-b5-paper .invoice-items-table td.col-note {
+    color: #475569;
+    font-size: 10.5px;
+}
+
+.expense-b5-paper .invoice-items-table th.col-amount,
+.expense-b5-paper .invoice-items-table td.col-amount {
+    font-weight: 700;
+    color: #0f172a;
+    text-align: right;
+}
+
+/* Print Overrides for ISO B5 */
+@page {
+    size: 176mm 250mm;
+    margin: 5mm 6mm;
+}
+
+@media print {
+    html, body {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        overflow: visible !important;
+    }
+
+    .wrapper,
+    .content-wrapper,
+    .main-sidebar,
+    .main-header,
+    .content-header,
+    .main-footer,
+    .site-footer,
+    .no-print {
+        display: none !important;
+    }
+
+    .content-wrapper,
+    .content,
+    .container-fluid {
+        margin: 0 !important;
+        padding: 0 !important;
+        margin-left: 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        background: transparent !important;
+    }
+
+    .invoice-screen-wrapper,
+    .invoice-container-wrapper,
+    .expense-b5-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: #ffffff !important;
+    }
+
+    .invoice-paper,
+    .expense-b5-paper {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+    }
+
+    .invoice-items-table {
+        page-break-inside: auto;
+    }
+
+    .invoice-items-table tr {
+        page-break-inside: avoid !important;
+        page-break-after: auto;
+    }
+
+    .invoice-bottom-grid {
+        page-break-inside: avoid !important;
+    }
+
+    .invoice-footer-container {
+        page-break-inside: avoid !important;
+    }
 }

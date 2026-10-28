@@ -2604,3 +2604,6 @@ $lang['hospital_accounting'] = 'Hospital Accounting';
 $lang['commissions_are_internal_expenses'] = 'Commissions are internal hospital expenses and do not affect customer payable total.';
 $lang['add_discount'] = 'Add Discount';
 $lang['discount_added_successfully'] = 'Discount added successfully!';
+$lang['withdrawal_slip'] = 'Withdrawal Slip';
+$lang['print_withdrawal_slip'] = 'Print Withdrawal Slip';
+$lang['download_withdrawal_slip'] = 'Download Withdrawal Slip';

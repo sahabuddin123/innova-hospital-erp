@@ -101,23 +101,30 @@
                                                         <?php } ?>
                                                     </td>
                                                     <td>
-                                                        <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
-                                                            <?php if ($w->status == 'Pending') { ?>
+                                                        <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Receptionist'))) { ?>
+                                                            <?php if ($w->status == 'Pending' && $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
                                                                 <button type="button" class="btn btn-outline-primary btn-sm btn-status mr-1" data-id="<?php echo $w->id; ?>" data-action="Approved" data-title="Approve Withdrawal">
                                                                     Approve
                                                                 </button>
                                                                 <button type="button" class="btn btn-outline-danger btn-sm btn-status" data-id="<?php echo $w->id; ?>" data-action="Rejected" data-title="Reject Withdrawal">
                                                                     Reject
                                                                 </button>
-                                                            <?php } elseif ($w->status == 'Approved') { ?>
+                                                            <?php } elseif ($w->status == 'Approved' && $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
                                                                 <button type="button" class="btn btn-outline-success btn-sm btn-status mr-1" data-id="<?php echo $w->id; ?>" data-action="Paid" data-title="Mark as Paid">
                                                                     Mark Paid
                                                                 </button>
                                                                 <button type="button" class="btn btn-outline-danger btn-sm btn-status" data-id="<?php echo $w->id; ?>" data-action="Rejected" data-title="Reject Withdrawal">
                                                                     Reject
                                                                 </button>
+                                                            <?php } elseif ($w->status == 'Paid') { ?>
+                                                                <a href="referral/withdrawalSlip?id=<?php echo $w->id; ?>" class="btn btn-outline-primary btn-sm mr-1" target="_blank" title="Print Withdrawal Slip">
+                                                                    <i class="fas fa-print mr-1"></i> Print Slip
+                                                                </a>
+                                                                <a href="referral/downloadWithdrawalSlip?id=<?php echo $w->id; ?>" class="btn btn-outline-secondary btn-sm" title="Download PDF">
+                                                                    <i class="fas fa-file-pdf"></i>
+                                                                </a>
                                                             <?php } else { ?>
-                                                                <span class="text-muted small">Completed</span>
+                                                                <span class="text-muted small"><?php echo html_escape($w->status); ?></span>
                                                             <?php } ?>
                                                         <?php } ?>
                                                     </td>
