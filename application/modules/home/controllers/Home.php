@@ -340,7 +340,127 @@ class Home extends MX_Controller
                 $data['lowStockMedicines'] = $this->home_model->getMedicineByStockAlert();
                 // Low Stock of Key Medications ends
 
+                // Diagnostic, Invoices, Referral & Staff Analytics for active menu modules
+                $hospital_id = $this->session->userdata('hospital_id');
+                if (!empty($hospital_id)) {
+                    $startOfDay = strtotime("today midnight");
+                    $endOfDay = strtotime("tomorrow midnight") - 1;
+                    $startOfMonth = strtotime("first day of this month midnight");
+                    $endOfMonth = strtotime("first day of next month midnight") - 1;
+                    $startOfYear = strtotime("first day of january this year midnight");
+                    $endOfYear = strtotime("last day of december this year midnight") + 86399;
 
+                    // Invoices
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $data['totalInvoices'] = $this->db->count_all_results('payment');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('date >=', $startOfDay);
+                    $this->db->where('date <=', $endOfDay);
+                    $data['invoicesToday'] = $this->db->count_all_results('payment');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('date >=', $startOfMonth);
+                    $this->db->where('date <=', $endOfMonth);
+                    $data['invoicesThisMonth'] = $this->db->count_all_results('payment');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('date >=', $startOfYear);
+                    $this->db->where('date <=', $endOfYear);
+                    $data['invoicesThisYear'] = $this->db->count_all_results('payment');
+
+                    // Lab Tests / Reports
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $data['totalLabReports'] = $this->db->count_all_results('lab');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('date >=', $startOfDay);
+                    $this->db->where('date <=', $endOfDay);
+                    $data['labTestsToday'] = $this->db->count_all_results('lab');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('date >=', $startOfMonth);
+                    $this->db->where('date <=', $endOfMonth);
+                    $data['labTestsThisMonth'] = $this->db->count_all_results('lab');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('date >=', $startOfYear);
+                    $this->db->where('date <=', $endOfYear);
+                    $data['labTestsThisYear'] = $this->db->count_all_results('lab');
+
+                    // Lab Status
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->group_start();
+                    $this->db->where('test_status !=', 'done');
+                    $this->db->or_where('test_status IS NULL', null, false);
+                    $this->db->or_where('test_status', '');
+                    $this->db->group_end();
+                    $data['labPendingCount'] = $this->db->count_all_results('lab');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('test_status', 'done');
+                    $data['labDoneCount'] = $this->db->count_all_results('lab');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('delivery_status', 'delivered');
+                    $data['labDeliveredCount'] = $this->db->count_all_results('lab');
+
+                    // Referrals
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $data['totalReferrers'] = $this->db->count_all_results('referrer');
+
+                    $this->db->reset_query();
+                    $this->db->select_sum('commission_amount');
+                    $this->db->where('hospital_id', $hospital_id);
+                    $this->db->where('created_date >=', $startOfMonth);
+                    $ref_comm_res = $this->db->get('referral_commission_ledger')->row();
+                    $data['referralCommissionThisMonth'] = $ref_comm_res->commission_amount ?? 0;
+
+                    $this->db->reset_query();
+                    $this->db->select_sum('commission_amount');
+                    $this->db->where('hospital_id', $hospital_id);
+                    $ref_comm_total_res = $this->db->get('referral_commission_ledger')->row();
+                    $data['referralCommissionTotal'] = $ref_comm_total_res->commission_amount ?? 0;
+
+                    $data['topReferrers'] = $this->db->query("
+                        SELECT r.id, r.name, COUNT(l.id) as total_cases, COALESCE(SUM(l.commission_amount), 0) as total_comm
+                        FROM referrer r
+                        LEFT JOIN referral_commission_ledger l ON r.id = l.referrer_id
+                        WHERE r.hospital_id = " . (int)$hospital_id . "
+                        GROUP BY r.id
+                        ORDER BY total_cases DESC, total_comm DESC
+                        LIMIT 5
+                    ")->result();
+
+                    // Inventory & Departments & Staff
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $data['totalInventoryItems'] = $this->db->count_all_results('inventory_items');
+
+                    $this->db->reset_query();
+                    $this->db->where('hospital_id', $hospital_id);
+                    $data['totalDepartments'] = $this->db->count_all_results('department');
+
+                    $total_staff = 0;
+                    foreach (['nurse', 'laboratorist', 'receptionist', 'accountant', 'pharmacist'] as $staff_table) {
+                        $this->db->reset_query();
+                        $this->db->where('hospital_id', $hospital_id);
+                        $total_staff += $this->db->count_all_results($staff_table);
+                    }
+                    $data['totalStaff'] = $total_staff;
+                }
 
                 $data['settings'] = $this->settings_model->getSettings();
                 $data['timezones'] = $this->gmtTime();

@@ -1,4 +1,3 @@
-"use strict";
 $(document).ready(function () {
     "use strict";
     $(".table").on("click", ".editbutton", function () {
@@ -13,18 +12,24 @@ $(document).ready(function () {
             dataType: 'json',
             success: function (response) {
                 "use strict";
-                var date = new Date(response.holiday.date * 1000);
-                $('#editHolidayForm').find('[name="id"]').val(response.holiday.id).end();
-                $('.js-example-basic-single.doctor').val(response.holiday.doctor).trigger('change');
-                $('#editHolidayForm').find('[name="date"]').val(date.getDate() + '-' + (date.getMonth() + 1) + '-' + date.getFullYear()).end();
-                var option1 = new Option(response.doctor.name + '-' + response.doctor.id, response.doctor.id, true, true);
-                $('#editHolidayForm').find('[name="doctor"]').append(option1).trigger('change');
+                var hl = response.holiday;
+                $('#editHolidayForm').find('[name="id"]').val(hl.id);
+                $('#editHolidayForm').find('[name="date"]').val(response.start_date_formatted || "");
+                $('#editHolidayForm').find('[name="end_date"]').val((response.end_date_formatted && response.end_date_formatted !== response.start_date_formatted) ? response.end_date_formatted : "");
+                $('#editHolidayForm').find('[name="leave_type"]').val(hl.leave_type || "full_day");
+                $('#editHolidayForm').find('[name="start_time"]').val(hl.start_time || "");
+                $('#editHolidayForm').find('[name="end_time"]').val(hl.end_time || "");
+                $('#editHolidayForm').find('[name="reason"]').val(hl.reason || "");
+
+                var docName = response.doctor ? (response.doctor.name_en || response.doctor.name) : "Doctor";
+                var option1 = new Option(docName + ' (ID: ' + hl.doctor + ')', hl.doctor, true, true);
+                $('#editHolidayForm').find('[name="doctor"]').empty().append(option1).trigger('change');
                 $('#myModal2').modal('show');
             },
             complete: function () {
                 $("#loader").hide();
             }
-        })
+        });
     });
 });
 
@@ -38,11 +43,11 @@ $(document).ready(function () {
             "<'row'<'col-sm-5'i><'col-sm-7'p>>",
 
         buttons: [
-            { extend: 'copyHtml5', exportOptions: { columns: [0, 1, 2], } },
-            { extend: 'excelHtml5', exportOptions: { columns: [0, 1, 2], } },
-            { extend: 'csvHtml5', exportOptions: { columns: [0, 1, 2], } },
-            { extend: 'pdfHtml5', exportOptions: { columns: [0, 1, 2], } },
-            { extend: 'print', exportOptions: { columns: [0, 1, 2], } },
+            { extend: 'copyHtml5', exportOptions: { columns: [0, 1, 2, 3, 4, 5] } },
+            { extend: 'excelHtml5', exportOptions: { columns: [0, 1, 2, 3, 4, 5] } },
+            { extend: 'csvHtml5', exportOptions: { columns: [0, 1, 2, 3, 4, 5] } },
+            { extend: 'pdfHtml5', exportOptions: { columns: [0, 1, 2, 3, 4, 5] } },
+            { extend: 'print', exportOptions: { columns: [0, 1, 2, 3, 4, 5] } },
         ],
         aLengthMenu: [
             [10, 25, 50, 100, -1],

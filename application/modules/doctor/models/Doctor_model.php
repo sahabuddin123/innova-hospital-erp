@@ -95,6 +95,67 @@ class Doctor_model extends CI_model
         return $query->result();
     }
 
+    function getDoctorsFiltered($limit = -1, $start = 0, $search = null, $order = 'id', $dir = 'desc', $department = null, $status = null)
+    {
+        $this->db->select('*');
+        $this->db->from('doctor');
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+
+        if (!empty($status) && $status !== 'all') {
+            if ($status === 'active') {
+                $this->db->where('active', 1);
+            } elseif ($status === 'inactive') {
+                $this->db->where('active', 0);
+            }
+        }
+
+        if (!empty($department) && $department !== 'all') {
+            $this->db->where('department', $department);
+        }
+
+        if (!empty($search)) {
+            $s = $this->db->escape_like_str($search);
+            $this->db->where("(id LIKE '%" . $s . "%' OR name LIKE '%" . $s . "%' OR name_en LIKE '%" . $s . "%' OR designation LIKE '%" . $s . "%' OR degrees LIKE '%" . $s . "%' OR specialization LIKE '%" . $s . "%' OR phone LIKE '%" . $s . "%' OR phone_secondary LIKE '%" . $s . "%' OR email LIKE '%" . $s . "%' OR department_name LIKE '%" . $s . "%' OR chamber LIKE '%" . $s . "%')", NULL, FALSE);
+        }
+
+        if ($order != null) {
+            $this->db->order_by($order, $dir);
+        } else {
+            $this->db->order_by('id', 'desc');
+        }
+
+        if ($limit != -1) {
+            $this->db->limit($limit, $start);
+        }
+
+        return $this->db->get()->result();
+    }
+
+    function getDoctorsFilteredCount($search = null, $department = null, $status = null)
+    {
+        $this->db->from('doctor');
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+
+        if (!empty($status) && $status !== 'all') {
+            if ($status === 'active') {
+                $this->db->where('active', 1);
+            } elseif ($status === 'inactive') {
+                $this->db->where('active', 0);
+            }
+        }
+
+        if (!empty($department) && $department !== 'all') {
+            $this->db->where('department', $department);
+        }
+
+        if (!empty($search)) {
+            $s = $this->db->escape_like_str($search);
+            $this->db->where("(id LIKE '%" . $s . "%' OR name LIKE '%" . $s . "%' OR name_en LIKE '%" . $s . "%' OR designation LIKE '%" . $s . "%' OR degrees LIKE '%" . $s . "%' OR specialization LIKE '%" . $s . "%' OR phone LIKE '%" . $s . "%' OR phone_secondary LIKE '%" . $s . "%' OR email LIKE '%" . $s . "%' OR department_name LIKE '%" . $s . "%' OR chamber LIKE '%" . $s . "%')", NULL, FALSE);
+        }
+
+        return $this->db->count_all_results();
+    }
+
     // Historical records safety: getDoctorById must return any doctor regardless of active status
     function getDoctorById($id)
     {
@@ -138,11 +199,12 @@ class Doctor_model extends CI_model
     function getDoctorInfo($searchTerm)
     {
         if (!empty($searchTerm)) {
+            $s = $this->db->escape_like_str($searchTerm);
             $query = $this->db->select('*')
                 ->from('doctor')
                 ->where('hospital_id', $this->session->userdata('hospital_id'))
                 ->where('active', 1)
-                ->where("(id LIKE '%" . $searchTerm . "%' OR name LIKE '%" . $searchTerm . "%' OR name_en LIKE '%" . $searchTerm . "%')", NULL, FALSE)
+                ->where("(id LIKE '%" . $s . "%' OR name LIKE '%" . $s . "%' OR name_en LIKE '%" . $s . "%' OR designation LIKE '%" . $s . "%' OR degrees LIKE '%" . $s . "%' OR department_name LIKE '%" . $s . "%')", NULL, FALSE)
                 ->get();
             $users = $query->result_array();
         } else {
@@ -164,11 +226,12 @@ class Doctor_model extends CI_model
             $users = $fetched_records->result_array();
         }
 
-        // Initialize Array with fetched data supporting bilingual display
+        // Initialize Array with English text
         $data = array();
         foreach ($users as $user) {
-            $display_title = $user['name'] . (!empty($user['name_en']) ? ' (' . $user['name_en'] . ')' : '');
-            $data[] = array("id" => $user['id'], "text" => $display_title . ' (' . lang('id') . ': ' . $user['id'] . ')');
+            $doc_name = !empty($user['name_en']) ? $user['name_en'] : $user['name'];
+            $sub = !empty($user['designation']) ? ' - ' . $user['designation'] : (!empty($user['department_name']) ? ' - ' . $user['department_name'] : '');
+            $data[] = array("id" => $user['id'], "text" => $doc_name . $sub . ' (ID: ' . $user['id'] . ')');
         }
         return $data;
     }
@@ -176,11 +239,12 @@ class Doctor_model extends CI_model
     function getDoctorWithAddNewOption($searchTerm)
     {
         if (!empty($searchTerm)) {
+            $s = $this->db->escape_like_str($searchTerm);
             $query = $this->db->select('*')
                 ->from('doctor')
                 ->where('hospital_id', $this->session->userdata('hospital_id'))
                 ->where('active', 1)
-                ->where("(id LIKE '%" . $searchTerm . "%' OR name LIKE '%" . $searchTerm . "%' OR name_en LIKE '%" . $searchTerm . "%')", NULL, FALSE)
+                ->where("(id LIKE '%" . $s . "%' OR name LIKE '%" . $s . "%' OR name_en LIKE '%" . $s . "%' OR designation LIKE '%" . $s . "%' OR degrees LIKE '%" . $s . "%' OR department_name LIKE '%" . $s . "%')", NULL, FALSE)
                 ->get();
             $users = $query->result_array();
         } else {
@@ -202,12 +266,13 @@ class Doctor_model extends CI_model
             $users = $fetched_records->result_array();
         }
 
-        // Initialize Array with fetched data
+        // Initialize Array with fetched data in English
         $data = array();
         $data[] = array("id" => 'add_new', "text" => lang('add_new'));
         foreach ($users as $user) {
-            $display_title = $user['name'] . (!empty($user['name_en']) ? ' (' . $user['name_en'] . ')' : '');
-            $data[] = array("id" => $user['id'], "text" => $display_title . ' (' . lang('id') . ': ' . $user['id'] . ')');
+            $doc_name = !empty($user['name_en']) ? $user['name_en'] : $user['name'];
+            $sub = !empty($user['designation']) ? ' - ' . $user['designation'] : (!empty($user['department_name']) ? ' - ' . $user['department_name'] : '');
+            $data[] = array("id" => $user['id'], "text" => $doc_name . $sub . ' (ID: ' . $user['id'] . ')');
         }
         return $data;
     }

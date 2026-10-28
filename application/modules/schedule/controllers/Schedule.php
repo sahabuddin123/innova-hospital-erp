@@ -1051,70 +1051,59 @@ class Schedule extends MX_Controller
         }
         $doctor = $this->input->post('doctor');
         $date = $this->input->post('date');
+        $end_date = $this->input->post('end_date');
+        $leave_type = $this->input->post('leave_type');
+        $start_time = $this->input->post('start_time');
+        $end_time = $this->input->post('end_time');
+        $reason = $this->input->post('reason');
+
         if (!empty($date)) {
-            $date = strtotime($date);
+            $date_ts = strtotime($date);
         } else {
             show_swal(lang('date_not_selected'), 'error', lang('error'));
             redirect($redirect);
             die();
         }
 
-
-        if (empty($id)) {
-            $is_exist = $this->schedule_model->getHolidayByDoctorByDate($doctor, $date);
-            if (!empty($is_exist)) {
-                show_swal(lang('already_exist'), 'error', lang('error'));
-                redirect($redirect);
-                die();
-            }
-        } else {
-            $is_exist = $this->schedule_model->getHolidayByDoctorByDate($doctor, $date);
-            if (!empty($is_exist)) {
-                if ($is_exist->date == $date) {
-                    show_swal(lang('already_exist'), 'error', lang('error'));
-                    redirect($redirect);
-                    die();
-                }
-            }
+        $end_date_ts = !empty($end_date) ? strtotime($end_date) : $date_ts;
+        if ($end_date_ts < $date_ts) {
+            $end_date_ts = $date_ts;
         }
-        // Validating Email Field
-        $this->form_validation->set_rules('date', 'Date', 'trim|required|min_length[5]|max_length[100]|xss_clean');
 
+        $data = array(
+            'doctor' => $doctor,
+            'date' => $date_ts,
+            'end_date' => $end_date_ts,
+            'leave_type' => !empty($leave_type) ? $leave_type : 'full_day',
+            'start_time' => !empty($start_time) ? $start_time : null,
+            'end_time' => !empty($end_time) ? $end_time : null,
+            'reason' => !empty($reason) ? $reason : null,
+        );
 
-
-        if ($this->form_validation->run() == FALSE) {
-            if (!empty($id)) {
-                redirect("schedule/editHoliday?id=$id");
-            } else {
-                $data['settings'] = $this->settings_model->getSettings();
-                $this->load->view('home/dashboard', $data);
-                $this->load->view('timeslot');
-                $this->load->view('home/footer');
-            }
+        if (!empty($id)) {
+            $this->schedule_model->updateHoliday($id, $data);
+            show_swal(lang('holiday_updated_successfully'), 'success', lang('updated'));
         } else {
-
-            $data = array();
-            $data = array(
-                'doctor' => $doctor,
-                'date' => $date,
-            );
-            if (!empty($id)) {
-                show_swal(lang('holiday_added_successfully'), 'success', lang('updated'));
-                $this->schedule_model->updateHoliday($id, $data);
-            } else {
-                show_swal(lang('holiday_updated_successfully'), 'success', lang('added'));
-                $this->schedule_model->insertHoliday($data);
-            }
-
-            redirect($redirect);
+            $this->schedule_model->insertHoliday($data);
+            show_swal(lang('holiday_added_successfully'), 'success', lang('added'));
         }
+
+        redirect($redirect);
     }
 
     function editHolidayByJason()
     {
         $id = $this->input->get('id');
-        $data['holiday'] = $this->schedule_model->getHolidayById($id);
-        $data['doctor'] = $this->doctor_model->getDoctorById($data['holiday']->doctor);
+        $holiday = $this->schedule_model->getHolidayById($id);
+        $doctor = $this->doctor_model->getDoctorById($holiday->doctor);
+
+        $start_date_str = is_numeric($holiday->date) ? date('d-m-Y', (int)$holiday->date) : date('d-m-Y', strtotime($holiday->date));
+        $end_date_str = !empty($holiday->end_date) ? (is_numeric($holiday->end_date) ? date('d-m-Y', (int)$holiday->end_date) : date('d-m-Y', strtotime($holiday->end_date))) : $start_date_str;
+
+        $data['holiday'] = $holiday;
+        $data['start_date_formatted'] = $start_date_str;
+        $data['end_date_formatted'] = $end_date_str;
+        $data['doctor'] = $doctor;
         echo json_encode($data);
     }
 

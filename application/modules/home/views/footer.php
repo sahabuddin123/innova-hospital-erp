@@ -51,6 +51,12 @@ if ($language == 'english') {
 } elseif ($language == 'indonesian') {
     $lang = 'id';
     $langdate = 'id';
+} elseif ($language == 'bengali' || $language == 'bangla') {
+    $lang = 'bn';
+    $langdate = 'bn';
+} else {
+    $lang = 'en';
+    $langdate = 'en';
 }
 
 
@@ -96,9 +102,22 @@ if ($language == 'english') {
 <script src="common/assets/bootstrap-datetimepicker/js/bootstrap-datetimepicker.js"></script>
 
 
-<script src="common/assets/bootstrap-datepicker/locales/bootstrap-datepicker.<?php echo $langdate; ?>.min.js"></script>
+<?php
+$dp_locale = "common/assets/bootstrap-datepicker/locales/bootstrap-datepicker." . $langdate . ".min.js";
+if (!empty($langdate) && file_exists(FCPATH . $dp_locale)) {
+?>
+    <script src="<?php echo $dp_locale; ?>"></script>
+<?php } ?>
 
-<script src="common/assets/bootstrap-datetimepicker/js/locales/bootstrap-datetimepicker.<?php echo $langdate; ?>.min.js"></script>
+<?php
+$dtp_locale = "common/assets/bootstrap-datetimepicker/js/locales/bootstrap-datetimepicker." . $langdate . ".js";
+$dtp_locale_min = "common/assets/bootstrap-datetimepicker/js/locales/bootstrap-datetimepicker." . $langdate . ".min.js";
+if (!empty($langdate) && file_exists(FCPATH . $dtp_locale)) {
+?>
+    <script src="<?php echo $dtp_locale; ?>"></script>
+<?php } elseif (!empty($langdate) && file_exists(FCPATH . $dtp_locale_min)) { ?>
+    <script src="<?php echo $dtp_locale_min; ?>"></script>
+<?php } ?>
 
 <script src="common/js/advanced-form-components.js"></script>
 <script src="common/js/common-scripts.js"></script>
@@ -138,7 +157,12 @@ if ($language == 'english') {
 <script type="text/javascript" src="common/assets/jquery-multi-select/js/jquery.quicksearch.js"></script>
 <script src="common/js/lightbox.js"></script>
 <script src="adminlte/plugins/fullcalendar/main.js"></script>
-<script src="adminlte/plugins/fullcalendar/locales/<?php echo $lang; ?>.js"></script>
+<?php
+$fc_locale = "adminlte/plugins/fullcalendar/locales/" . $lang . ".js";
+if (!empty($lang) && file_exists(FCPATH . $fc_locale)) {
+?>
+    <script src="<?php echo $fc_locale; ?>"></script>
+<?php } ?>
 <script src="adminlte/plugins/dropzone/min/dropzone.min.js"></script>
 <!-- SweetAlert2 -->
 <script src="adminlte/plugins/sweetalert2/sweetalert2.min.js"></script>

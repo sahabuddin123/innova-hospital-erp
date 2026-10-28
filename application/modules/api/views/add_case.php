@@ -466,9 +466,9 @@ if (!empty($selected_advice)) {
     <script>
         tinymce.init({
             selector: '#editor1',
-            plugins: 'print preview paste importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media template codesample table charmap hr pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount imagetools textpattern noneditable help charmap quickbars emoticons',
+            plugins: 'preview importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media template codesample table charmap pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help charmap quickbars emoticons',
             menubar: 'file edit view insert format tools table help',
-            toolbar: 'undo redo | bold italic underline | fontselect fontsizeselect formatselect | alignleft aligncenter alignright alignjustify | outdent indent |  numlist bullist | forecolor backcolor removeformat | pagebreak | charmap emoticons | fullscreen  preview save print | insertfile image media template link anchor codesample | ltr rtl',
+            toolbar: 'undo redo | bold italic underline | fontselect fontsizeselect formatselect | alignleft aligncenter alignright alignjustify | outdent indent |  numlist bullist | forecolor backcolor removeformat | pagebreak | charmap emoticons | fullscreen  preview save | insertfile image media template link anchor codesample | ltr rtl',
             branding: false,
             promotion: false
         });
@@ -572,8 +572,22 @@ if (!empty($selected_advice)) {
 
 
 
-    <script src="common/assets/bootstrap-datepicker/locales/bootstrap-datepicker.<?php echo $langdate; ?>.min.js"></script>
-    <script src="common/assets/bootstrap-datetimepicker/js/locales/bootstrap-datetimepicker.<?php echo $langdate; ?>.min.js"></script>
+    <?php
+    $dp_locale = "common/assets/bootstrap-datepicker/locales/bootstrap-datepicker." . $langdate . ".min.js";
+    if (!empty($langdate) && file_exists(FCPATH . $dp_locale)) {
+    ?>
+        <script src="<?php echo $dp_locale; ?>"></script>
+    <?php } ?>
+
+    <?php
+    $dtp_locale = "common/assets/bootstrap-datetimepicker/js/locales/bootstrap-datetimepicker." . $langdate . ".js";
+    $dtp_locale_min = "common/assets/bootstrap-datetimepicker/js/locales/bootstrap-datetimepicker." . $langdate . ".min.js";
+    if (!empty($langdate) && file_exists(FCPATH . $dtp_locale)) {
+    ?>
+        <script src="<?php echo $dtp_locale; ?>"></script>
+    <?php } elseif (!empty($langdate) && file_exists(FCPATH . $dtp_locale_min)) { ?>
+        <script src="<?php echo $dtp_locale_min; ?>"></script>
+    <?php } ?>
 
 
 
@@ -660,7 +674,12 @@ if (!empty($selected_advice)) {
 
 
     <script src="adminlte/plugins/fullcalendar/main.js"></script>
-    <script src="adminlte/plugins/fullcalendar/locales/<?php echo $lang; ?>.js"></script>
+    <?php
+    $fc_locale = "adminlte/plugins/fullcalendar/locales/" . $lang . ".js";
+    if (!empty($lang) && file_exists(FCPATH . $fc_locale)) {
+    ?>
+        <script src="<?php echo $fc_locale; ?>"></script>
+    <?php } ?>
 
     <!-- <script src="common/assets/fullcalendar/fullcalendar.js"></script>
 <script src='common/assets/fullcalendar/locale/<?php echo $lang; ?>.js'></script> -->

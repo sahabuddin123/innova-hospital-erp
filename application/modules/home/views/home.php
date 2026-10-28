@@ -339,7 +339,7 @@
 
 
 
-                                        <?php if (in_array('doctor', $this->modules)) { ?>
+                                        <?php if (in_array('finance', $this->modules)) { ?>
                                             <div class="col-lg-6 col-md-6">
                                                 <div class="card stat-card h-100 shadow-sm custom-rounded text-center">
                                                     <a href="finance/payment">
@@ -367,7 +367,7 @@
 
 
 
-                                        <?php if (in_array('patient', $this->modules)) { ?>
+                                        <?php if (in_array('finance', $this->modules)) { ?>
                                             <div class="col-lg-6 col-md-6">
                                                 <div class="card stat-card h-100 shadow-sm custom-rounded text-center">
                                                     <a href="finance/payment">
@@ -392,7 +392,7 @@
                                             </div>
                                         <?php } ?>
 
-                                        <?php if (in_array('appointment', $this->modules)) { ?>
+                                        <?php if (in_array('finance', $this->modules)) { ?>
                                             <div class="col-lg-6 col-md-6">
                                                 <div class="card stat-card h-100 shadow-sm custom-rounded text-center">
                                                     <a href="finance/dueCollection">
@@ -417,7 +417,7 @@
                                             </div>
                                         <?php } ?>
 
-                                        <?php if (in_array('prescription', $this->modules)) { ?>
+                                        <?php if (in_array('finance', $this->modules)) { ?>
                                             <div class="col-lg-6 col-md-6">
                                                 <div class="card stat-card h-100 shadow-sm custom-rounded text-center">
                                                     <a href="finance/expense">
@@ -1043,147 +1043,76 @@
 
 
 
+                        <!-- Referral Management & Top Referrers -->
                         <div class="card shadow-sm custom-rounded m-1 mb-2">
                             <div class="p-3">
-                                <div class="">
-                                    <h5 class="border-bottom pb-2 pt-1 mb-2 text-sm fw-bold">
-                                        <?php echo lang('top_diagnoses') ?>
-                                        <span class="text-xs badge badge-secondary ml-2 px-2 py-1"><?php echo lang('last_30_days') ?></span>
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 pt-1 mb-2">
+                                    <h5 class="text-sm fw-bold mb-0">
+                                        <i class="fas fa-handshake text-primary mr-1"></i> <?php echo lang('referral_management'); ?>
                                     </h5>
+                                    <a href="referral" class="text-xs text-primary font-weight-bold">View All <i class="fas fa-arrow-right"></i></a>
                                 </div>
-
-                                <div id="topDiagnosesChart" style="min-height: 180px;"></div>
-                                <script type="text/javascript">
-                                    google.charts.load('current', {
-                                        'packages': ['corechart']
-                                    });
-                                    google.charts.setOnLoadCallback(drawChartTopDiagnoses);
-
-                                    function drawChartTopDiagnoses() {
-                                        var data = google.visualization.arrayToDataTable([
-                                            ['Diagnosis', 'Patients'],
-                                            <?php
-                                            // Check if $topDiagnoses is an array and not empty
-                                            if (is_array($topDiagnoses) && !empty($topDiagnoses)) {
-                                                $topDiagnosesData = array_slice($topDiagnoses, 0, 4, true);
-                                                $otherCount = array_sum(array_slice($topDiagnoses, 4));
-
-                                                foreach ($topDiagnosesData as $key => $value) {
-                                                    // Ensure the diagnosis name and value are valid
-                                                    $diagnosisName = $this->home_model->getDiagnosisName($key);
-                                                    if (!is_null($diagnosisName) && isset($value)) {
-                                                        echo "['" . htmlspecialchars($diagnosisName) . "', " . floatval($value) . "],";
-                                                    }
-                                                }
-
-                                                // Handle the 'Others' category only if there are more than 4 diagnoses
-                                                if ($otherCount > 0) {
-                                                    echo "['Other', " . floatval($otherCount) . "]";
-                                                }
-                                            } else {
-                                                // Fallback data if $topDiagnoses is null or empty
-                                                echo "['No data available', 0]";
-                                            }
-                                            ?>
-                                        ]);
-
-                                        var options = {
-                                            // Optional: remove title if not needed
-                                            legend: {
-                                                position: 'top'
-                                            },
-                                            chartArea: { // Reduce chartArea margins
-                                                left: 8,
-                                                right: 8,
-                                                top: 36,
-                                                bottom: 12,
-                                                width: '100%',
-                                                height: '100%' // Use more space for the chart itself
-                                            },
-                                            colors: ['#66b3ff', '#ff9999', '#99ff99', '#ffcc99', '#c2c2f0', '#ffb3e6'],
-
-
-
-                                            backgroundColor: 'transparent',
-                                            titleTextStyle: {
-                                                color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                            },
-                                            legendTextStyle: {
-                                                color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                            },
-                                            vAxis: {
-                                                textStyle: {
-                                                    color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                                }
-                                            },
-                                            hAxis: {
-                                                textStyle: {
-                                                    color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                                }
-                                            }
-
-
-                                        };
-
-                                        var chart = new google.visualization.ColumnChart(document.getElementById('topDiagnosesChart'));
-                                        chart.draw(data, options);
-                                    }
-                                </script>
+                                <div class="d-flex justify-content-between mb-2 p-2 bg-light rounded text-xs">
+                                    <div>
+                                        <span class="text-muted d-block">Referral Doctors</span>
+                                        <strong class="text-primary" style="font-size: 1.05rem;"><?php echo $totalReferrers ?? 0; ?></strong>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-muted d-block"><?php echo lang('this_month'); ?> Commission</span>
+                                        <strong class="text-success" style="font-size: 1.05rem;"><?php echo $settings->currency ?? ''; ?><?php echo number_format($referralCommissionThisMonth ?? 0, 2); ?></strong>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-muted mb-1 font-weight-bold">Top Referring Doctors</p>
+                                <ul class="list-group list-group-flush">
+                                    <?php if (!empty($topReferrers)) { ?>
+                                        <?php foreach ($topReferrers as $ref) { ?>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center px-1 py-1 text-xs">
+                                                <span class="text-truncate mr-2 font-weight-500" style="max-width: 140px;"><?php echo html_escape($ref->name); ?></span>
+                                                <span>
+                                                    <span class="badge badge-info badge-pill mr-1"><?php echo $ref->total_cases; ?> tests</span>
+                                                    <strong class="text-dark"><?php echo $settings->currency ?? ''; ?><?php echo number_format($ref->total_comm, 0); ?></strong>
+                                                </span>
+                                            </li>
+                                        <?php } ?>
+                                    <?php } else { ?>
+                                        <li class="list-group-item px-1 py-2 text-xs text-muted">No referral activity recorded yet</li>
+                                    <?php } ?>
+                                </ul>
                             </div>
                         </div>
 
-
-
-
-
-
-
+                        <!-- Inventory & Human Resources Quick Overview -->
                         <div class="card shadow-sm custom-rounded m-1 mb-2">
                             <div class="p-3">
-                                <h5 class="border-bottom pb-3 pt-2 text-sm fw-bold"><?php echo lang('disease_outbreak_alerts') ?></h5>
-                                <p class="text-muted mb-3"><?php echo lang('last_7_days') ?></p>
-
-                                <?php
-                                // Check if $cases is an array and contains data
-                                if (is_array($cases) && !empty($cases)) {
-                                    foreach ($cases as $case_key => $ratio) {
-                                        // Ensure that $case_key and $ratio are valid and not null
-                                        $diagnosisName = $this->home_model->getDiagnosisName($case_key);
-                                        if (!is_null($diagnosisName) && isset($ratio)) {
-                                ?>
-                                            <div class="disease-alert mb-3">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <h6 class="fw-bold mb-0"><?php echo htmlspecialchars($diagnosisName); ?></h6>
-                                                    <?php
-                                                    // Initialize alert class and text with null safety
-                                                    $alertClass = 'alert-success';
-                                                    $alertText = lang('under_control');
-
-                                                    if ($ratio > 0.8 && $ratio < 1) {
-                                                        $alertClass = 'alert-warning';
-                                                        $alertText = lang('moderately_spreading');
-                                                    } elseif ($ratio >= 1 && $ratio < 2) {
-                                                        $alertClass = 'alert-danger';
-                                                        $alertText = lang('alert');
-                                                    } elseif ($ratio >= 2) {
-                                                        $alertClass = 'alert-danger';
-                                                        $alertText = lang('red_alert');
-                                                    }
-                                                    ?>
-                                                    <span class="badge <?php echo $alertClass; ?> px-3 py-2"><?php echo $alertText; ?></span>
-                                                </div>
-                                                <div class="progress" style="height: 6px;">
-                                                    <div class="progress-bar <?php echo $alertClass; ?>" role="progressbar" style="width: <?php echo min(floatval($ratio) * 100, 100); ?>%" aria-valuenow="<?php echo floatval($ratio); ?>" aria-valuemin="0" aria-valuemax="1"></div>
-                                                </div>
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 pt-1 mb-2">
+                                    <h5 class="text-sm fw-bold mb-0">
+                                        <i class="fas fa-boxes text-info mr-1"></i> <?php echo lang('inventory'); ?> &amp; <?php echo lang('human_resources'); ?>
+                                    </h5>
+                                </div>
+                                <div class="row g-2 text-center mt-1">
+                                    <div class="col-6 mb-2">
+                                        <a href="inventory/items" class="text-decoration-none">
+                                            <div class="p-2 border rounded bg-light">
+                                                <i class="fas fa-boxes text-info fa-lg mb-1"></i>
+                                                <div class="text-xs text-muted">Inventory Items</div>
+                                                <strong class="text-dark" style="font-size: 1.1rem;"><?php echo $totalInventoryItems ?? 0; ?></strong>
                                             </div>
-                                <?php
-                                        }
-                                    }
-                                } else {
-                                    // Fallback message if there are no cases or cases is null
-                                    echo "<p>" . lang('no_disease_alerts') . "</p>";
-                                }
-                                ?>
+                                        </a>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <a href="nurse" class="text-decoration-none">
+                                            <div class="p-2 border rounded bg-light">
+                                                <i class="fas fa-user-tie text-success fa-lg mb-1"></i>
+                                                <div class="text-xs text-muted"><?php echo lang('staff_on_duty'); ?></div>
+                                                <strong class="text-dark" style="font-size: 1.1rem;"><?php echo ($nursesOnDuty + $laboratoristsOnDuty + $receptionistsOnDuty + $accountantsOnDuty); ?></strong>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center pt-2 border-top text-xs">
+                                    <span class="text-muted">Total Staff Members</span>
+                                    <span class="badge badge-primary px-2 py-1"><?php echo $totalStaff ?? 0; ?> Staff</span>
+                                </div>
                             </div>
                         </div>
 
@@ -1195,52 +1124,61 @@
                                     // Define hospital ID
                                     $hospital_id = $this->session->userdata('hospital_id');
 
-                                    // Check if hospital_id is set
                                     if (isset($hospital_id)) {
-                                        // Fetch and count data for each section using the hospital_id 
+                                        $this->db->reset_query();
                                         $this->db->where('hospital_id', $hospital_id);
                                         $totalPatients = $this->db->count_all_results('patient');
 
+                                        $this->db->reset_query();
                                         $this->db->where('hospital_id', $hospital_id);
                                         $totalDoctors = $this->db->count_all_results('doctor');
 
+                                        $this->db->reset_query();
                                         $this->db->where('hospital_id', $hospital_id);
                                         $totalAppointments = $this->db->count_all_results('appointment');
-
-                                        $this->db->where('hospital_id', $hospital_id);
-                                        $totalPrescriptions = $this->db->count_all_results('prescription');
-
-                                        $this->db->where('hospital_id', $hospital_id);
-                                        $totalNurses = $this->db->count_all_results('nurse');
                                     } else {
-                                        // Fallback values if hospital_id is not set
-                                        $totalPatients = $totalDoctors = $totalAppointments = $totalPrescriptions = $totalNurses = 0;
+                                        $totalPatients = $totalDoctors = $totalAppointments = 0;
                                     }
                                     ?>
 
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('total') ?> <?php echo lang('patients') ?></span>
+                                        <a href="patient" class="text-dark text-decoration-none"><span><i class="fas fa-user-injured text-primary mr-1"></i> <?php echo lang('total') ?> <?php echo lang('patients') ?></span></a>
                                         <span class="badge badge-primary badge-pill"><?php echo $totalPatients; ?></span>
                                     </li>
 
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('total') ?> <?php echo lang('doctors') ?></span>
+                                        <a href="doctor" class="text-dark text-decoration-none"><span><i class="fas fa-user-md text-info mr-1"></i> <?php echo lang('total') ?> <?php echo lang('doctors') ?></span></a>
                                         <span class="badge badge-primary badge-pill"><?php echo $totalDoctors; ?></span>
                                     </li>
 
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('total') ?> <?php echo lang('appointments') ?></span>
-                                        <span class="badge badge-primary badge-pill"><?php echo $totalAppointments; ?></span>
+                                        <a href="lab/lab" class="text-dark text-decoration-none"><span><i class="fas fa-flask text-success mr-1"></i> <?php echo lang('total') ?> <?php echo lang('lab_reports-h') ?></span></a>
+                                        <span class="badge badge-success badge-pill"><?php echo $totalLabReports ?? 0; ?></span>
                                     </li>
 
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('total') ?> <?php echo lang('prescriptions') ?></span>
-                                        <span class="badge badge-primary badge-pill"><?php echo $totalPrescriptions; ?></span>
+                                        <a href="finance/payment" class="text-dark text-decoration-none"><span><i class="fas fa-file-invoice-dollar text-warning mr-1"></i> <?php echo lang('total') ?> <?php echo lang('invoices') ?></span></a>
+                                        <span class="badge badge-warning badge-pill"><?php echo $totalInvoices ?? 0; ?></span>
                                     </li>
 
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('total') ?> <?php echo lang('nurses') ?></span>
-                                        <span class="badge badge-primary badge-pill"><?php echo $totalNurses; ?></span>
+                                        <a href="referral" class="text-dark text-decoration-none"><span><i class="fas fa-handshake text-secondary mr-1"></i> Referral Doctors</span></a>
+                                        <span class="badge badge-info badge-pill"><?php echo $totalReferrers ?? 0; ?></span>
+                                    </li>
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
+                                        <a href="nurse" class="text-dark text-decoration-none"><span><i class="fas fa-users text-secondary mr-1"></i> Total Staff Members</span></a>
+                                        <span class="badge badge-secondary badge-pill"><?php echo $totalStaff ?? 0; ?></span>
+                                    </li>
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
+                                        <a href="inventory/items" class="text-dark text-decoration-none"><span><i class="fas fa-boxes text-info mr-1"></i> <?php echo lang('inventory') ?> Items</span></a>
+                                        <span class="badge badge-dark badge-pill"><?php echo $totalInventoryItems ?? 0; ?></span>
+                                    </li>
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
+                                        <a href="appointment" class="text-dark text-decoration-none"><span><i class="fas fa-calendar-alt text-danger mr-1"></i> <?php echo lang('total') ?> <?php echo lang('appointments') ?></span></a>
+                                        <span class="badge badge-danger badge-pill"><?php echo $totalAppointments; ?></span>
                                     </li>
                                 </ul>
                             </div>
@@ -1256,16 +1194,12 @@
                                         <span class="badge badge-primary badge-pill"><?php echo $doctorsOnDuty; ?></span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('nurses_on_duty') ?></span>
-                                        <span class="badge badge-primary badge-pill"><?php echo $nursesOnDuty; ?></span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('pharmacists_on_duty') ?></span>
-                                        <span class="badge badge-primary badge-pill"><?php echo $pharmacistsOnDuty; ?></span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
                                         <span><?php echo lang('laboratorists_on_duty') ?></span>
                                         <span class="badge badge-primary badge-pill"><?php echo $laboratoristsOnDuty; ?></span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
+                                        <span><?php echo lang('nurses_on_duty') ?></span>
+                                        <span class="badge badge-primary badge-pill"><?php echo $nursesOnDuty; ?></span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
                                         <span><?php echo lang('receptionists_on_duty') ?></span>
@@ -1274,10 +1208,6 @@
                                     <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
                                         <span><?php echo lang('accountants_on_duty') ?></span>
                                         <span class="badge badge-primary badge-pill"><?php echo $accountantsOnDuty; ?></span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center pl-0">
-                                        <span><?php echo lang('patients') ?> <?php echo lang('admitted') ?></span>
-                                        <span class="badge badge-primary badge-pill"><?php echo $patientAdmitted; ?></span>
                                     </li>
                                 </ul>
                             </div>
@@ -1293,141 +1223,112 @@
 
 
 
+                        <!-- Diagnostic Lab Reports Status (Replaces Bed Occupancy) -->
                         <div class="card shadow-sm custom-rounded m-1 mb-2">
                             <div class="p-3">
-                                <h5 class="border-bottom pb-2 pt-1 mb-2 text-sm fw-bold"><?php echo lang('bed_occupancy') ?></h5>
-                                <div id="bedOccupancyChart" style="min-height: 160px;"></div>
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 pt-1 mb-2">
+                                    <h5 class="text-sm fw-bold mb-0">
+                                        <i class="fas fa-flask text-info mr-1"></i> Diagnostic Lab Reports
+                                    </h5>
+                                    <a href="lab/lab" class="text-xs text-primary font-weight-bold">View Tests <i class="fas fa-arrow-right"></i></a>
+                                </div>
+                                <div id="labStatusChart" style="min-height: 160px;"></div>
                                 <script type="text/javascript">
                                     google.charts.load('current', {
                                         'packages': ['corechart']
                                     });
-                                    google.charts.setOnLoadCallback(drawChartBedOccupancy);
+                                    google.charts.setOnLoadCallback(drawChartLabStatus);
 
-                                    function drawChartBedOccupancy() {
+                                    function drawChartLabStatus() {
                                         var data = google.visualization.arrayToDataTable([
                                             ['Status', 'Count'],
-                                            ['<?php echo lang('bed_occupied') ?>', <?php echo array_sum(array_column($bedCategoryWiseOccupancy ?? [], 'occupied')) ?? 0; ?>],
-                                            ['<?php echo lang('bed_available') ?>', <?php echo array_sum(array_column($bedCategoryWiseOccupancy ?? [], 'available')) ?? 0; ?>]
+                                            ['Pending / In Progress', <?php echo (int)($labPendingCount ?? 0); ?>],
+                                            ['Completed', <?php echo (int)($labDoneCount ?? 0); ?>],
+                                            ['Delivered', <?php echo (int)($labDeliveredCount ?? 0); ?>]
                                         ]);
 
                                         var options = {
-                                            title: '<?php echo lang('bed_occupancy') ?>',
-                                            pieHole: 0.4,
-                                            colors: ['#ff9999', '#66b3ff'],
+                                            pieHole: 0.45,
+                                            colors: ['#ffc107', '#28a745', '#17a2b8'],
                                             legend: {
-                                                position: 'bottom'
-                                            },
-
-
-
-                                            backgroundColor: 'transparent',
-                                            titleTextStyle: {
-                                                color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                            },
-                                            legendTextStyle: {
-                                                color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                            },
-                                            vAxis: {
+                                                position: 'bottom',
                                                 textStyle: {
+                                                    fontSize: 11,
                                                     color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
                                                 }
                                             },
-                                            hAxis: {
-                                                textStyle: {
-                                                    color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                                }
-                                            }
-
-
-
-
+                                            chartArea: {
+                                                left: 10,
+                                                right: 10,
+                                                top: 10,
+                                                bottom: 30,
+                                                width: '100%',
+                                                height: '85%'
+                                            },
+                                            backgroundColor: 'transparent'
                                         };
 
-                                        var chart = new google.visualization.PieChart(document.getElementById('bedOccupancyChart'));
+                                        var chart = new google.visualization.PieChart(document.getElementById('labStatusChart'));
                                         chart.draw(data, options);
                                     }
                                 </script>
+                                <div class="d-flex justify-content-around text-center pt-2 border-top text-xs">
+                                    <div>
+                                        <span class="text-warning font-weight-bold d-block" style="font-size: 1rem;"><?php echo (int)($labPendingCount ?? 0); ?></span>
+                                        <span class="text-muted">Pending</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-success font-weight-bold d-block" style="font-size: 1rem;"><?php echo (int)($labDoneCount ?? 0); ?></span>
+                                        <span class="text-muted">Completed</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-info font-weight-bold d-block" style="font-size: 1rem;"><?php echo (int)($labDeliveredCount ?? 0); ?></span>
+                                        <span class="text-muted">Delivered</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-
+                        <!-- Diagnostic & Financial Monthly Snapshot (Replaces Top Treatments) -->
                         <div class="card shadow-sm custom-rounded m-1 mb-2">
                             <div class="p-3">
-                                <h5 class="border-bottom pb-2 py-1 mb-2 text-sm fw-bold"><?php echo lang('top_treatments') ?> <span class="text-xs badge badge-secondary ml-2 px-2 py-1"><?php echo lang('last_30_days') ?></span></h5>
-
-                                <div id="topTreatmentsChart" style="min-height: 200px;"></div>
-                                <script type="text/javascript">
-                                    google.charts.load('current', {
-                                        'packages': ['corechart']
-                                    });
-                                    google.charts.setOnLoadCallback(drawChartTopTreatments);
-
-                                    function drawChartTopTreatments() {
-                                        var data = google.visualization.arrayToDataTable([
-                                            ['Treatment', 'Patients'],
-                                            <?php
-                                            if (is_array($topTreatments) && !empty($topTreatments)) {
-                                                $topTreatmentsData = array_slice($topTreatments, 0, 5, true);
-                                                $otherCount = array_sum(array_slice($topTreatments, 5));
-                                                foreach ($topTreatmentsData as $key => $value) {
-                                                    echo "['" . $this->home_model->getTreatmentName($key) . "', " . $value . "],";
-                                                }
-                                                if ($otherCount > 0) {
-                                                    echo "['Other', " . $otherCount .
-                                                        "]";
-                                                }
-                                            } else {
-                                                // Fallback data if $topDiagnoses is null or empty
-                                                echo "['No data available', 0]";
-                                            }
-                                            ?>
-                                        ]);
-
-                                        var options = {
-                                            // title: '<?php echo lang('top_treatments') ?>',
-                                            legend: {
-                                                position: 'top'
-                                            },
-                                            chartArea: { // Reduce chartArea margins
-                                                left: 56,
-                                                right: 8,
-                                                top: 36,
-                                                bottom: 12,
-                                                width: '100%',
-                                                height: '80%' // Use more space for the chart itself
-                                            },
-                                            colors: ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99', '#c2c2f0', '#ffb3e6'],
-
-
-
-                                            backgroundColor: 'transparent',
-                                            titleTextStyle: {
-                                                color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                            },
-                                            legendTextStyle: {
-                                                color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                            },
-                                            vAxis: {
-                                                textStyle: {
-                                                    color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                                }
-                                            },
-                                            hAxis: {
-                                                textStyle: {
-                                                    color: $('body').hasClass('dark-mode') ? '#FFFFFF' : '#333333'
-                                                }
-                                            }
-
-
-
-                                            // Adjust colors as needed
-
-                                        };
-
-                                        var chart = new google.visualization.BarChart(document.getElementById('topTreatmentsChart'));
-                                        chart.draw(data, options);
-                                    }
-                                </script>
+                                <h5 class="border-bottom pb-2 py-1 mb-2 text-sm fw-bold">
+                                    <i class="fas fa-chart-pie text-primary mr-1"></i> Diagnostic Performance <span class="text-xs badge badge-secondary ml-2 px-2 py-1"><?php echo lang('this_month') ?></span>
+                                </h5>
+                                <div class="row g-2 text-center mt-2">
+                                    <div class="col-6 mb-2">
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="p-2 border rounded bg-light">
+                                                <div class="text-xs text-muted mb-1"><?php echo lang('invoices'); ?></div>
+                                                <strong class="text-primary" style="font-size: 1.15rem;"><?php echo $invoicesThisMonth ?? 0; ?></strong>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <a href="lab/lab" class="text-decoration-none">
+                                            <div class="p-2 border rounded bg-light">
+                                                <div class="text-xs text-muted mb-1">Lab Tests</div>
+                                                <strong class="text-success" style="font-size: 1.15rem;"><?php echo $labTestsThisMonth ?? 0; ?></strong>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <a href="referral" class="text-decoration-none">
+                                            <div class="p-2 border rounded bg-light">
+                                                <div class="text-xs text-muted mb-1">Doctor Commission</div>
+                                                <strong class="text-info" style="font-size: 1rem;"><?php echo $settings->currency ?? ''; ?><?php echo number_format($referralCommissionThisMonth ?? 0, 0); ?></strong>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="p-2 border rounded bg-light">
+                                                <div class="text-xs text-muted mb-1"><?php echo lang('total'); ?> <?php echo lang('bill'); ?></div>
+                                                <strong class="text-dark" style="font-size: 1rem;"><?php echo $settings->currency ?? ''; ?><?php echo format_number_short($this_month['payment'] ?? 0); ?></strong>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -1437,50 +1338,62 @@
                                 <h5 class="my-4 fw-bold text-center text-sm"><?php echo lang('today'); ?> - <?php echo lang('overview'); ?></h5>
                                 <div class="row text-center">
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-user-plus bg-success fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('admitted'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $admittedToday ?? 0; ?></p>
-                                        </div>
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-file-invoice bg-success text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('invoices'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $invoicesToday ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-user-times bg-danger fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('discharged'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $dischargedToday ?? 0; ?></p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="row text-center">
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-user-check bg-info fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('registered'); ?> </h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $registeredToday ?? 0; ?></p>
-                                        </div>
-                                    </div>
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-dollar-sign bg-primary fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('income'); ?> </h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_day['payment'] ?? 0, 2, '.', ','); ?></p>
-                                        </div>
+                                        <a href="lab/lab" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-flask bg-info text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted">Lab Tests</h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $labTestsToday ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                 </div>
                                 <div class="row text-center">
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-money-bill-wave bg-warning fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('expense'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_day['expense'] ?? 0, 2, '.', ','); ?></p>
-                                        </div>
+                                        <a href="patient" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-user-check bg-info text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('registered'); ?> </h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $registeredToday ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-calendar-check bg-secondary fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('appointments'); ?> </h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $this_day['appointment'] ?? 0; ?></p>
-                                        </div>
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-dollar-sign bg-primary text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('income'); ?> </h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_day['payment'] ?? 0, 2, '.', ','); ?></p>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-6 mb-3">
+                                        <a href="finance/expense" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-money-bill-wave bg-warning text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('expense'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_day['expense'] ?? 0, 2, '.', ','); ?></p>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <a href="appointment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-calendar-check bg-secondary text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('appointments'); ?> </h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $this_day['appointment'] ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -1492,50 +1405,62 @@
                                 <h5 class="my-4 fw-bold text-center text-sm"><?php echo lang('this_month'); ?> - <?php echo lang('overview'); ?></h5>
                                 <div class="row text-center">
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-user-plus bg-success fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"> <?php echo lang('admitted'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $admittedThisMonth ?? 0; ?></p>
-                                        </div>
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-file-invoice bg-success text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"> <?php echo lang('invoices'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $invoicesThisMonth ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-user-times bg-danger fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"> <?php echo lang('discharged'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $dischargedThisMonth ?? 0; ?></p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="row text-center">
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-user-check bg-info fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"> <?php echo lang('registered'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $registeredThisMonth ?? 0; ?></p>
-                                        </div>
-                                    </div>
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-dollar-sign bg-primary fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('income'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_month['payment'] ?? 0, 2, '.', ','); ?></p>
-                                        </div>
+                                        <a href="lab/lab" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-flask bg-info text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"> Lab Tests</h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $labTestsThisMonth ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                 </div>
                                 <div class="row text-center">
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-money-bill-wave bg-warning fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('expense'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_month['expense'] ?? 0, 2, '.', ','); ?></p>
-                                        </div>
+                                        <a href="patient" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-user-check bg-info text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"> <?php echo lang('registered'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $registeredThisMonth ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-calendar-check bg-secondary fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('appointment'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $this_month['appointment'] ?? 0; ?></p>
-                                        </div>
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-dollar-sign bg-primary text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('income'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_month['payment'] ?? 0, 2, '.', ','); ?></p>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-6 mb-3">
+                                        <a href="finance/expense" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-money-bill-wave bg-warning text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('expense'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_month['expense'] ?? 0, 2, '.', ','); ?></p>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <a href="appointment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-calendar-check bg-secondary text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('appointment'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $this_month['appointment'] ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -1547,50 +1472,62 @@
                                 <h5 class="my-4 fw-bold text-center text-sm"><?php echo lang('this_year'); ?> - <?php echo lang('overview'); ?></h5>
                                 <div class="row text-center">
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-user-plus bg-success fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('admitted'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $admittedThisYear ?? 0; ?></p>
-                                        </div>
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-file-invoice bg-success text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('invoices'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $invoicesThisYear ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-user-times bg-danger fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('discharged'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $dischargedThisYear ?? 0; ?></p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="row text-center">
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-user-check bg-info fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('registered'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $registeredThisYear ?? 0; ?></p>
-                                        </div>
-                                    </div>
-                                    <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-dollar-sign bg-primary fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('income'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_year['payment'] ?? 0, 2, '.', ','); ?></p>
-                                        </div>
+                                        <a href="lab/lab" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-flask bg-info text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted">Lab Tests</h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $labTestsThisYear ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                 </div>
                                 <div class="row text-center">
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 ml-3 border rounded">
-                                            <i class="fas fa-money-bill-wave bg-warning fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('expense'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_year['expense'] ?? 0, 2, '.', ','); ?></p>
-                                        </div>
+                                        <a href="patient" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-user-check bg-info text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('registered'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $registeredThisYear ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                     <div class="col-6 mb-3">
-                                        <div class="stat-card bg-light p-3 mr-3 border rounded">
-                                            <i class="fas fa-calendar-check bg-secondary fa-lg p-2 rounded-circle"></i>
-                                            <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('appointment'); ?></h6>
-                                            <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $this_year['appointment'] ?? 0; ?></p>
-                                        </div>
+                                        <a href="finance/payment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-dollar-sign bg-primary text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('income'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_year['payment'] ?? 0, 2, '.', ','); ?></p>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-6 mb-3">
+                                        <a href="finance/expense" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 ml-3 border rounded">
+                                                <i class="fas fa-money-bill-wave bg-warning text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('expense'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $settings->currency; ?><?php echo format_number_short($this_year['expense'] ?? 0, 2, '.', ','); ?></p>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <a href="appointment" class="text-decoration-none">
+                                            <div class="stat-card bg-light p-3 mr-3 border rounded">
+                                                <i class="fas fa-calendar-check bg-secondary text-white fa-lg p-2 rounded-circle"></i>
+                                                <h6 class="fw-bold mt-2 text-dark title-spacing text-sm text-muted"><?php echo lang('appointment'); ?></h6>
+                                                <p class="fw-bold text-dark mb-0" style="font-size: 1.1rem;"><?php echo $this_year['appointment'] ?? 0; ?></p>
+                                            </div>
+                                        </a>
                                     </div>
                                 </div>
                             </div>

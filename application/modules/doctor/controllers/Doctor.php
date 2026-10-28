@@ -28,9 +28,12 @@ class Doctor extends MX_Controller
 
     public function index()
     {
-
+        $hospital_id = $this->session->userdata('hospital_id');
         $data['doctors'] = $this->doctor_model->getDoctor();
         $data['departments'] = $this->department_model->getDepartment();
+        $data['total_doctors'] = $this->db->where('hospital_id', $hospital_id)->count_all_results('doctor');
+        $data['active_doctors'] = $this->db->where('hospital_id', $hospital_id)->where('active', 1)->count_all_results('doctor');
+        $data['total_departments'] = count($data['departments']);
         $this->load->view('home/dashboard');
         $this->load->view('doctor', $data);
         $this->load->view('home/footer');
@@ -47,7 +50,6 @@ class Doctor extends MX_Controller
 
     public function addNew()
     {
-
         $id = $this->input->post('id');
 
         if (empty($id)) {
@@ -60,14 +62,39 @@ class Doctor extends MX_Controller
 
         $redirect = $this->input->post('redirect');
         $name = $this->input->post('name');
+        $name_en = $this->input->post('name_en');
+        if (empty($name_en)) {
+            $name_en = $name;
+        }
+        $designation = $this->input->post('designation');
         $degrees = $this->input->post('degrees');
+        $specialization = $this->input->post('specialization');
+        $experience = $this->input->post('experience');
         $password = $this->input->post('password');
         $email = $this->input->post('email');
         $address = $this->input->post('address');
+        $chamber = $this->input->post('chamber');
         $phone = $this->input->post('phone');
+        $phone_secondary = $this->input->post('phone_secondary');
         $department = $this->input->post('department');
         $department_details = $this->department_model->getDepartmentById($department);
         $profile = $this->input->post('profile');
+
+        $consultation_fee = $this->input->post('consultation_fee');
+        if (empty($consultation_fee) || (float)$consultation_fee <= 0) {
+            $consultation_fee = 700.00;
+        } else {
+            $consultation_fee = (float)$consultation_fee;
+        }
+
+        $followup_fee = $this->input->post('followup_fee');
+        if (empty($followup_fee) || (float)$followup_fee <= 0) {
+            $followup_fee = 400.00;
+        } else {
+            $followup_fee = (float)$followup_fee;
+        }
+
+        $active = $this->input->post('active') !== null ? (int)$this->input->post('active') : 1;
 
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
@@ -80,13 +107,11 @@ class Doctor extends MX_Controller
         // Validating Email Field
         $this->form_validation->set_rules('email', 'Email', 'trim|required|min_length[5]|max_length[100]|xss_clean');
         // Validating Address Field   
-        $this->form_validation->set_rules('address', 'Address', 'trim|required|min_length[1]|max_length[500]|xss_clean');
+        $this->form_validation->set_rules('address', 'Address', 'trim|min_length[1]|max_length[500]|xss_clean');
         // Validating Phone Field           
         $this->form_validation->set_rules('phone', 'Phone', 'trim|required|min_length[1]|max_length[50]|xss_clean');
         // Validating Department Field   
         $this->form_validation->set_rules('department', 'Department', 'trim|min_length[1]|max_length[500]|xss_clean');
-        // Validating Phone Field           
-        // $this->form_validation->set_rules('profile', 'Profile', 'trim|required|min_length[1]|max_length[50]|xss_clean');
 
         if ($this->form_validation->run() == FALSE) {
             if (!empty($id)) {
@@ -136,7 +161,7 @@ class Doctor extends MX_Controller
                 'upload_path' => "./uploads/",
                 'allowed_types' => "gif|jpg|png|jpeg",
                 'overwrite' => False,
-                'max_size' => "20480000", // Can be set to particular file size , here it is 2 MB(2048 Kb)
+                'max_size' => "2048", // 2 MB restriction
                 'max_height' => "1768",
                 'max_width' => "2024"
             );
@@ -145,96 +170,60 @@ class Doctor extends MX_Controller
                 'upload_path' => "./uploads/",
                 'allowed_types' => "gif|jpg|png|jpeg",
                 'overwrite' => False,
-                'max_size' => "20480000", // Can be set to particular file size , here it is 2 MB(2048 Kb)
+                'max_size' => "2048", // 2 MB restriction
                 'max_height' => "1768",
                 'max_width' => "2024"
             );
 
-            $this->load->library('Upload', $config);
-            $this->upload->initialize($config);
+            $img_url = null;
+            $signature = null;
 
-            if ($this->upload->do_upload('img_url')) {
-                $path = $this->upload->data();
-                $img_url = "uploads/" . $path['file_name'];
-
-                $this->load->library('Upload', $config1);
-                $this->upload->initialize($config1);
-                if ($this->upload->do_upload('signature')) {
-                    $path1 = $this->upload->data();
-                    $signature = "uploads/" . $path1['file_name'];
-                    $data = array();
-                    $data = array(
-                        'img_url' => $img_url,
-                        'name' => $name,
-                        'degrees' => $degrees,
-                        'email' => $email,
-                        'address' => $address,
-                        'phone' => $phone,
-                        'department' => $department,
-                        'department_name' => $department_details->name,
-                        'profile' => $profile,
-                        'signature' => $signature,
-                        'appointment_confirmation' => 'Active',
-
-                    );
-                } else {
-                    $data = array();
-                    $data = array(
-                        'img_url' => $img_url,
-                        'name' => $name,
-                        'degrees' => $degrees,
-                        'email' => $email,
-                        'address' => $address,
-                        'phone' => $phone,
-                        'department' => $department,
-                        'department_name' => $department_details->name,
-                        'profile' => $profile,
-
-                        'appointment_confirmation' => 'Active',
-
-                    );
-                }
-            } else {
-                $this->load->library('Upload', $config1);
-                $this->upload->initialize($config1);
-
-                if ($this->upload->do_upload('signature')) {
-                    $path1 = $this->upload->data();
-                    $signature = "uploads/" . $path1['file_name'];
-
-                    $data = array();
-                    $data = array(
-
-                        'name' => $name,
-                        'degrees' => $degrees,
-                        'email' => $email,
-                        'address' => $address,
-                        'phone' => $phone,
-                        'department' => $department,
-                        'department_name' => $department_details->name,
-                        'profile' => $profile,
-                        'signature' => $signature,
-                        'appointment_confirmation' => 'Active',
-
-                    );
-                } else {
-
-                    $data = array();
-                    $data = array(
-                        'name' => $name,
-                        'degrees' => $degrees,
-                        'email' => $email,
-                        'address' => $address,
-                        'phone' => $phone,
-                        'department' => $department,
-                        'profile' => $profile,
-                        'department_name' => $department_details->name,
-
-                        'appointment_confirmation' => 'Active',
-
-                    );
+            if (!empty($_FILES['img_url']['name'])) {
+                $this->load->library('Upload', $config);
+                $this->upload->initialize($config);
+                if ($this->upload->do_upload('img_url')) {
+                    $path = $this->upload->data();
+                    $img_url = "uploads/" . $path['file_name'];
                 }
             }
+
+            if (!empty($_FILES['signature']['name'])) {
+                $this->load->library('Upload', $config1);
+                $this->upload->initialize($config1);
+                if ($this->upload->do_upload('signature')) {
+                    $path1 = $this->upload->data();
+                    $signature = "uploads/" . $path1['file_name'];
+                }
+            }
+
+            $data = array(
+                'name' => $name,
+                'name_en' => $name_en,
+                'designation' => $designation,
+                'degrees' => $degrees,
+                'specialization' => $specialization,
+                'experience' => $experience,
+                'email' => $email,
+                'address' => $address,
+                'chamber' => $chamber,
+                'phone' => $phone,
+                'phone_secondary' => $phone_secondary,
+                'department' => $department,
+                'department_name' => !empty($department_details) ? $department_details->name : '',
+                'consultation_fee' => $consultation_fee,
+                'followup_fee' => $followup_fee,
+                'profile' => $profile,
+                'active' => $active,
+                'appointment_confirmation' => 'Active',
+            );
+
+            if (!empty($img_url)) {
+                $data['img_url'] = $img_url;
+            }
+            if (!empty($signature)) {
+                $data['signature'] = $signature;
+            }
+
             $username = $this->input->post('name');
             if (empty($id)) {     // Adding New Doctor
                 if ($this->ion_auth->email_check($email)) {
@@ -250,6 +239,26 @@ class Doctor extends MX_Controller
                     $this->doctor_model->updateDoctor($doctor_user_id, $id_info);
                     $this->hospital_model->addHospitalIdToIonUser($ion_user_id, $this->hospital_id);
                     $base_url = str_replace(array('http://', 'https://', ' '), '', base_url()) . "auth/login";
+
+                    // Synchronize Consultation Fee (BDT 700 standard) in doctor_visit
+                    $h_id = $this->session->userdata('hospital_id') ? $this->session->userdata('hospital_id') : $this->hospital_id;
+                    $this->db->insert('doctor_visit', array(
+                        'doctor_id' => $doctor_user_id,
+                        'visit_description' => 'Consultation Fee',
+                        'visit_charges' => $consultation_fee,
+                        'status' => 'active',
+                        'hospital_id' => $h_id
+                    ));
+                    if (!empty($followup_fee)) {
+                        $this->db->insert('doctor_visit', array(
+                            'doctor_id' => $doctor_user_id,
+                            'visit_description' => 'Follow-up',
+                            'visit_charges' => $followup_fee,
+                            'status' => 'active',
+                            'hospital_id' => $h_id
+                        ));
+                    }
+
                     //sms
                     $set['settings'] = $this->settings_model->getSettings();
                     $autosms = $this->sms_model->getAutoSmsByType('doctor');
@@ -301,9 +310,6 @@ class Doctor extends MX_Controller
                         }
                     }
 
-                    //end
-
-
                     show_swal(lang('new_doctor_added_successfully'), 'success', lang('added'));
                 }
             } else { // Updating Doctor
@@ -322,6 +328,37 @@ class Doctor extends MX_Controller
                 }
                 $this->doctor_model->updateIonUser($username, $email, $password, $ion_user_id);
                 $this->doctor_model->updateDoctor($id, $data);
+
+                // Synchronize Consultation Fee (BDT 700 standard) in doctor_visit
+                $h_id = $this->session->userdata('hospital_id') ? $this->session->userdata('hospital_id') : $this->hospital_id;
+                $existing_consult = $this->db->get_where('doctor_visit', array('doctor_id' => $id, 'visit_description' => 'Consultation Fee', 'hospital_id' => $h_id))->row();
+                if (!empty($existing_consult)) {
+                    $this->db->where('id', $existing_consult->id)->update('doctor_visit', array('visit_charges' => $consultation_fee, 'status' => 'active'));
+                } else {
+                    $this->db->insert('doctor_visit', array(
+                        'doctor_id' => $id,
+                        'visit_description' => 'Consultation Fee',
+                        'visit_charges' => $consultation_fee,
+                        'status' => 'active',
+                        'hospital_id' => $h_id
+                    ));
+                }
+
+                if (!empty($followup_fee)) {
+                    $existing_fu = $this->db->get_where('doctor_visit', array('doctor_id' => $id, 'visit_description' => 'Follow-up', 'hospital_id' => $h_id))->row();
+                    if (!empty($existing_fu)) {
+                        $this->db->where('id', $existing_fu->id)->update('doctor_visit', array('visit_charges' => $followup_fee, 'status' => 'active'));
+                    } else {
+                        $this->db->insert('doctor_visit', array(
+                            'doctor_id' => $id,
+                            'visit_description' => 'Follow-up',
+                            'visit_charges' => $followup_fee,
+                            'status' => 'active',
+                            'hospital_id' => $h_id
+                        ));
+                    }
+                }
+
                 show_swal(lang('doctor_details_updated'), 'success', lang('updated'));
             }
             // Loading View
@@ -374,15 +411,43 @@ class Doctor extends MX_Controller
     function editDoctorByJason()
     {
         $id = $this->input->get('id');
-        $data['doctor'] = $this->doctor_model->getDoctorById($id);
-        if ($data['doctor']->department == null && $data['doctor']->department_name != null) {
-            $department_details = $this->department_model->getDepartmentByName($data['doctor']->department_name);
+        $doctor = $this->doctor_model->getDoctorById($id);
+        if ($doctor->department == null && $doctor->department_name != null) {
+            $department_details = $this->department_model->getDepartmentByName($doctor->department_name);
             if ($department_details) {
-                $department_id = $department_details->id;
+                $doctor->department = $department_details->id;
             }
-            $data['doctor']->department = $department_id;
         }
+        $data['doctor'] = $doctor;
+        $data['schedules'] = $this->db->get_where('time_schedule', array('doctor' => $id, 'hospital_id' => $doctor->hospital_id))->result();
+        $data['holidays'] = $this->schedule_model->getHolidaysByDoctor($id);
+        $data['visits'] = $this->doctor_model->getDoctorVisitByDoctorId($id);
         echo json_encode($data);
+    }
+
+    public function toggleActive()
+    {
+        header('Content-Type: application/json');
+        if (!$this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Receptionist'))) {
+            echo json_encode(array('status' => 'error', 'message' => 'Unauthorized'));
+            return;
+        }
+
+        $id = $this->input->post('id');
+        $doctor = $this->doctor_model->getDoctorById($id);
+        if (empty($doctor)) {
+            echo json_encode(array('status' => 'error', 'message' => 'Doctor record not found'));
+            return;
+        }
+
+        $new_status = ($doctor->active == 1) ? 0 : 1;
+        $this->doctor_model->updateDoctor($id, array('active' => $new_status));
+
+        echo json_encode(array(
+            'status' => 'success',
+            'new_status' => $new_status,
+            'message' => 'Doctor ' . html_escape($doctor->name) . ' has been ' . ($new_status ? 'activated' : 'deactivated') . ' successfully.'
+        ));
     }
 
     function delete()
@@ -415,123 +480,144 @@ class Doctor extends MX_Controller
     function getDoctor()
     {
         $requestData = $_REQUEST;
-        $start = $requestData['start'];
-        $limit = $requestData['length'];
-        $search = $this->input->post('search')['value'];
+        $start = isset($requestData['start']) ? intval($requestData['start']) : 0;
+        $limit = isset($requestData['length']) ? intval($requestData['length']) : 10;
+        $search = isset($requestData['search']['value']) ? trim($requestData['search']['value']) : '';
+        $department = $this->input->post('department');
+        $status = $this->input->post('status');
 
         $order = $this->input->post("order");
         $columns_valid = array(
             "0" => "id",
             "1" => "name",
-            "2" => "email",
-            "3" => "phone",
-            "4" => "department",
-            "5" => "profile",
+            "2" => "degrees",
+            "3" => "department_name",
+            "4" => "phone",
+            "5" => "consultation_fee",
+            "6" => "id",
+            "7" => "active",
+            "8" => "id",
         );
         $values = $this->settings_model->getColumnOrder($order, $columns_valid);
         $dir = $values[0];
         $order = $values[1];
 
-        if ($limit == -1) {
-            if (!empty($search)) {
-                $data['doctors'] = $this->doctor_model->getDoctorBysearch($search, $order, $dir);
-            } else {
-                $data['doctors'] = $this->doctor_model->getDoctorWithoutSearch($order, $dir);
+        $totalData = $this->doctor_model->getDoctorsFilteredCount(null, null, null);
+        $totalFiltered = $this->doctor_model->getDoctorsFilteredCount($search, $department, $status);
+        $doctors = $this->doctor_model->getDoctorsFiltered($limit, $start, $search, $order, $dir, $department, $status);
+
+        $info = array();
+        foreach ($doctors as $doctor) {
+            // Photo & Name & Designation
+            $photo = (!empty($doctor->img_url) && file_exists($doctor->img_url)) ? $doctor->img_url : 'uploads/cardiology-patient-icon-vector-6244713.jpg';
+            $doc_name = !empty($doctor->name_en) ? $doctor->name_en : $doctor->name;
+            $name_cell = '<div class="d-flex align-items-center">';
+            $name_cell .= '<img src="' . base_url($photo) . '" class="rounded-circle mr-3 border shadow-sm" style="width:48px;height:48px;object-fit:cover;">';
+            $name_cell .= '<div>';
+            $name_cell .= '<div class="font-weight-bold text-dark" style="font-size:14px;">' . html_escape($doc_name) . '</div>';
+            if (!empty($doctor->designation)) {
+                $name_cell .= '<div class="text-primary small font-weight-bold">' . html_escape($doctor->designation) . '</div>';
             }
-        } else {
-            if (!empty($search)) {
-                $data['doctors'] = $this->doctor_model->getDoctorByLimitBySearch($limit, $start, $search, $order, $dir);
-            } else {
-                $data['doctors'] = $this->doctor_model->getDoctorByLimit($limit, $start, $order, $dir);
+            if (!empty($doctor->experience)) {
+                $name_cell .= '<span class="badge badge-light border text-muted small mt-1">' . html_escape($doctor->experience) . '</span>';
             }
-        }
+            $name_cell .= '</div></div>';
 
-
-        $i = 0;
-        foreach ($data['doctors'] as $doctor) {
-            $i = $i + 1;
-            if ($this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) {
-                $options1 = '<a type="button" class="btn btn-primary btn-sm editbutton mr-1" title="' . lang('edit') . '" data-toggle="modal" data-id="' . $doctor->id . '"><i class="fa fa-edit"></i> ' . lang('') . '</a>';
-            }
-            $options2 = '<a class="btn btn-success btn-sm detailsbutton mr-1" title="' . lang('appointments') . '" href="appointment/getAppointmentByDoctorId?id=' . $doctor->id . '"><i class="fa fa-calendar"></i> ' . lang('appointments') . '</a>';
-
-            if ($this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) {
-                $options3 = '<a class="btn btn-danger btn-sm delete_button mr-1" title="' . lang('delete') . '" href="doctor/delete?id=' . $doctor->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash"></i> ' . lang('') . '</a>';
-            }
-
-            if ($this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) {
-                $options4 = '<a href="schedule/holidays?doctor=' . $doctor->id . '" class="btn btn-warning btn-sm mr-1" data-id="' . $doctor->id . '"><i class="fa fa-book"></i> ' . lang('holiday') . '</a>';
-                $options5 = '<a href="schedule/timeSchedule?doctor=' . $doctor->id . '" class="btn btn-secondary btn-sm mr-1" data-id="' . $doctor->id . '"><i class="fa fa-book"></i> ' . lang('time_schedule') . '</a>';
-                $options6 = '<a type="button" class="btn btn-info btn-sm detailsbutton inffo mr-1" title="' . lang('info') . '" data-toggle="modal" data-id="' . $doctor->id . '"><i class="fa fa-info"></i> ' . lang('') . '</a>';
-            }
-
-
-            $department_details = $this->department_model->getDepartmentById($doctor->department);
-            if (!empty($department_details)) {
-                $depart = $department_details->name;
-            } else {
-                $depart = $doctor->department_name;
-            }
-
-
-
-            $dropdownOptions = '';
-            if (!empty($options6) || !empty($options1) || !empty($options2) || !empty($options4)  || !empty($options5)  || !empty($options3)) {
-                $dropdownOptions = '
-            <div class="btn-group">
-            <button type="button" class="btn btn-info btn-xs label-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="">
-            <i class="fas fa-bars"></i> ' . lang('actions') . ' <span class="caret"></span>
-        </button>
-                <ul class="dropdown-menu">
-                    ' . ($options6 ? '<li><a class="detailsbutton inffo"' . lang('info') . '" data-toggle = "modal" data-id="' . $doctor->id . '"> <i class="fa fa-file-invoice"></i> ' . lang('info') . ' </a></li>' : '') . '
-                    ' . ($options1 ? '<li><a class="editbutton" title="' . lang('edit') . '" data-toggle = "modal" data-id="' . $doctor->id . '">  <i class="fa fa-edit"></i> ' . lang('edit') . '</a></li>' : '') . '
-                    ' . ($options2 ? '<li><a  href="appointment/getAppointmentByDoctorId?id=' . $doctor->id . '"> <i class="fa fa-print"></i> ' . lang('appointments') . ' </a></li>' : '') . '
-                    ' . ($options4 ? '<li><a href="schedule/holidays?doctor=' . $doctor->id . '" > <i class="fa fa-money-check"></i> ' . lang('holiday') . ' ' . lang('') . ' </a></li>' : '') . '
-                    ' . ($options5 ? '<li><a href="' . site_url("schedule/timeSchedule?doctor=" . $doctor->id) . '" > <i class="fa fa-book"></i> ' . lang('time_schedule') . ' </a></li>' : '') . '
-                    ' . ($options6 ? '<li><a href="' . site_url("doctor/delete?id=" . $doctor->id) . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"> <i class="fa fa-trash"></i> ' . lang('delete') . ' </a></li>' : '') . '
-
-                </ul>
-            </div>';
-            }
-
-
-
-
-            $profile_display = '';
+            // Qualifications & Specialization
+            $qual_cell = '';
             if (!empty($doctor->degrees)) {
-                $profile_display .= '<div class="text-primary font-weight-bold">' . html_escape($doctor->degrees) . '</div>';
+                $qual_cell .= '<div class="font-weight-bold text-dark mb-1"><i class="fas fa-graduation-cap text-secondary mr-1"></i> ' . html_escape($doctor->degrees) . '</div>';
             }
-            if (!empty($doctor->profile)) {
-                $profile_display .= '<div>' . $doctor->profile . '</div>';
+            if (!empty($doctor->specialization)) {
+                $qual_cell .= '<div class="text-muted small"><i class="fas fa-stethoscope text-info mr-1"></i> ' . html_escape($doctor->specialization) . '</div>';
             }
+            if (empty($qual_cell)) {
+                $qual_cell = '<span class="text-muted small">N/A</span>';
+            }
+
+            // Department
+            $dept_name = !empty($doctor->department_name) ? $doctor->department_name : 'General';
+            $dept_cell = '<span class="badge badge-info p-2 font-weight-bold" style="font-size:11px; border-radius:4px;"><i class="fas fa-hospital mr-1"></i> ' . html_escape($dept_name) . '</span>';
+
+            // Contact
+            $contact_cell = '<div class="small">';
+            $contact_cell .= '<div><i class="fas fa-phone-alt text-success mr-1"></i> <a href="tel:' . html_escape($doctor->phone) . '" class="text-dark font-weight-bold">' . html_escape($doctor->phone) . '</a></div>';
+            if (!empty($doctor->phone_secondary)) {
+                $contact_cell .= '<div class="text-muted"><i class="fas fa-phone text-muted mr-1"></i> ' . html_escape($doctor->phone_secondary) . '</div>';
+            }
+            if (!empty($doctor->email)) {
+                $contact_cell .= '<div class="text-muted mt-1"><i class="fas fa-envelope text-primary mr-1"></i> ' . html_escape($doctor->email) . '</div>';
+            }
+            if (!empty($doctor->chamber)) {
+                $contact_cell .= '<div class="text-muted small mt-1"><i class="fas fa-map-marker-alt text-danger mr-1"></i> ' . html_escape($doctor->chamber) . '</div>';
+            }
+            $contact_cell .= '</div>';
+
+            // Consultation Fee: Standard BDT 700
+            $fee_cell = '<div class="text-center">';
+            $fee_cell .= '<span class="badge badge-success px-3 py-2 font-weight-bold" style="font-size:12px; border-radius:4px;"><i class="fas fa-money-bill-wave mr-1"></i> BDT ' . number_format($doctor->consultation_fee, 0) . '</span>';
+            if (!empty($doctor->followup_fee) && $doctor->followup_fee > 0) {
+                $fee_cell .= '<div class="text-muted small mt-1">Follow-up: BDT ' . number_format($doctor->followup_fee, 0) . '</div>';
+            }
+            $fee_cell .= '</div>';
+
+            // Schedule & Flag
+            $sched_cell = '';
+            if (!empty($doctor->schedule_flag)) {
+                $sched_cell = '<div class="badge badge-warning p-2 text-wrap text-left shadow-sm" style="font-size:11px; max-width:220px; background-color:#fff3cd; color:#856404; border:1px solid #ffeeba; border-radius:4px;"><i class="fas fa-exclamation-triangle mr-1 text-warning"></i> ' . html_escape($doctor->schedule_flag) . '</div>';
+            } else {
+                $schedules = $this->db->get_where('time_schedule', array('doctor' => $doctor->id, 'hospital_id' => $doctor->hospital_id))->result();
+                if (!empty($schedules)) {
+                    $sched_list = array();
+                    foreach ($schedules as $sc) {
+                        $sched_list[] = '<span class="font-weight-bold text-dark">' . substr($sc->weekday, 0, 3) . ':</span> ' . $sc->s_time . ' - ' . $sc->e_time;
+                    }
+                    $sched_cell = '<div class="small bg-white p-2 rounded border" style="font-size:11px; line-height:1.5;">' . implode('<br>', $sched_list) . '</div>';
+                } else {
+                    $sched_cell = '<span class="badge badge-secondary p-2 small">No schedule configured</span>';
+                }
+            }
+
+            // Status & Quick Action
+            $status_cell = '<div class="text-center">';
+            if ($doctor->active == 1) {
+                $status_cell .= '<span class="badge badge-success px-2 py-1 mb-1 font-weight-bold"><i class="fas fa-check-circle mr-1"></i> Active</span><br>';
+                $status_cell .= '<button type="button" class="btn btn-outline-danger btn-xs toggle-status-btn mt-1" data-id="' . $doctor->id . '" title="Click to deactivate"><i class="fas fa-ban mr-1"></i> Deactivate</button>';
+            } else {
+                $status_cell .= '<span class="badge badge-danger px-2 py-1 mb-1 font-weight-bold"><i class="fas fa-times-circle mr-1"></i> Inactive</span><br>';
+                $status_cell .= '<button type="button" class="btn btn-outline-success btn-xs toggle-status-btn mt-1" data-id="' . $doctor->id . '" title="Click to activate"><i class="fas fa-check mr-1"></i> Activate</button>';
+            }
+            $status_cell .= '</div>';
+
+            // Actions
+            $actions = '<div class="btn-group btn-group-sm" role="group">';
+            $actions .= '<button type="button" class="btn btn-info inffo mr-1" title="View Profile" data-id="' . $doctor->id . '"><i class="fa fa-eye"></i></button>';
+            $actions .= '<button type="button" class="btn btn-primary editbutton mr-1" title="Edit Doctor" data-id="' . $doctor->id . '"><i class="fa fa-edit"></i></button>';
+            $actions .= '<a href="schedule/timeSchedule?doctor=' . $doctor->id . '" class="btn btn-secondary mr-1" title="Weekly Time Schedule"><i class="fa fa-clock"></i></a>';
+            $actions .= '<a href="schedule/holidays?doctor=' . $doctor->id . '" class="btn btn-warning mr-1" title="Holidays & Leave"><i class="fa fa-calendar-times"></i></a>';
+            $actions .= '<a href="appointment/getAppointmentByDoctorId?id=' . $doctor->id . '" class="btn btn-success mr-1" title="Doctor Appointments"><i class="fa fa-calendar-check"></i></a>';
+            $actions .= '<a href="doctor/delete?id=' . $doctor->id . '" class="btn btn-danger" title="Delete" onclick="return confirm(\'Are you sure you want to delete this doctor?\');"><i class="fa fa-trash"></i></a>';
+            $actions .= '</div>';
 
             $info[] = array(
-                $doctor->id,
-                $doctor->name,
-                $doctor->email,
-                $doctor->phone,
-                $depart,
-                $profile_display,
-                $options6 . ' ' . $options1 . ' ' . $options2 . ' ' . $options4 . ' ' . $options5 . ' ' . $options3,
-                // $dropdownOptions
+                '<strong>#' . $doctor->id . '</strong>',
+                $name_cell,
+                $qual_cell,
+                $dept_cell,
+                $contact_cell,
+                $fee_cell,
+                $sched_cell,
+                $status_cell,
+                $actions,
             );
         }
 
-        if (!empty($data['doctors'])) {
-            $output = array(
-                "draw" => intval($requestData['draw']),
-                "recordsTotal" => count($this->doctor_model->getDoctor()),
-                "recordsFiltered" => $i,
-                "data" => $info
-            );
-        } else {
-            $output = array(
-                // "draw" => 1,
-                "recordsTotal" => 0,
-                "recordsFiltered" => 0,
-                "data" => []
-            );
-        }
+        $output = array(
+            "draw" => isset($requestData['draw']) ? intval($requestData['draw']) : 1,
+            "recordsTotal" => intval($totalData),
+            "recordsFiltered" => intval($totalFiltered),
+            "data" => $info
+        );
 
         echo json_encode($output);
     }

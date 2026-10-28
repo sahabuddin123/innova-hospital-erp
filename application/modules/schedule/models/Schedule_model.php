@@ -101,119 +101,230 @@ class Schedule_model extends CI_model
 
     function getAvailableSlotByDoctorByDate($date, $doctor)
     {
-        //$newDate = date("m-d-Y", strtotime($date));
         $weekday = date("l", $date);
+        $target_day_str = date("Y-m-d", $date);
+        $target_timestamp = strtotime($target_day_str);
+
+        // Check if doctor is active, available, and has configured schedules
+        $this->load->model('doctor/doctor_model');
+        $doctor_info = $this->doctor_model->getDoctorById($doctor);
+        if (empty($doctor_info) || $doctor_info->active != 1 || (isset($doctor_info->available) && $doctor_info->available == '0')) {
+            return array();
+        }
+        if (!empty($doctor_info->schedule_flag)) {
+            return array();
+        }
+
+        // Check holidays and leave records for doctor
+        $this->db->where('doctor', $doctor);
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+        $holidays = $this->db->get('holidays')->result();
+
+        $is_full_day_off = false;
+        $partial_leaves = array();
+
+        foreach ($holidays as $h) {
+            $h_start_day = is_numeric($h->date) ? date("Y-m-d", (int)$h->date) : date("Y-m-d", strtotime($h->date));
+            $h_start_ts = strtotime($h_start_day);
+
+            if (!empty($h->end_date)) {
+                $h_end_day = is_numeric($h->end_date) ? date("Y-m-d", (int)$h->end_date) : date("Y-m-d", strtotime($h->end_date));
+                $h_end_ts = strtotime($h_end_day);
+            } else {
+                $h_end_ts = $h_start_ts;
+            }
+
+            if ($target_timestamp >= $h_start_ts && $target_timestamp <= $h_end_ts) {
+                if (empty($h->leave_type) || $h->leave_type == 'full_day' || $h->leave_type == 'emergency') {
+                    $is_full_day_off = true;
+                    break;
+                } elseif ($h->leave_type == 'partial_day') {
+                    $partial_leaves[] = array(
+                        'start' => !empty($h->start_time) ? strtotime($target_day_str . ' ' . $h->start_time) : null,
+                        'end' => !empty($h->end_time) ? strtotime($target_day_str . ' ' . $h->end_time) : null,
+                    );
+                }
+            }
+        }
+
+        if ($is_full_day_off) {
+            return array();
+        }
 
         $this->db->where('date', $date);
         $this->db->where('doctor', $doctor);
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $holiday = $this->db->get('holidays')->result();
+        $query = $this->db->get('appointment')->result();
 
-        if (empty($holiday)) {
-            $this->db->where('date', $date);
-            $this->db->where('doctor', $doctor);
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $query = $this->db->get('appointment')->result();
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+        $this->db->where('doctor', $doctor);
+        $this->db->where('weekday', $weekday);
+        $this->db->order_by('s_time_key', 'asc');
+        $query1 = $this->db->get('time_slot')->result();
 
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where('doctor', $doctor);
-            $this->db->where('weekday', $weekday);
-            $this->db->order_by('s_time_key', 'asc');
-            $query1 = $this->db->get('time_slot')->result();
+        $availabletimeSlot = array();
+        $bookedTimeSlot = array();
 
-            $availabletimeSlot = array();
-            $bookedTimeSlot = array();
+        $this->db->where('hospital_id', $this->hospital_id);
+        $this->settings = $this->db->get('settings')->row();
 
-            $this->db->where('hospital_id', $this->hospital_id);
-            $this->settings = $this->db->get('settings')->row();
-
-            foreach ($query1 as $timeslot) {
-                if ($this->settings->time_format == 24) {
-                    $timeslot->s_time = $this->settings_model->convert_to_24h($timeslot->s_time);
-                    $timeslot->e_time = $this->settings_model->convert_to_24h($timeslot->e_time);
-                }
-                $availabletimeSlot[] = $timeslot->s_time . ' To ' . $timeslot->e_time;
-            }
-            foreach ($query as $bookedTime) {
-                if ($bookedTime->status != 'Cancelled') {
-                    if ($this->settings->time_format == 24) {
-                        $time_string = explode(' To ', $bookedTime->time_slot);
-                        $time_string[0] = $this->settings_model->convert_to_24h($time_string[0]);
-                        $time_string[1] = $this->settings_model->convert_to_24h($time_string[1]);
-                    } else {
-                        $time_string = explode(' To ', $bookedTime->time_slot);
+        foreach ($query1 as $timeslot) {
+            // Check if slot falls in partial day leave
+            if (!empty($partial_leaves)) {
+                $slot_start_ts = strtotime($target_day_str . ' ' . $timeslot->s_time);
+                $slot_end_ts = strtotime($target_day_str . ' ' . $timeslot->e_time);
+                $blocked_by_partial = false;
+                foreach ($partial_leaves as $pl) {
+                    if ($pl['start'] && $pl['end']) {
+                        if ($slot_start_ts < $pl['end'] && $slot_end_ts > $pl['start']) {
+                            $blocked_by_partial = true;
+                            break;
+                        }
                     }
-
-                    $bookedTimeSlot[] = $time_string[0] . ' To ' . $time_string[1];
+                }
+                if ($blocked_by_partial) {
+                    continue;
                 }
             }
 
-            $availableSlot = array_diff($availabletimeSlot, $bookedTimeSlot);
-        } else {
-            $availableSlot = array();
+            if ($this->settings->time_format == 24) {
+                $timeslot->s_time = $this->settings_model->convert_to_24h($timeslot->s_time);
+                $timeslot->e_time = $this->settings_model->convert_to_24h($timeslot->e_time);
+            }
+            $availabletimeSlot[] = $timeslot->s_time . ' To ' . $timeslot->e_time;
         }
 
-        return $availableSlot;
+        foreach ($query as $bookedTime) {
+            if ($bookedTime->status != 'Cancelled') {
+                if ($this->settings->time_format == 24) {
+                    $time_string = explode(' To ', $bookedTime->time_slot);
+                    $time_string[0] = $this->settings_model->convert_to_24h($time_string[0]);
+                    $time_string[1] = $this->settings_model->convert_to_24h($time_string[1]);
+                } else {
+                    $time_string = explode(' To ', $bookedTime->time_slot);
+                }
+
+                $bookedTimeSlot[] = $time_string[0] . ' To ' . $time_string[1];
+            }
+        }
+
+        $availableSlot = array_diff($availabletimeSlot, $bookedTimeSlot);
+        return array_values($availableSlot);
     }
 
     function getAvailableSlotByDoctorByDateByAppointmentId($date, $doctor, $appointment_id)
     {
-        //$newDate = date("m-d-Y", strtotime($date));
         $weekday = date("l", $date);
+        $target_day_str = date("Y-m-d", $date);
+        $target_timestamp = strtotime($target_day_str);
+
+        // Check if doctor is active, available, and has configured schedules
+        $this->load->model('doctor/doctor_model');
+        $doctor_info = $this->doctor_model->getDoctorById($doctor);
+        if (empty($doctor_info) || $doctor_info->active != 1 || (isset($doctor_info->available) && $doctor_info->available == '0')) {
+            return array();
+        }
+        if (!empty($doctor_info->schedule_flag)) {
+            return array();
+        }
+
+        // Check holidays and leave records for doctor
+        $this->db->where('doctor', $doctor);
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+        $holidays = $this->db->get('holidays')->result();
+
+        $is_full_day_off = false;
+        $partial_leaves = array();
+
+        foreach ($holidays as $h) {
+            $h_start_day = is_numeric($h->date) ? date("Y-m-d", (int)$h->date) : date("Y-m-d", strtotime($h->date));
+            $h_start_ts = strtotime($h_start_day);
+
+            if (!empty($h->end_date)) {
+                $h_end_day = is_numeric($h->end_date) ? date("Y-m-d", (int)$h->end_date) : date("Y-m-d", strtotime($h->end_date));
+                $h_end_ts = strtotime($h_end_day);
+            } else {
+                $h_end_ts = $h_start_ts;
+            }
+
+            if ($target_timestamp >= $h_start_ts && $target_timestamp <= $h_end_ts) {
+                if (empty($h->leave_type) || $h->leave_type == 'full_day' || $h->leave_type == 'emergency') {
+                    $is_full_day_off = true;
+                    break;
+                } elseif ($h->leave_type == 'partial_day') {
+                    $partial_leaves[] = array(
+                        'start' => !empty($h->start_time) ? strtotime($target_day_str . ' ' . $h->start_time) : null,
+                        'end' => !empty($h->end_time) ? strtotime($target_day_str . ' ' . $h->end_time) : null,
+                    );
+                }
+            }
+        }
+
+        if ($is_full_day_off) {
+            return array();
+        }
 
         $this->db->where('date', $date);
         $this->db->where('doctor', $doctor);
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $holiday = $this->db->get('holidays')->result();
+        $query = $this->db->get('appointment')->result();
 
-        if (empty($holiday)) {
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+        $this->db->where('doctor', $doctor);
+        $this->db->where('weekday', $weekday);
+        $this->db->order_by('s_time_key', 'asc');
+        $query1 = $this->db->get('time_slot')->result();
 
-            $this->db->where('date', $date);
-            $this->db->where('doctor', $doctor);
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $query = $this->db->get('appointment')->result();
+        $availabletimeSlot = array();
+        $bookedTimeSlot = array();
 
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where('doctor', $doctor);
-            $this->db->where('weekday', $weekday);
-            $this->db->order_by('s_time_key', 'asc');
-            $query1 = $this->db->get('time_slot')->result();
+        $this->db->where('hospital_id', $this->hospital_id);
+        $this->settings = $this->db->get('settings')->row();
 
-            $availabletimeSlot = array();
-            $bookedTimeSlot = array();
-
-            $this->db->where('hospital_id', $this->hospital_id);
-            $this->settings = $this->db->get('settings')->row();
-
-            foreach ($query1 as $timeslot) {
-                if ($this->settings->time_format == 24) {
-                    $timeslot->s_time = $this->settings_model->convert_to_24h($timeslot->s_time);
-                    $timeslot->e_time = $this->settings_model->convert_to_24h($timeslot->e_time);
-                }
-                $availabletimeSlot[] = $timeslot->s_time . ' To ' . $timeslot->e_time;
-            }
-            foreach ($query as $bookedTime) {
-                if ($bookedTime->status != 'Cancelled') {
-                    if ($bookedTime->id != $appointment_id) {
-                        if ($this->settings->time_format == 24) {
-                            $time_string = explode(' To ', $bookedTime->time_slot);
-                            $time_string[0] = $this->settings_model->convert_to_24h($time_string[0]);
-                            $time_string[1] = $this->settings_model->convert_to_24h($time_string[1]);
-                            $bookedTime->time_slot = $time_string[0] . ' ' . lang('to') . ' ' . $time_string[1];
-                        } else {
-                            $time_string = explode(' To ', $bookedTime->time_slot);
+        foreach ($query1 as $timeslot) {
+            // Check partial day leave conflict
+            if (!empty($partial_leaves)) {
+                $slot_start_ts = strtotime($target_day_str . ' ' . $timeslot->s_time);
+                $slot_end_ts = strtotime($target_day_str . ' ' . $timeslot->e_time);
+                $blocked_by_partial = false;
+                foreach ($partial_leaves as $pl) {
+                    if ($pl['start'] && $pl['end']) {
+                        if ($slot_start_ts < $pl['end'] && $slot_end_ts > $pl['start']) {
+                            $blocked_by_partial = true;
+                            break;
                         }
-                        $bookedTimeSlot[] = $time_string[0] . ' To ' . $time_string[1];
                     }
-                } 
-            }  
+                }
+                if ($blocked_by_partial) {
+                    continue;
+                }
+            }
 
-            $availableSlot = array_diff($availabletimeSlot, $bookedTimeSlot);
-        } else {
-            $availableSlot = array();
+            if ($this->settings->time_format == 24) {
+                $timeslot->s_time = $this->settings_model->convert_to_24h($timeslot->s_time);
+                $timeslot->e_time = $this->settings_model->convert_to_24h($timeslot->e_time);
+            }
+            $availabletimeSlot[] = $timeslot->s_time . ' To ' . $timeslot->e_time;
         }
 
-        return $availableSlot;
+        foreach ($query as $bookedTime) {
+            if ($bookedTime->status != 'Cancelled') {
+                if ($bookedTime->id != $appointment_id) {
+                    if ($this->settings->time_format == 24) {
+                        $time_string = explode(' To ', $bookedTime->time_slot);
+                        $time_string[0] = $this->settings_model->convert_to_24h($time_string[0]);
+                        $time_string[1] = $this->settings_model->convert_to_24h($time_string[1]);
+                        $bookedTime->time_slot = $time_string[0] . ' ' . lang('to') . ' ' . $time_string[1];
+                    } else {
+                        $time_string = explode(' To ', $bookedTime->time_slot);
+                    }
+                    $bookedTimeSlot[] = $time_string[0] . ' To ' . $time_string[1];
+                }
+            }
+        }
+
+        $availableSlot = array_diff($availabletimeSlot, $bookedTimeSlot);
+        return array_values($availableSlot);
     }
 
     function updateIonUser($username, $email, $password, $ion_user_id)
