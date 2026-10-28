@@ -1,117 +1,1029 @@
-/*
-To change this license header, choose License Headers in Project Properties.
-To change this template file, choose Tools | Templates
-and open the template in the editor.
-*/
-/* 
-    Created on : May 10, 2021, 5:07:45 PM
-    Author     : sahas
-*/
-.payment {
-  padding-bottom: 0px;
-  border: none;
-  margin-bottom: 10px;
+/* ==========================================================================
+   Lifecare Hospital ERP - Premium POS & Diagnostic Billing Stylesheet
+   Version: 2026.4 - Exact Layout Matching Mockup
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+    --pos-font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --pos-font-mono: 'JetBrains Mono', monospace;
+    
+    /* Primary Brand Colors */
+    --pos-primary: #2563eb;
+    --pos-primary-hover: #1d4ed8;
+    --pos-primary-light: #eff6ff;
+    --pos-primary-border: #bfdbfe;
+    
+    /* Accent Palette */
+    --pos-cyan: #0284c7;
+    --pos-emerald: #10b981;
+    --pos-emerald-hover: #059669;
+    --pos-emerald-light: #ecfdf5;
+    --pos-amber: #f59e0b;
+    --pos-amber-light: #fffbeb;
+    --pos-amber-border: #fde68a;
+    --pos-rose: #ef4444;
+    --pos-rose-light: #fee2e2;
+    
+    /* Neutral & Background Colors */
+    --pos-bg: #f8fafc;
+    --pos-card-bg: #ffffff;
+    --pos-text-main: #0f172a;
+    --pos-text-muted: #64748b;
+    --pos-text-subtle: #94a3b8;
+    --pos-border: #e2e8f0;
+    --pos-border-light: #f1f5f9;
+    
+    /* Shadows */
+    --pos-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+    --pos-shadow-sm: 0 2px 4px -1px rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+    --pos-shadow-md: 0 6px 12px -2px rgba(15, 23, 42, 0.08);
+    --pos-radius: 12px;
 }
 
-.pad_bot {
-  padding-bottom: 5px;
+/* Page Wrapper */
+.page-add-payment {
+    background-color: var(--pos-bg) !important;
+    font-family: var(--pos-font-main) !important;
+    color: var(--pos-text-main) !important;
+    min-height: calc(100vh - 60px);
+    padding-bottom: 25px;
 }
 
-form {
-  background: transparent;
-  padding: 0px 0px;
-  box-shadow: 0px 0px 100px #f1f2f7;
+/* Top Command Header Banner */
+.pos-header-banner {
+    background: #ffffff !important;
+    border-bottom: 1px solid var(--pos-border);
+    padding: 10px 20px;
+    box-shadow: var(--pos-shadow-xs);
+    position: relative;
+    z-index: 10;
+}
+
+.pos-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.pos-header-left {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.pos-header-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
+}
+
+.pos-title-badge {
+    background: #e0e7ff;
+    color: #4338ca;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 14px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+/* Header Shortcuts Strip (Inline in Header) */
+.pos-header-shortcuts {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.pos-shortcut-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+/* Header Right Actions */
+.pos-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.pos-live-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: #ffffff;
+    border: 1px solid var(--pos-border);
+    font-size: 12px;
+    color: #475569;
+    font-weight: 600;
+    box-shadow: var(--pos-shadow-xs);
+}
+
+.pos-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--pos-emerald);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+    margin-right: 6px;
+    animation: posPulse 2s infinite;
+}
+
+/* Invoices Button (Solid Dark Slate matching user screenshot) */
+.btn-pos-invoices {
+    background: #475569 !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    padding: 6px 14px !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    text-decoration: none !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease !important;
+}
+
+.btn-pos-invoices:hover,
+.btn-pos-invoices:focus {
+    background: #334155 !important;
+    color: #ffffff !important;
+    text-decoration: none !important;
+    transform: translateY(-1px);
+}
+
+/* POS Terminal Badge (Light Blue pill/badge matching user screenshot) */
+.pos-terminal-badge {
+    background: #e0f2fe !important;
+    color: #0284c7 !important;
+    border: 1px solid #bae6fd !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px;
+    box-shadow: var(--pos-shadow-xs);
+}
+
+@keyframes posPulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* ==========================================================================
+   TOP ROW: Patient, Doctor, Referrer (Full Width Horizontal)
+   ========================================================================== */
+.pos-top-section {
+    background: transparent;
+    padding: 4px 2px 0 2px;
+}
+
+.pos-top-label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 0 !important;
+}
+
+.btn-top-add-new {
+    background: #e0e7ff !important;
+    color: #4338ca !important;
+    border: none !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 3px 12px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    line-height: 1.2 !important;
+}
+
+.btn-top-add-new:hover {
+    background: #4338ca !important;
+    color: #ffffff !important;
+}
+
+.pos-top-divider {
+    border-top: 1.5px dashed #cbd5e1;
+    margin: 16px 0 16px 0;
+    width: 100%;
+}
+
+/* General Form Control Overrides */
+.page-add-payment .form-control {
+    height: 38px !important;
+    border: 1px solid var(--pos-border) !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--pos-text-main) !important;
+    background-color: #ffffff !important;
+    padding: 6px 12px !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.page-add-payment .form-control:focus {
+    border-color: var(--pos-primary) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+    outline: none !important;
+}
+
+/* Select2 Custom Design */
+.select2-container--default .select2-selection--single {
+    height: 38px !important;
+    border: 1px solid var(--pos-border) !important;
+    border-radius: 8px !important;
+    padding: 4px 10px !important;
+    background-color: #ffffff !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 28px !important;
+    color: var(--pos-text-main) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px !important;
+    right: 8px !important;
+}
+
+/* Patient Quick Inline Card */
+.page-add-payment .pos_client {
+    background: #f8fafc !important;
+    border: 1px solid var(--pos-border) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    margin-top: 8px !important;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+
+/* ==========================================================================
+   Master Cards Layout (3 Balanced Columns)
+   ========================================================================== */
+.pos-card {
+    background: #ffffff !important;
+    border: 1px solid var(--pos-border) !important;
+    border-radius: var(--pos-radius) !important;
+    box-shadow: var(--pos-shadow-xs) !important;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.pos-card-header {
+    background: #ffffff !important;
+    padding: 12px 16px !important;
+    border-bottom: 1px solid var(--pos-border) !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pos-card-title {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.pos-card-title i {
+    font-size: 15px;
+    margin-right: 8px;
+}
+
+/* ==========================================================================
+   COLUMN 1: Diagnostic & Service Catalog
+   ========================================================================== */
+.pos-tab-nav {
+    display: flex;
+    border-bottom: 2px solid #e2e8f0;
+    width: 100%;
+}
+
+.pos-tab-item.active {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    padding-bottom: 8px;
+    border-bottom: 3px solid #2563eb;
+    margin-bottom: -2px;
+    display: inline-flex;
+    align-items: center;
 }
 
 
 
-
-.modal-body form {
-  background: #fff;
-  padding: 21px;
+/* Multi-Select Test Catalog Styles */
+.ms-container {
+    width: 100% !important;
+    background: transparent !important;
+    border: none !important;
+    flex: 1 1 auto;
+    display: flex !important;
+    flex-direction: column;
 }
 
-.remove {
-  width: 20%;
-  float: right;
-  margin-top: 14px;
-  font-size: 14px;
-  padding: 0px;
-  text-align: center;
-  border-bottom: 1px solid #f1f1f1;
+.ms-container .ms-selectable {
+    width: 100% !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    flex: 1 1 auto;
+    display: flex !important;
+    flex-direction: column;
 }
 
-.remove1 {
-  width: 80%;
-  float: left;
-  border-bottom: 1px solid #f1f1f1;
-  padding: 16px 0px;
-  font-size: 16px;
-
+.ms-container .ms-selection {
+    display: none !important;
 }
 
-form input {
-  border: none;
-  background: #f1f2f7 !important;
-  padding: 10px !important;
+/* Multi-select Search Box Wrapper */
+.ms-search-wrap {
+    position: relative;
+    width: 100%;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
 }
 
-.pos_box_title {
-  border: none;
+.ms-container .ms-selectable .search-input {
+    width: 100% !important;
+    height: 40px !important;
+    border: none !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    padding: 8px 36px 8px 38px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--pos-text-main) !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'%3E%3C/path%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: 14px center !important;
+    transition: all 0.15s ease !important;
 }
 
-.payment_label {
-  text-align: left;
+.ms-container .ms-selectable .search-input:focus {
+    background-color: #f8fafc !important;
+    border-bottom-color: var(--pos-primary) !important;
+    box-shadow: inset 0 -2px 0 var(--pos-primary) !important;
+    outline: none !important;
 }
 
+.ms-container .ms-selectable .search-input::placeholder {
+    color: #94a3b8 !important;
+    font-size: 12.5px;
+}
+
+/* Clear Button Inside Search Box */
+.ms-search-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #64748b;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.15s ease;
+    z-index: 5;
+}
+
+.ms-search-clear:hover {
+    background: #cbd5e1;
+    color: #0f172a;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.ms-container ul.ms-list {
+    flex: 1 1 auto;
+    min-height: 480px !important;
+    height: 520px !important;
+    max-height: 560px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+}
+
+/* Optgroup Sticky Header */
+.ms-container .ms-optgroup-label {
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    color: #475569 !important;
+    background: #f8fafc !important;
+    padding: 7px 12px !important;
+    letter-spacing: 0.5px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2 !important;
+}
+
+.ms-container .ms-optgroup-label::before {
+    content: '📁 ';
+    font-size: 11px;
+}
+
+/* Test Item Selectable Row */
+.ms-container .ms-selectable li.ms-elem-selectable {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 8px 14px !important;
+    color: #1e293b !important;
+    border-bottom: 1px solid #f8fafc !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.ms-container .ms-selectable li.ms-elem-selectable:hover {
+    background: #f0f9ff !important;
+    color: #0284c7 !important;
+}
+
+/* Active / Selected Item in Test Catalog (Rich Solid Blue Matching Screenshot) */
+.ms-container .ms-selectable li.ms-elem-selectable.ms-selected,
+.ms-container .ms-selectable li.ms-elem-selectable.active {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+.ms-container .ms-selectable li.ms-elem-selectable.ms-selected span {
+    color: #ffffff !important;
+}
+
+/* Add New Item Button at Bottom of Catalog */
+.btn-add-test-catalog {
+    background: #ffffff !important;
+    border: 1.5px solid #0284c7 !important;
+    color: #0284c7 !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    transition: all 0.2s ease !important;
+    text-align: center;
+}
+
+.btn-add-test-catalog:hover {
+    background: #f0f9ff !important;
+    color: #0369a1 !important;
+    border-color: #0369a1 !important;
+}
+
+/* ==========================================================================
+   COLUMN 2: Dynamic Cart Panel (.qfloww)
+   ========================================================================== */
+.badge-cart-count {
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 3px 10px !important;
+    border-radius: 12px !important;
+}
+
+.cart-header-strip {
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+}
+
+.cart-col-title {
+    width: 75%;
+}
+.cart-col-qty {
+    width: 25%;
+}
+
+.qfloww {
+    min-height: 380px;
+    max-height: 540px;
+    overflow-y: auto;
+    padding: 6px 2px;
+}
+
+/* Single Cart Item Row (Flex Row Matching Screenshot) */
+.cart-item-row.remove1,
+.qfloww .remove1 {
+    width: 100% !important;
+    float: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 8px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+    height: auto !important;
+    transition: all 0.15s ease;
+}
+
+.cart-item-row:hover {
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+.cart-item-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 72%;
+}
+
+/* Soft Pink Square Delete Button with Red ✕ */
+.btn-cart-del,
+.btn-cart-del.remove_attr,
+.remove_attr {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    max-width: 24px !important;
+    background: #fee2e2 !important;
+    color: #ef4444 !important;
+    border: none !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    margin-right: 8px !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+    transition: all 0.15s ease !important;
+    flex-shrink: 0 !important;
+    box-shadow: none !important;
+    vertical-align: middle !important;
+}
+
+.btn-cart-del svg {
+    width: 11px !important;
+    height: 11px !important;
+    stroke: currentColor !important;
+    pointer-events: none !important;
+    display: block !important;
+}
+
+.btn-cart-del i,
+.btn-cart-del .fa,
+.btn-cart-del .fas,
+.remove_attr i,
+.remove_attr .fa,
+.remove_attr .fas {
+    font-family: "Font Awesome 5 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+    font-size: 11px !important;
+    color: #ef4444 !important;
+    line-height: 1 !important;
+    pointer-events: none !important;
+    display: inline-block !important;
+}
+
+.btn-cart-del:hover,
+.remove_attr:hover {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+    transform: none !important;
+}
+
+.btn-cart-del:hover svg {
+    stroke: #ffffff !important;
+}
+
+.btn-cart-del:hover i,
+.btn-cart-del:hover .fa,
+.btn-cart-del:hover .fas,
+.remove_attr:hover i,
+.remove_attr:hover .fa,
+.remove_attr:hover .fas {
+    color: #ffffff !important;
+}
+
+.cart-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.cart-ref-badge {
+    background: #fef3c7;
+    color: #b45309;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cart-doc-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cart-item-price {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+}
+
+/* Cart Quantity Stepper (+  1  -) */
+.cart-item-right {
+    display: flex;
+    align-items: center;
+}
+
+.cart-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-stepper {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: all 0.15s ease;
+}
+
+.btn-stepper:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.cart-qty-num.remove,
+.qfloww input.remove {
+    width: 28px !important;
+    float: none !important;
+    border: none !important;
+    background: transparent !important;
+    text-align: center !important;
+    color: #2563eb !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    font-family: var(--pos-font-mono) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: auto !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Empty Cart State */
+.empty-cart-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--pos-text-subtle);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 480px;
+}
+
+.empty-cart-icon-box {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 12px;
+}
+
+/* ==========================================================================
+   COLUMN 3: Top Actions & Payment Checkout
+   ========================================================================== */
+.pos-top-actions {
+    width: 100%;
+}
+
+.btn-pos-save-print {
+    background: #00a65a !important;
+    color: #ffffff !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    padding: 11px 18px !important;
+    border-radius: 8px !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(0, 166, 90, 0.25) !important;
+    transition: all 0.15s ease !important;
+    width: 100%;
+    text-align: center;
+}
+
+.btn-pos-save-print:hover {
+    background: #008d4c !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 14px rgba(0, 166, 90, 0.35) !important;
+}
+
+.btn-pos-save {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    padding: 8px 14px !important;
+    border-radius: 8px !important;
+    transition: all 0.15s ease !important;
+    text-align: center;
+}
+
+.btn-pos-save:hover {
+    background: #f8fafc !important;
+    border-color: #94a3b8 !important;
+}
+
+.btn-pos-draft {
+    background: #fffbeb !important;
+    border: 1px solid #fde68a !important;
+    color: #b45309 !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    padding: 8px 14px !important;
+    border-radius: 8px !important;
+    transition: all 0.15s ease !important;
+    text-align: center;
+}
+
+.btn-pos-draft:hover {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+/* Payment & Checkout Card */
+.pos-checkout-card {
+    border-top: 1px solid var(--pos-border) !important;
+}
+
+.pos-status-badge {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.pos-status-badge.badge-due {
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+}
+
+.pos-status-badge.badge-paid {
+    background: #dcfce7 !important;
+    color: #15803d !important;
+}
+
+/* Checkout Horizontal Table Rows */
+.checkout-table-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkout-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.checkout-label {
+    width: 38%;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.checkout-field {
+    width: 62%;
+}
+
+.checkout-field .form-control {
+    height: 34px !important;
+    font-size: 13px !important;
+    padding: 4px 10px !important;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px !important;
+}
+
+.checkout-field .form-control:focus {
+    background-color: #ffffff;
+    border-color: #2563eb;
+}
+
+.pos-input-readonly {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+    color: #1e293b !important;
+}
+
+.pos-percent-group {
+    width: 50%;
+}
+
+.pos-percent-group .form-control {
+    border-right: none !important;
+    border-radius: 6px 0 0 6px !important;
+}
+
+.pos-percent-group .input-group-text {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    font-size: 11px;
+    padding: 0 8px;
+    height: 34px;
+    border-radius: 0 6px 6px 0 !important;
+}
+
+.pos-note-input {
+    resize: none;
+    height: 34px !important;
+}
+
+/* Preset Discount Chips */
+.discount-chip {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    border-radius: 12px !important;
+    background: #f1f5f9 !important;
+    color: #64748b !important;
+    border: 1px solid #e2e8f0 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    user-select: none;
+}
+
+.discount-chip:hover,
+.discount-chip.active {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-color: #2563eb !important;
+}
+
+/* Quick Pay Buttons */
+.btn-quick-full-pay {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid rgba(21, 128, 61, 0.2) !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-quick-full-pay:hover {
+    background: #15803d !important;
+    color: #ffffff !important;
+}
+
+.btn-quick-zero-pay {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid rgba(185, 28, 28, 0.2) !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-quick-zero-pay:hover {
+    background: #b91c1c !important;
+    color: #ffffff !important;
+}
+
+/* Keyboard Shortcuts Footer Strip */
+.pos-shortcuts-strip {
+    background: #ffffff;
+    border-top: 1px solid var(--pos-border);
+    padding: 8px 16px;
+    font-size: 11.5px;
+    color: var(--pos-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.02);
+}
+
+.pos-kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-family: var(--pos-font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #1e293b;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    margin-right: 4px;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Removal of default number spinners */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  margin: 0;
+    -webkit-appearance: none;
+    margin: 0;
 }
-
-.ms-selectable {
-  width: 100% !important;
-}
-
-.ms-selection {
-  width: 100% !important;
-  display: none;
-}
-
-.ms-container .ms-selectable li.ms-elem-selectable,
-.ms-container .ms-selection li.ms-elem-selection {
-  font-size: 16px !important;
-  padding: 16px 10px;
-}
-
-
-
-
-.ms-container {
-  width: 100% !important;
-}
-
-.remove_attr {
-  margin-right: 5px;
-  margin-left: 7px;
-}
-
-.select2-container .select2-selection--single .select2-selection__rendered {
-  padding-left: 0px !important;
-}
-
-.ms-container .ms-optgroup-label {
-  font-weight: 700 !important;
-  font-size: 12px !important;
-  text-transform: uppercase;
-  color: #1e40af !important;
-  background-color: #f8fafc;
-  padding: 8px 12px !important;
-  letter-spacing: 0.5px;
-  border-top: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-  cursor: default;
+input[type="number"] {
+    -moz-appearance: textfield;
 }

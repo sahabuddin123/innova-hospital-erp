@@ -147,47 +147,28 @@ $(document).ready(function (e) {
     var qtity = $(this).data("qtity");
     var d_comm = $(this).data("d_commission");
     var r_comm = $(this).data("r_commission");
-    var d_comm_badge = d_comm ? ' <span class="badge badge-info" style="font-size:0.65rem;" title="Doctor Commission Rate">Doc: ' + d_comm + '%</span>' : '';
-    var r_comm_badge = r_comm ? ' <span class="badge badge-warning" style="font-size:0.65rem;" title="Referral Commission Rate">Ref: ' + r_comm + '%</span>' : '';
     if ($("#idinput-" + idd).length) {
     } else {
       if ($("#id-div" + idd).length) {
       } else {
         $("#editPaymentForm .qfloww").append(
-          '<div class="remove1" id="id-div' +
-          idd +
-          '">  ' +
-          '<i class="remove_attr fa fa-times" id="id-remove-' +
-          idd +
-          '" style="font-size:16px;color:red;cursor:pointer;"></i> ' +
-          $(this).data("cat_name") +
-          d_comm_badge +
-          r_comm_badge +
-          " - " +
-          currency +
-          $(this).data("id") +
-          "</div>"
+          '<div class="cart-item-row remove1" id="id-div' + idd + '">' +
+            '<div class="cart-item-left">' +
+              '<button type="button" class="btn-cart-del remove_attr" id="id-remove-' + idd + '" title="Remove item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><i class="fas fa-times d-none"></i></button>' +
+              '<span class="cart-item-title">' + $(this).data("cat_name") + '</span>' +
+              ' <span class="cart-item-price">- ' + currency + $(this).data("id") + '</span>' +
+            '</div>' +
+            '<div class="cart-item-right">' +
+              '<div class="cart-stepper">' +
+                '<button type="button" class="btn-stepper btn-qty-plus" data-idd="' + idd + '">+</button>' +
+                '<input type="text" class="remove cart-qty-num" id="idinput-' + idd + '" name="quantity[]" value="' + (qtity ? qtity : 1) + '" autocomplete="off">' +
+                '<button type="button" class="btn-stepper btn-qty-minus" data-idd="' + idd + '">-</button>' +
+              '</div>' +
+              '<input type="hidden" class="remove" id="categoryinput-' + idd + '" name="category_id[]" value="' + idd + '">' +
+            '</div>' +
+          '</div>'
         );
       }
-      var input2 = $("<input>")
-        .attr({
-          type: "text",
-          class: "remove",
-          id: "idinput-" + idd,
-          name: "quantity[]",
-          value: qtity,
-        })
-        .appendTo("#editPaymentForm .qfloww");
-
-      $("<input>")
-        .attr({
-          type: "hidden",
-          class: "remove",
-          id: "categoryinput-" + idd,
-          name: "category_id[]",
-          value: idd,
-        })
-        .appendTo("#editPaymentForm .qfloww");
     }
     $(document).ready(function () {
       "use strict";
@@ -385,46 +366,26 @@ $(document).ready(function () {
       } else {
         var d_comm = $(this).data("d_commission");
         var r_comm = $(this).data("r_commission");
-        var d_comm_badge = d_comm ? ' <span class="badge badge-info" style="font-size:0.65rem;" title="Doctor Commission Rate">Doc: ' + d_comm + '%</span>' : '';
-        var r_comm_badge = r_comm ? ' <span class="badge badge-warning" style="font-size:0.65rem;" title="Referral Commission Rate">Ref: ' + r_comm + '%</span>' : '';
         if ($("#id-div" + idd).length) {
         } else {
           $("#editPaymentForm .qfloww").append(
-            '<div class="remove1" id="id-div' +
-            idd +
-            '">  ' +
-            '<i class="remove_attr fa fa-times" id="id-remove-' +
-            idd +
-            '" style="font-size:16px;color:red;cursor:pointer;"></i> ' +
-            $(this).data("cat_name") +
-            d_comm_badge +
-            r_comm_badge +
-            " - " +
-            currency +
-            $(this).data("id") +
-            "</div>"
+            '<div class="cart-item-row remove1" id="id-div' + idd + '">' +
+              '<div class="cart-item-left">' +
+                '<button type="button" class="btn-cart-del remove_attr" id="id-remove-' + idd + '" title="Remove item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><i class="fas fa-times d-none"></i></button>' +
+                '<span class="cart-item-title">' + $(this).data("cat_name") + '</span>' +
+                ' <span class="cart-item-price">- ' + currency + $(this).data("id") + '</span>' +
+              '</div>' +
+              '<div class="cart-item-right">' +
+                '<div class="cart-stepper">' +
+                  '<button type="button" class="btn-stepper btn-qty-plus" data-idd="' + idd + '">+</button>' +
+                  '<input type="text" class="remove cart-qty-num" id="idinput-' + idd + '" name="quantity[]" value="1" autocomplete="off">' +
+                  '<button type="button" class="btn-stepper btn-qty-minus" data-idd="' + idd + '">-</button>' +
+                '</div>' +
+                '<input type="hidden" class="remove" id="categoryinput-' + idd + '" name="category_id[]" value="' + idd + '">' +
+              '</div>' +
+            '</div>'
           );
         }
-
-        var input2 = $("<input>")
-          .attr({
-            type: "text",
-            class: "remove",
-            id: "idinput-" + idd,
-            name: "quantity[]",
-            value: "1",
-          })
-          .appendTo("#editPaymentForm .qfloww");
-
-        $("<input>")
-          .attr({
-            type: "hidden",
-            class: "remove",
-            id: "categoryinput-" + idd,
-            name: "category_id[]",
-            value: idd,
-          })
-          .appendTo("#editPaymentForm .qfloww");
       }
 
       $(document).ready(function () {
@@ -517,6 +478,10 @@ $(document).ready(function () {
     } else {
       $("#due").val($("#gross").val() - amount_received);
           updateCommissionSummary();
+    }
+
+    if (typeof window.resetPOSSearch === "function") {
+      window.resetPOSSearch();
     }
   });
 });
@@ -731,7 +696,7 @@ $(document).ready(function () {
       return;
     } else {
       $(".pos_new_patient_actions").hide();
-      $(".pos_client").show();
+      $(".pos_client").hide();
       $("#p_name").prop("required", false);
       $("#p_phone").prop("required", false);
 
@@ -832,7 +797,7 @@ $(document).ready(function () {
           $("#p_gender").val(p.sex || "");
           $("#p_weight").val(p.weight || "");
           $("#p_address").val(p.address || "");
-          $(".pos_client").show();
+          $(".pos_client").hide();
           $(".pos_new_patient_actions").hide();
 
           $("#patientModal").modal("hide");

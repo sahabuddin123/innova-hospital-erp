@@ -1,3 +1,24 @@
+<?php
+// Modules temporarily hidden from sidebar:
+// Emergency, Dental Management, AI Overview/Analysis/Plan, Prescription,
+// Bed Management, Ambulance Services, Pharmacy, Medicine, Human Resource,
+// Communication, Website, Donor.
+// Set any item to false (or remove) to re-enable in the sidebar.
+$sidebar_hidden_modules = array(
+    'emergency'       => true,
+    'dental'          => true,
+    'ai_modules'      => true,
+    'prescription'    => true,
+    'bed'             => true,
+    'ambulance'       => true,
+    'pharmacy'        => true,
+    'medicine'        => true,
+    'human_resources' => true,
+    'communication'   => true,
+    'website'         => true,
+    'donor'           => true,
+);
+?>
 <!-- Start of Selection -->
 <!-- Enhanced Menu with Modern Design -->
 <li class="nav-item mt-3">
@@ -51,6 +72,7 @@
 </li> -->
 <?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['emergency'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Nurse'))) { ?>
     <li class="nav-item">
         <a class="nav-link text-white" href="emergency">
@@ -58,6 +80,7 @@
             <p><?php echo lang('emergency'); ?></p> 
         </a>
     </li>
+<?php } ?>
 <?php } ?>
 
 
@@ -171,7 +194,8 @@
                         </a>
                     </li>
                 <?php } ?>
-                <?php if (in_array('prescription', $this->modules)) { ?>
+                <?php if (empty($sidebar_hidden_modules['prescription'])) { ?>
+<?php if (in_array('prescription', $this->modules)) { ?>
                     <li class="nav-item">
                         <a class="nav-link text-white" href="patient/myPrescription">
                             <i class="text-secondary nav-icon fas fa-prescription"></i>
@@ -179,6 +203,7 @@
                         </a>
                     </li>
                 <?php } ?>
+<?php } ?>
                 <?php if (in_array('patient', $this->modules)) { ?>
                     <li class="nav-item">
                         <a class="nav-link text-white" href="patient/myDocuments">
@@ -266,7 +291,8 @@
             <?php } ?>
 
 
-            <?php if ($this->ion_auth->in_group(array('Doctor'))) { ?>
+            <?php if (empty($sidebar_hidden_modules['prescription'])) { ?>
+<?php if ($this->ion_auth->in_group(array('Doctor'))) { ?>
                 <?php if (in_array('prescription', $this->modules)) { ?>
                     <li class="nav-item">
                         <a class="nav-link text-white" href="prescription">
@@ -276,10 +302,12 @@
                     </li>
                 <?php } ?>
             <?php } ?>
+<?php } ?>
         </ul>
     </li>
 <?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['dental'])) { ?>
 <!-- Dental Management Section -->
 <?php if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Nurse', 'Laboratorist'))) { ?>
     <li class="nav-item">
@@ -323,8 +351,10 @@
         </ul>
     </li>
 <?php } ?>
+<?php } ?>
 
 
+<?php if (empty($sidebar_hidden_modules['ai_modules'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin', 'Doctor'))) { ?>
 
     <li class="nav-item">
@@ -378,9 +408,11 @@
         </ul>
     </li> -->
 <?php } ?>
+<?php } ?>
 
 
 
+<?php if (empty($sidebar_hidden_modules['prescription'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin', 'Pharmacist'))) { ?>
     <?php if (in_array('prescription', $this->modules)) { ?>
         <li class="nav-item">
@@ -390,6 +422,7 @@
             </a>
         </li>
     <?php } ?>
+<?php } ?>
 <?php } ?>
 
 
@@ -691,7 +724,7 @@
             <li class="nav-item">
                 <a class="nav-link text-white" href="referral/transactions">
                     <i class="text-secondary nav-icon far fa-circle"></i>
-                    <p><?php echo lang('transactions'); ?></p>
+                    <p><?php echo !empty(lang('transactions')) ? lang('transactions') : 'Transactions'; ?></p>
                 </a>
             </li>
             <li class="nav-item">
@@ -868,6 +901,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 
 
+<?php if (empty($sidebar_hidden_modules['bed'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
     <li class="nav-item">
         <a class="nav-link text-white" href="#">
@@ -898,7 +932,9 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         <?php } ?>
     </li>
 <?php } ?>
+<?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['ambulance'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Nurse'))) { ?>
     <li class="nav-item">
         <a class="nav-link text-white" href="#">
@@ -945,7 +981,9 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </ul>
     </li>
 <?php } ?>
+<?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['pharmacy'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin', 'Pharmacist'))) { ?>
     <?php if (in_array('pharmacy', $this->modules)) { ?>
         <li class="nav-item">
@@ -1004,6 +1042,8 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </li>
     <?php } ?>
 <?php } ?>
+<?php } ?>
+<?php if (empty($sidebar_hidden_modules['medicine'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
     <?php if (in_array('medicine', $this->modules)) { ?>
         <li class="nav-item">
@@ -1056,6 +1096,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </li>
     <?php } ?>
 <?php } ?>
+<?php } ?>
 
 <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
         <li class="nav-item">
@@ -1092,6 +1133,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </li>
 <?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['medicine'])) { ?>
 <?php if ($this->ion_auth->in_group('Pharmacist')) { ?>
     <?php if (in_array('medicine', $this->modules)) { ?>
         <li class="nav-item">
@@ -1151,6 +1193,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </li>
     <?php } ?>
 <?php } ?>
+<?php } ?>
 
 <?php if ($this->ion_auth->in_group(array('Nurse', 'Pharmacist', 'Laboratorist'))) { ?>
         <li class="nav-item">
@@ -1179,6 +1222,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </li>
 <?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['human_resources'])) { ?>
 <?php if ($this->ion_auth->in_group('admin')) { ?>
     <li class="nav-item">
         <a class="nav-link text-white" href="#">
@@ -1243,9 +1287,11 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </ul>
     </li>
 <?php } ?>
+<?php } ?>
 
 
 
+<?php if (empty($sidebar_hidden_modules['communication'])) { ?>
 <?php if (!$this->ion_auth->in_group('superadmin')) { ?>
     <li class="nav-item">
         <a class="nav-link text-white" href="#">
@@ -1375,9 +1421,11 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </ul>
     </li>
 <?php } ?>
+<?php } ?>
 
 
 
+<?php if (empty($sidebar_hidden_modules['website'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
     <li class="nav-item">
         <a class="nav-link text-white" href="#">
@@ -1422,9 +1470,11 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 
 <?php } ?>
+<?php } ?>
 
 
 
+<?php if (empty($sidebar_hidden_modules['donor'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
     <?php if (in_array('donor', $this->modules)) { ?>
         <li class="nav-item">
@@ -1445,6 +1495,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             </ul>
         </li>
     <?php } ?>
+<?php } ?>
 <?php } ?>
 
 
@@ -1516,6 +1567,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 
 
+<?php if (empty($sidebar_hidden_modules['bed'])) { ?>
 <?php if ($this->ion_auth->in_group(array('Nurse', 'Receptionist'))) { ?>
     <?php if (in_array('bed', $this->modules)) { ?>
         <li class="nav-item">
@@ -1545,6 +1597,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             </ul>
         </li>
     <?php } ?>
+<?php } ?>
 <?php } ?>
 
 
@@ -1623,7 +1676,8 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 <?php if ($this->ion_auth->in_group('Patient')) { ?>
 
-    <?php if (in_array('donor', $this->modules)) { ?>
+    <?php if (empty($sidebar_hidden_modules['donor'])) { ?>
+<?php if (in_array('donor', $this->modules)) { ?>
         <li class="nav-item">
             <a class="nav-link text-white" href="donor">
                 <i class="text-secondary nav-icon far fa-user"></i>
@@ -1631,6 +1685,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             </a>
         </li>
     <?php } ?>
+<?php } ?>
     <?php if (in_array('notice', $this->modules)) { ?>
         <li class="nav-item"><a class="nav-link text-white" href="notice"><i class="text-secondary nav-icon fas fa-bell"></i>
                 <p><?php echo lang('notice'); ?></p>
@@ -1686,6 +1741,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
     <?php } ?>
 <?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['donor'])) { ?>
 <?php if ($this->ion_auth->in_group(array('Laboratorist'))) { ?>
     <?php if (in_array('donor', $this->modules)) { ?>
         <li class="nav-item">
@@ -1706,6 +1762,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             </ul>
         </li>
     <?php } ?>
+<?php } ?>
 <?php } ?>
 
 
@@ -1811,7 +1868,8 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
         </ul>
     </li>
 
-    <li class="nav-item">
+    <?php if (empty($sidebar_hidden_modules['website'])) { ?>
+<li class="nav-item">
         <a class="nav-link text-white" href="#">
             <i class="text-secondary nav-icon fas fa-globe"></i>
             <p><?php echo lang('website_management'); ?><i class="right fas fa-angle-left"></i></p>
@@ -1853,6 +1911,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             </li>
         </ul>
     </li>
+<?php } ?>
 
 <?php } ?>
 <?php if ($this->ion_auth->in_group(array('superadmin'))) { ?>
@@ -1905,6 +1964,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
     <!-- <li class="nav-item"><a class="nav-link text-white" href="settings/verifyPurchase"><i class="text-secondary nav-icon far fa-arrow-right"></i> <p></p> <?php echo lang('purchase_code'); ?></a></li> -->
 <?php } ?>
 
+<?php if (empty($sidebar_hidden_modules['donor'])) { ?>
 <?php if ($this->ion_auth->in_group(array('Nurse'))) { ?>
     <?php if (in_array('donor', $this->modules)) { ?>
         <li class="nav-item">
@@ -1920,6 +1980,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             </a>
         </li>
     <?php } ?>
+<?php } ?>
 <?php } ?>
 
 <li class="nav-item">

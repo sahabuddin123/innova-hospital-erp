@@ -12,6 +12,7 @@ $hn = !empty($patient_info->id) ? sprintf('%010d', $patient_info->id) : (!empty(
 // Dates with Asia/Dhaka timezone
 date_default_timezone_set('Asia/Dhaka');
 $invoice_date = !empty($payment->date) ? date('d/m/Y', $payment->date) : date('d/m/Y');
+$invoice_time = !empty($payment->date) ? date('h:i A', $payment->date) : date('h:i A');
 $visit_date = !empty($payment->date) ? date('d/m/Y', $payment->date) : date('d/m/Y');
 $print_date = date('d/m/Y h:i A');
 
@@ -24,12 +25,16 @@ $age_str = '';
 if (!empty($patient_info) && !empty($patient_info->age)) {
     $age_parts = explode('-', $patient_info->age);
     if (count($age_parts) >= 2) {
-        $age_str = trim($age_parts[0] . ' Years ' . $age_parts[1] . ' Months');
+        $age_str = trim($age_parts[0] . ' Y ' . $age_parts[1] . ' M');
     } else {
-        $age_str = trim($patient_info->age . ' Years');
+        $age_str = trim($patient_info->age . ' Y');
     }
 }
 $gender_str = !empty($patient_info->sex) ? $patient_info->sex : '';
+$ag = [];
+if (!empty($age_str)) $ag[] = $age_str;
+if (!empty($gender_str)) $ag[] = $gender_str;
+$age_gender_display = !empty($ag) ? implode(' / ', $ag) : '-';
 
 // -------------------------------------------------------------
 // Doctor Information Resolution (FULL DETAILS STRICTLY IN ENGLISH)
@@ -71,12 +76,9 @@ if (!empty($doctor_obj)) {
     // 3. Qualifications / Profile in English (No Bengali characters)
     if (!empty($doctor_obj->profile)) {
         $rawProfile = trim(strip_tags($doctor_obj->profile));
-        
-        // If parenthetical English is present: e.g. (Medicine, Neuro Medicine, Heart Disease, Diabetes)
         if (preg_match('/\(([A-Za-z0-9\s,&\/\-\.\+]+)\)/', $rawProfile, $m)) {
             $doctor_details['qualifications'] = trim($m[1]);
         } elseif (preg_match('/[A-Za-z]{2,}/', $rawProfile)) {
-            // Strip any Bengali characters and clean up punctuation
             $englishOnly = preg_replace('/[\x{0980}-\x{09FF}]+/u', '', $rawProfile);
             $englishOnly = trim(preg_replace('/[\s\|\-\:\,]+$/', '', preg_replace('/^[\s\|\-\:\,]+/', '', $englishOnly)));
             if (!empty($englishOnly) && strlen($englishOnly) > 3) {
@@ -228,7 +230,7 @@ if ($is_cancelled) {
     $status_text = 'CANCELLED';
     $status_class = 'status-cancelled';
 } elseif ($balance_due <= 0.009) {
-    $status_text = 'PAID';
+    $status_text = 'PAID IN FULL';
     $status_class = 'status-paid';
 } elseif ($amount_received > 0.009) {
     $status_text = 'PARTIALLY PAID';
@@ -238,13 +240,42 @@ if ($is_cancelled) {
     $status_class = 'status-due';
 }
 
-// Cashier Information
+// Cashier / Bill Creator Information
 $cashier_name = '';
-if (!empty($payment->user)) {
-    $cashier_user = $this->db->get_where('users', array('id' => $payment->user))->row();
-    if (!empty($cashier_user)) {
-        $cashier_name = !empty($cashier_user->username) ? $cashier_user->username : trim(($cashier_user->first_name ?? '') . ' ' . ($cashier_user->last_name ?? ''));
+$user_id = !empty($payment->user) ? $payment->user : null;
+if (!empty($user_id)) {
+    // 1. Check staff tables by ion_user_id (Accountant, Receptionist, Laboratorist, Pharmacist)
+    $staff = $this->db->get_where('accountant', array('ion_user_id' => $user_id))->row();
+    if (empty($staff) || empty($staff->name)) {
+        $staff = $this->db->get_where('receptionist', array('ion_user_id' => $user_id))->row();
     }
+    if (empty($staff) || empty($staff->name)) {
+        $staff = $this->db->get_where('laboratorist', array('ion_user_id' => $user_id))->row();
+    }
+    if (empty($staff) || empty($staff->name)) {
+        $staff = $this->db->get_where('pharmacist', array('ion_user_id' => $user_id))->row();
+    }
+    
+    if (!empty($staff) && !empty($staff->name)) {
+        $cashier_name = trim($staff->name);
+    }
+
+    // 2. If not found in staff tables, check users table (use username, e.g. Hospital Admin)
+    if (empty($cashier_name)) {
+        $cashier_user = $this->db->get_where('users', array('id' => $user_id))->row();
+        if (!empty($cashier_user)) {
+            if (!empty($cashier_user->username)) {
+                $cashier_name = trim($cashier_user->username);
+            } elseif (!empty($cashier_user->first_name) || !empty($cashier_user->last_name)) {
+                $cashier_name = trim(($cashier_user->first_name ?? '') . ' ' . ($cashier_user->last_name ?? ''));
+            }
+        }
+    }
+}
+
+// 3. Default fallback for unspecified creator
+if (empty($cashier_name)) {
+    $cashier_name = 'Hospital Admin';
 }
 
 // Official Hospital Identity
@@ -265,14 +296,85 @@ $hospital_bangla = 'লাইফ কেয়ার ডায়াগনস্টি�
 $hospital_address = 'Khaserhat Rastermatha, Charbata, Subarnachar, Noakhali';
 $phone_1 = '01829 95 25 95';
 $phone_2 = '01727 69 69 77';
+
+// Safe Helper for Amount in Words
+if (!function_exists('invoiceAmountInWords')) {
+    function invoiceAmountInWords($number) {
+        $decimal = round($number - ($no = floor($number)), 2) * 100;
+        $hundred = null;
+        $digits_length = strlen($no);
+        $i = 0;
+        $str = array();
+        $words = array(
+            0 => '', 1 => 'One', 2 => 'Two', 3 => 'Three', 4 => 'Four', 5 => 'Five',
+            6 => 'Six', 7 => 'Seven', 8 => 'Eight', 9 => 'Nine', 10 => 'Ten',
+            11 => 'Eleven', 12 => 'Twelve', 13 => 'Thirteen', 14 => 'Fourteen',
+            15 => 'Fifteen', 16 => 'Sixteen', 17 => 'Seventeen', 18 => 'Eighteen',
+            19 => 'Nineteen', 20 => 'Twenty', 30 => 'Thirty', 40 => 'Forty',
+            50 => 'Fifty', 60 => 'Sixty', 70 => 'Seventy', 80 => 'Eighty',
+            90 => 'Ninety'
+        );
+        $digits = array('', 'Hundred', 'Thousand', 'Lakh', 'Crore');
+        while ($i < $digits_length) {
+            $divider = ($i == 2) ? 10 : 100;
+            $number = floor($no % $divider);
+            $no = floor($no / $divider);
+            $i += $divider == 10 ? 1 : 2;
+            if ($number) {
+                $plural = (($counter = count($str)) && $number > 9) ? 's' : null;
+                $hundred = ($counter == 1 && $str[0]) ? ' and ' : null;
+                $str[] = ($number < 21) ? $words[$number] . ' ' . $digits[$counter] . $plural . ' ' . $hundred
+                    : $words[floor($number / 10) * 10] . ' ' . $words[$number % 10] . ' ' . $digits[$counter] . $plural . ' ' . $hundred;
+            } else $str[] = null;
+        }
+        $taka = implode('', array_reverse($str));
+        $poisha = ($decimal > 0) ? " and " . ($words[floor($decimal / 10) * 10] . " " . $words[$decimal % 10]) . ' Poisha' : '';
+        return ($taka ? trim($taka) . ' Taka' : 'Zero Taka') . $poisha . ' Only';
+    }
+}
 ?>
 
-<!-- Modern Print & Screen CSS -->
+<!-- Modern Print & Screen CSS for A5 Portrait (148mm x 210mm) -->
 <link rel="stylesheet" href="common/extranal/css/finance/modern_invoice.css?v=<?php echo time(); ?>">
+<style>
+@page {
+    size: 176mm 250mm;
+    margin: 5mm;
+}
+@media print {
+    html, body {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+    .wrapper,
+    .content-wrapper,
+    .invoice-screen-wrapper,
+    .invoice-container-wrapper {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .invoice-paper {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        overflow: visible !important;
+    }
+}
+</style>
 
 <div class="content-wrapper bg-white" style="margin: 0; padding: 0;">
     <!-- Screen Action Toolbar (no-print) -->
-    <div class="invoice-action-toolbar no-print" style="margin: 15px auto;">
+    <div class="invoice-action-toolbar no-print">
         <div class="invoice-toolbar-left">
             <?php if ($payment->payment_from == 'payment' || empty($payment->payment_from)) { ?>
                 <a href="finance/payment" class="invoice-btn-action invoice-btn-back">
@@ -287,12 +389,12 @@ $phone_2 = '01727 69 69 77';
 
         <div class="invoice-toolbar-right">
             <a href="javascript:void(0);" onclick="window.print();" class="invoice-btn-action invoice-btn-print">
-                <i class="fas fa-print"></i> <?php echo lang('print'); ?>
+                <i class="fas fa-print"></i> <?php echo lang('print'); ?> (A5)
             </a>
         </div>
     </div>
 
-    <!-- A4 Invoice Paper Container -->
+    <!-- A5 Invoice Paper Container (148mm x 210mm) -->
     <div class="invoice-container-wrapper">
         <div class="invoice-paper <?php echo $is_cancelled ? 'is-cancelled' : ''; ?>" id="printable-invoice">
             
@@ -325,138 +427,103 @@ $phone_2 = '01727 69 69 77';
                     </div>
                 </div>
 
-                <!-- Right: Large INVOICE Title & Metadata Table -->
+                <!-- Right: MONEY RECEIPT Title, Barcode & Bill Metadata -->
                 <div class="invoice-header-meta">
-                    <div class="invoice-title-large">INVOICE</div>
+                    <div class="invoice-title-large">MONEY RECEIPT</div>
                     <div class="invoice-type-pill">DIAGNOSTIC SERVICE</div>
                     
-                    <table class="invoice-meta-table">
+                    <div class="invoice-header-barcode">
+                        <img src="<?php echo site_url('lab/barcode'); ?>?text=<?php echo $vn; ?>&print=false&size=22&sizefactor=0.9" alt="VN Barcode" class="barcode-img">
+                    </div>
+
+                    <table class="invoice-header-meta-table">
                         <tr>
-                            <td class="meta-label">Invoice No</td>
-                            <td class="meta-separator">:</td>
-                            <td class="meta-value meta-value-number"><?php echo $vn; ?></td>
+                            <td class="lbl">Bill No</td>
+                            <td class="sep">:</td>
+                            <td class="val"><?php echo $vn; ?></td>
                         </tr>
                         <tr>
-                            <td class="meta-label">Invoice Date</td>
-                            <td class="meta-separator">:</td>
-                            <td class="meta-value"><?php echo $invoice_date; ?></td>
-                        </tr>
-                        <tr>
-                            <td class="meta-label">Print Date</td>
-                            <td class="meta-separator">:</td>
-                            <td class="meta-value"><?php echo $print_date; ?></td>
+                            <td class="lbl">Date</td>
+                            <td class="sep">:</td>
+                            <td class="val" style="font-family: inherit;"><?php echo $invoice_date . ' ' . $invoice_time; ?></td>
                         </tr>
                     </table>
                 </div>
             </header>
 
-            <!-- 2. PATIENT INFORMATION & BARCODES SECTION -->
-            <div class="patient-visit-grid">
-                <!-- Patient Info Card -->
-                <div class="meta-card patient-card">
-                    <div class="card-title">
-                        <i class="fas fa-user-injured mr-1"></i> Patient Information
-                    </div>
-                    <div class="patient-grid">
-                        <div class="grid-item">
-                            <span class="label">Patient Name</span>
-                            <span class="colon">:</span>
-                            <span class="value font-weight-bold text-dark"><?php echo !empty($patient_name) ? html_escape($patient_name) : '-'; ?></span>
-                        </div>
-                        <div class="grid-item">
-                            <span class="label">HN</span>
-                            <span class="colon">:</span>
-                            <span class="value font-monospace" style="font-family: monospace; font-size: 11px;"><?php echo $hn; ?></span>
-                        </div>
-                        <div class="grid-item">
-                            <span class="label">Phone</span>
-                            <span class="colon">:</span>
-                            <span class="value"><?php echo !empty($patient_phone) ? html_escape($patient_phone) : '-'; ?></span>
-                        </div>
-                        <div class="grid-item">
-                            <span class="label">VN / Invoice</span>
-                            <span class="colon">:</span>
-                            <span class="value font-monospace" style="font-family: monospace; font-size: 11px;"><?php echo $vn; ?></span>
-                        </div>
-                        <div class="grid-item">
-                            <span class="label">Age / Gender</span>
-                            <span class="colon">:</span>
-                            <span class="value">
-                                <?php 
-                                $ag = [];
-                                if (!empty($age_str)) $ag[] = $age_str;
-                                if (!empty($gender_str)) $ag[] = $gender_str;
-                                echo !empty($ag) ? html_escape(implode(' / ', $ag)) : '-';
-                                ?>
-                            </span>
-                        </div>
-                        <div class="grid-item">
-                            <span class="label">Visit Date</span>
-                            <span class="colon">:</span>
-                            <span class="value"><?php echo $visit_date; ?></span>
-                        </div>
-                        <?php if (!empty($referrer_display)) { ?>
-                            <div class="grid-item" style="grid-column: span 2;">
-                                <span class="label">Referrer</span>
-                                <span class="colon">:</span>
-                                <span class="value"><?php echo html_escape($referrer_display); ?></span>
-                            </div>
-                        <?php } ?>
-                    </div>
-                </div>
-
-                <!-- Barcodes Box -->
-                <div class="meta-card barcode-card">
-                    <div class="barcode-wrapper">
-                        <div class="barcode-item">
-                            <div class="barcode-title">VN Barcode</div>
-                            <img src="<?php echo site_url('lab/barcode'); ?>?text=<?php echo $vn; ?>&print=false&size=30&sizefactor=1" alt="VN Barcode" class="barcode-img">
-                            <div class="barcode-digits"><?php echo $vn; ?></div>
-                        </div>
-                        <div class="barcode-separator"></div>
-                        <div class="barcode-item">
-                            <div class="barcode-title">HN Barcode</div>
-                            <img src="<?php echo site_url('lab/barcode'); ?>?text=<?php echo $hn; ?>&print=false&size=30&sizefactor=1" alt="HN Barcode" class="barcode-img">
-                            <div class="barcode-digits"><?php echo $hn; ?></div>
-                        </div>
-                    </div>
-                </div>
+            <!-- 2. PATIENT & PRESCRIBER INFORMATION (UNIFIED TABLE BOX) -->
+            <div class="patient-doctor-box">
+                <table class="patient-info-table">
+                    <tr>
+                        <td class="lbl">Patient Name</td>
+                        <td class="sep">:</td>
+                        <td class="val">
+                            <strong><?php echo !empty($patient_name) ? html_escape($patient_name) : '-'; ?></strong>
+                        </td>
+                        <td class="lbl">Patient ID (HN)</td>
+                        <td class="sep">:</td>
+                        <td class="val font-monospace"><?php echo $hn; ?></td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">Age / Gender</td>
+                        <td class="sep">:</td>
+                        <td class="val"><?php echo html_escape($age_gender_display); ?></td>
+                        <td class="lbl">Bill No (VN)</td>
+                        <td class="sep">:</td>
+                        <td class="val font-monospace"><?php echo $vn; ?></td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">Contact Phone</td>
+                        <td class="sep">:</td>
+                        <td class="val"><?php echo !empty($patient_phone) ? html_escape($patient_phone) : '-'; ?></td>
+                        <td class="lbl">Billing Date</td>
+                        <td class="sep">:</td>
+                        <td class="val"><?php echo $visit_date; ?></td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">Referred By</td>
+                        <td class="sep">:</td>
+                        <td class="val"><?php echo !empty($referrer_display) ? html_escape($referrer_display) : '-'; ?></td>
+                        <td class="lbl">Report Delivery</td>
+                        <td class="sep">:</td>
+                        <td class="val">05:00 PM - 09:00 PM</td>
+                    </tr>
+                    <!-- Doctor Row (English strictly) -->
+                    <tr class="doctor-subrow">
+                        <td class="lbl">Doctor / Ref.</td>
+                        <td class="sep">:</td>
+                        <td class="val" colspan="4">
+                            <?php if (!empty($doctor_details['name'])) { ?>
+                                <strong><?php echo html_escape($doctor_details['name']); ?></strong>
+                                <?php if (!empty($doctor_details['department'])) { ?>
+                                    <span class="doc-dept-badge ml-1"><?php echo html_escape($doctor_details['department']); ?></span>
+                                <?php } ?>
+                                <?php if (!empty($doctor_details['qualifications'])) { ?>
+                                    <span class="doc-sub-text ml-1">&bull; <?php echo html_escape($doctor_details['qualifications']); ?></span>
+                                <?php } ?>
+                            <?php } else { ?>
+                                <span class="text-muted font-italic">Self / General</span>
+                            <?php } ?>
+                        </td>
+                    </tr>
+                </table>
             </div>
 
-            <!-- 3. DOCTOR INFORMATION SECTION (DEDICATED FULL-WIDTH BAR) -->
-            <!-- Prevents narrow column wrapping and displays full English professional details -->
-            <div class="doctor-info-bar">
-                <div class="doctor-header-line">
-                    <span class="doctor-tag"><i class="fas fa-user-md"></i> Doctor :</span>
-                    <?php if (!empty($doctor_details['name'])) { ?>
-                        <span class="doc-name"><?php echo html_escape($doctor_details['name']); ?></span>
-                        <?php if (!empty($doctor_details['department'])) { ?>
-                            <span class="doc-dept-badge"><i class="fas fa-stethoscope"></i> <?php echo html_escape($doctor_details['department']); ?></span>
-                        <?php } ?>
-                    <?php } else { ?>
-                        <span class="text-muted font-italic">Not Assigned / Self</span>
-                    <?php } ?>
-                </div>
-                <?php if (!empty($doctor_details['qualifications']) || !empty($doctor_details['designation']) || !empty($doctor_details['institution'])) { ?>
-                    <div class="doctor-sub-details">
-                        <?php 
-                        $doc_sub = [];
-                        if (!empty($doctor_details['qualifications'])) $doc_sub[] = html_escape($doctor_details['qualifications']);
-                        if (!empty($doctor_details['designation'])) $doc_sub[] = html_escape($doctor_details['designation']);
-                        if (!empty($doctor_details['institution'])) $doc_sub[] = html_escape($doctor_details['institution']);
-                        echo implode(' &bull; ', $doc_sub);
-                        ?>
-                    </div>
-                <?php } ?>
-            </div>
-
-            <!-- 4. SERVICE / TEST TABLE -->
+            <!-- 3. SERVICE / TEST TABLE -->
             <div class="invoice-items-table-wrapper">
                 <table class="invoice-items-table">
                     <thead>
-                        <tr>
+                        <tr class="table-continuation-row">
+                            <th colspan="6">
+                                <div class="continuation-info">
+                                    <span><strong>LIFECARE DIAGNOSTIC CENTER</strong> — <?php echo lang('money_receipt'); ?></span>
+                                    <span class="continuation-meta">Bill No: <strong><?php echo $vn; ?></strong> &nbsp;|&nbsp; Patient: <strong><?php echo html_escape($patient_name); ?></strong> (HN: <?php echo $hn; ?>)</span>
+                                </div>
+                            </th>
+                        </tr>
+                        <tr class="table-columns-header-row">
                             <th class="col-num">#</th>
-                            <th class="col-service"><?php echo lang('test'); ?> / <?php echo lang('service'); ?> <?php echo lang('name'); ?></th>
+                            <th class="col-service"><?php echo lang('test'); ?> / Investigation Name</th>
                             <th class="col-room">Service / Room</th>
                             <th class="col-price"><?php echo lang('unit_price'); ?></th>
                             <th class="col-qty"><?php echo lang('qty'); ?></th>
@@ -464,8 +531,12 @@ $phone_2 = '01727 69 69 77';
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (!empty($items)) {
-                            foreach ($items as $row) { ?>
+                        <?php 
+                        $total_rendered = 0;
+                        if (!empty($items)) {
+                            foreach ($items as $row) { 
+                                $total_rendered++;
+                                ?>
                                 <tr>
                                     <td class="col-num"><?php echo $row['index']; ?></td>
                                     <td class="col-service"><?php echo html_escape($row['name']); ?></td>
@@ -479,110 +550,126 @@ $phone_2 = '01727 69 69 77';
                             <tr>
                                 <td colspan="6" class="text-center py-3 text-muted">No diagnostic services or tests recorded on this invoice.</td>
                             </tr>
-                        <?php } ?>
+                        <?php } 
+                        ?>
                     </tbody>
                 </table>
             </div>
 
-            <!-- 5. BOTTOM SECTION: NOTES & BILL SUMMARY -->
+            <!-- 4. BOTTOM SECTION: PAYMENT NOTES & BILL SUMMARY (BALANCED PANES) -->
             <div class="invoice-bottom-grid">
                 
-                <!-- Left Column: Payment & Notes -->
-                <div class="invoice-notes-card">
-                    <div>
-                        <div class="invoice-notes-header">
-                            <i class="fas fa-file-invoice"></i> Payment &amp; Notes
+                <!-- Left Pane: Payment Status, Advisory, Signatures -->
+                <div class="invoice-left-pane">
+                    <div class="status-highlight-card">
+                        <div class="status-row-top">
+                            <span class="invoice-status-badge <?php echo $status_class; ?>">
+                                <i class="fas fa-circle mr-1" style="font-size: 7px;"></i> <?php echo $status_text; ?>
+                            </span>
+                            <span class="due-amount-banner <?php echo ($balance_due > 0.009) ? 'banner-has-due' : 'banner-no-due'; ?>">
+                                Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?>
+                            </span>
                         </div>
-                        
-                        <div class="invoice-note-content">
+
+                        <!-- Amount in Words -->
+                        <div class="in-words-row">
+                            <strong>In Words:</strong> 
+                            <?php 
+                            $word_amount = ($amount_received > 0) ? $amount_received : $net_payable;
+                            echo invoiceAmountInWords($word_amount); 
+                            ?>
+                        </div>
+
+                        <div class="patient-instructions-box">
+                            <div><strong>Instructions:</strong> Please preserve this receipt. It is required during diagnostic report collection.</div>
+                            <div class="text-muted" style="margin-top: 2px;">• Report Delivery: 05:00 PM - 09:00 PM (Daily)</div>
                             <?php if (!empty(trim($payment->remarks ?? ''))) { ?>
-                                <strong>Note:</strong> <?php echo nl2br(html_escape(trim($payment->remarks))); ?>
-                            <?php } else { ?>
-                                <span class="text-muted font-italic">No special clinical or billing instructions recorded.</span>
+                                <div style="margin-top: 2px;">• Note: <?php echo nl2br(html_escape(trim($payment->remarks))); ?></div>
                             <?php } ?>
                         </div>
                     </div>
 
-                    <!-- Bottom Area: Received With Thanks & Cashier Signature -->
-                    <div class="invoice-notes-bottom">
-                        <div class="received-thanks-badge">
-                            Received With Thanks : <?php echo $currency . ' ' . number_format($amount_received, 2); ?>
+                    <!-- Dual Signature Blocks -->
+                    <div class="signatures-row">
+                        <div class="sig-block">
+                            <div class="sig-line"></div>
+                            <div class="sig-label">Prepared By</div>
+                            <div class="sig-name"><?php echo !empty($cashier_name) ? html_escape($cashier_name) : 'Cashier'; ?></div>
                         </div>
 
-                        <div class="cashier-signature-block">
-                            <div class="signature-line"></div>
-                            <div class="signature-label">Cashier Signature</div>
-                            <?php if (!empty($cashier_name)) { ?>
-                                <div class="cashier-name"><?php echo html_escape($cashier_name); ?></div>
-                            <?php } ?>
+                        <div class="sig-block">
+                            <div class="sig-line"></div>
+                            <div class="sig-label">Authorized Signature</div>
+                            <div class="sig-name">&nbsp;</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Column: Bill Summary -->
-                <div class="invoice-summary-card">
-                    <div class="invoice-summary-header">
-                        <span class="invoice-summary-title">Bill Summary</span>
+                <!-- Right Pane: Bill Summary -->
+                <div class="invoice-right-pane">
+                    <div>
+                        <div class="bill-summary-title">
+                            <span>Bill Summary</span>
+                            <span class="text-muted" style="font-size: 8px;"><?php echo $settings->currency; ?> BDT</span>
+                        </div>
+
+                        <table class="bill-summary-table">
+                            <tr>
+                                <td class="sum-lbl"><?php echo lang('gross_amount'); ?></td>
+                                <td class="sum-sep">:</td>
+                                <td class="sum-val"><?php echo $currency . ' ' . number_format($gross_amount, 2); ?></td>
+                            </tr>
+                            <?php if ($discount_amount > 0 || $discount_percent > 0) { ?>
+                                <tr>
+                                    <td class="sum-lbl"><?php echo lang('discount'); ?> <?php if ($discount_percent > 0) { echo '(' . number_format($discount_percent, 2) . '%)'; } ?></td>
+                                    <td class="sum-sep">:</td>
+                                    <td class="sum-val">-<?php echo $currency . ' ' . number_format($discount_amount, 2); ?></td>
+                                </tr>
+                            <?php } ?>
+                            <?php if ($vat_amount > 0 || $vat_percent > 0) { ?>
+                                <tr>
+                                    <td class="sum-lbl"><?php echo lang('vat'); ?> <?php if ($vat_percent > 0) { echo '(' . number_format($vat_percent, 2) . '%)'; } ?></td>
+                                    <td class="sum-sep">:</td>
+                                    <td class="sum-val"><?php echo $currency . ' ' . number_format($vat_amount, 2); ?></td>
+                                </tr>
+                            <?php } ?>
+                            
+                            <!-- Highlighted Net Payable Row -->
+                            <tr class="sum-row-net">
+                                <td class="sum-lbl">Net Payable</td>
+                                <td class="sum-sep">:</td>
+                                <td class="sum-val"><?php echo $currency . ' ' . number_format($net_payable, 2); ?></td>
+                            </tr>
+
+                            <tr>
+                                <td class="sum-lbl"><?php echo lang('amount_received'); ?></td>
+                                <td class="sum-sep">:</td>
+                                <td class="sum-val"><?php echo $currency . ' ' . number_format($amount_received, 2); ?></td>
+                            </tr>
+
+                            <!-- Highlighted Balance Due Row -->
+                            <tr class="sum-row-due">
+                                <td class="sum-lbl">Due Amount</td>
+                                <td class="sum-sep">:</td>
+                                <td class="sum-val <?php echo ($balance_due > 0.009) ? 'due-positive' : 'due-zero'; ?>">
+                                    <?php echo $currency . ' ' . number_format($balance_due, 2); ?>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
-
-                    <table class="invoice-summary-table">
-                        <tr>
-                            <td class="summary-label"><?php echo lang('gross_amount'); ?></td>
-                            <td class="summary-colon">:</td>
-                            <td class="summary-value"><?php echo $currency . ' ' . number_format($gross_amount, 2); ?></td>
-                        </tr>
-                        <?php if ($discount_amount > 0 || $discount_percent > 0) { ?>
-                            <tr>
-                                <td class="summary-label"><?php echo lang('discount'); ?> <?php if ($discount_percent > 0) { echo '(' . number_format($discount_percent, 2) . '%)'; } ?></td>
-                                <td class="summary-colon">:</td>
-                                <td class="summary-value">-<?php echo $currency . ' ' . number_format($discount_amount, 2); ?></td>
-                            </tr>
-                        <?php } ?>
-                        <?php if ($vat_amount > 0 || $vat_percent > 0) { ?>
-                            <tr>
-                                <td class="summary-label"><?php echo lang('vat'); ?> <?php if ($vat_percent > 0) { echo '(' . number_format($vat_percent, 2) . '%)'; } ?></td>
-                                <td class="summary-colon">:</td>
-                                <td class="summary-value"><?php echo $currency . ' ' . number_format($vat_amount, 2); ?></td>
-                            </tr>
-                        <?php } ?>
-                        
-                        <!-- Highlighted Net Payable Row -->
-                        <tr class="summary-row-payable">
-                            <td class="summary-label">Net Payable</td>
-                            <td class="summary-colon">:</td>
-                            <td class="summary-value"><?php echo $currency . ' ' . number_format($net_payable, 2); ?></td>
-                        </tr>
-
-                        <tr>
-                            <td class="summary-label"><?php echo lang('amount_received'); ?></td>
-                            <td class="summary-colon">:</td>
-                            <td class="summary-value"><?php echo $currency . ' ' . number_format($amount_received, 2); ?></td>
-                        </tr>
-
-                        <!-- Highlighted Balance Due Row -->
-                        <tr class="summary-row-due">
-                            <td class="summary-label">Due Amount</td>
-                            <td class="summary-colon">:</td>
-                            <td class="summary-value <?php echo ($balance_due > 0.009) ? 'due-positive' : 'due-zero'; ?>">
-                                <?php echo $currency . ' ' . number_format($balance_due, 2); ?>
-                            </td>
-                        </tr>
-                    </table>
                 </div>
             </div>
 
-            <!-- 6. FOOTER SECTION -->
+            <!-- 5. FOOTER SECTION -->
             <footer class="invoice-footer-container">
-                <div class="footer-thankyou">Thank you for choosing LifeCare Diagnostic Center.</div>
+                <div class="footer-thankyou">Thank you for choosing LifeCare Diagnostic Center. We wish you good health!</div>
                 <div class="footer-address"><?php echo html_escape($hospital_address); ?></div>
                 <div class="footer-contact">
                     <i class="fas fa-phone-alt"></i> <?php echo $phone_1; ?> &nbsp;|&nbsp; <i class="fas fa-phone-alt"></i> <?php echo $phone_2; ?>
                 </div>
-                <?php if (!empty($settings->footer_invoice_message)) { ?>
-                    <div class="footer-note">
-                        <?php echo html_escape($settings->footer_invoice_message); ?>
-                    </div>
-                <?php } ?>
+                <div class="footer-note">
+                    Printed: <?php echo $print_date; ?> &bull; Computer Generated Invoice &bull; Software by INNOVA
+                </div>
             </footer>
 
         </div> <!-- /.invoice-paper -->

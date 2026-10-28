@@ -3539,14 +3539,19 @@ class Finance extends MX_Controller
                     </div>';
         if ($data['settings']->invoice_choose == 'invoice1') {
 
-            $mpdf = new \Mpdf\Mpdf(['format' => 'A4']);
-            $mpdf->setAutoTopMargin = 'stretch';
-            $mpdf->SetHTMLHeader($header);
-            //$this->autoMarginPadding = 300;
-            $mpdf->setAutoBottomMargin = 'stretch';
-            $mpdf->SetHTMLFooter('
-        <div style="text-align:center;font-weight: bold; font-size: 7pt; !important;">' .
-                $settings1->footer_invoice_message . '</div>', 'O');
+            $mpdf = new \Mpdf\Mpdf([
+                'format' => 'B5',
+                'orientation' => 'P',
+                'margin_left' => 6,
+                'margin_right' => 6,
+                'margin_top' => 12,
+                'margin_bottom' => 8,
+                'margin_header' => 4,
+                'margin_footer' => 4,
+                'autoScriptToLang' => true,
+                'autoLangToFont' => true,
+                'default_font' => 'freeserif'
+            ]);
             $html = $this->load->view('invoiceA4_download', $data, true);
         } else {
             $mpdf = new \Mpdf\Mpdf(['format' => 'A5', 'setAutoTopMargin' => 'true', 'margin_top' => -30]);

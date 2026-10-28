@@ -1,741 +1,718 @@
-<head>
-    <base href="<?php echo base_url(); ?>">
-    <link href="common/css/bootstrap.min.css" rel="stylesheet" type="text/css" media="screen">
-    <link href="common/css/bootstrap-reset.css" rel="stylesheet" type="text/css" media="screen">
+<?php
+// Initialize data objects safely
+$patient_info = !empty($payment->patient) ? $this->db->get_where('patient', array('id' => $payment->patient))->row() : null;
 
-    <link href="common/assets/fontawesome5pro/css/all.min.css" rel="stylesheet" type="text/css" media="screen" />
-    <link href="common/assets/DataTables/datatables.min.css" rel="stylesheet" type="text/css" media="screen" />
-    <link href="common/assets/DataTables/Responsive/css/responsive.dataTables.min.css" rel="stylesheet" type="text/css" media="screen" />
-    <link href="common/assets/DataTables/Responsive/css/responsive.dataTables.css" rel="stylesheet" type="text/css" media="screen" />
+// Currency: BDT (৳)
+$currency = '<span style="font-weight: normal; font-style: normal;">৳</span>';
 
+// Formatted Identifiers (10-digit zero padded for diagnostic center record standards)
+$vn = sprintf('%010d', $payment->id);
+$hn = !empty($patient_info->id) ? sprintf('%010d', $patient_info->id) : (!empty($payment->patient) ? sprintf('%010d', $payment->patient) : '0000000000');
 
-    <link href="common/css/style.css" rel="stylesheet" type="text/css" media="screen">
+// Dates with Asia/Dhaka timezone
+date_default_timezone_set('Asia/Dhaka');
+$invoice_date = !empty($payment->date) ? date('d/m/Y', $payment->date) : date('d/m/Y');
+$invoice_time = !empty($payment->date) ? date('h:i A', $payment->date) : date('h:i A');
+$visit_date = !empty($payment->date) ? date('d/m/Y', $payment->date) : date('d/m/Y');
+$print_date = date('d/m/Y h:i A');
 
-    <link rel="stylesheet" type="text/css" media="screen" href="common/assets/bootstrap-datepicker/css/bootstrap-datepicker.css" />
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/assets/bootstrap-daterangepicker/daterangepicker-bs3.css" />
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/assets/bootstrap-datetimepicker/css/datetimepicker.css" />
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/assets/bootstrap-timepicker/compiled/timepicker.css">
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/assets/jquery-multi-select/css/multi-select.css" />
-    <link href="common/css/invoice-print.css" rel="stylesheet" type="text/css" media="screen" media="print">
-    <link href="common/assets/fullcalendar/fullcalendar.css" rel="stylesheet" type="text/css" media="screen">
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/assets/select2/css/select2.min.css" />
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/css/lightbox.css" />
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/assets/bootstrap-fileupload/bootstrap-fileupload.css" />
-    <link rel="stylesheet" type="text/css" media="screen" type="text/css" href="common/assets/bootstrap-wysihtml5/bootstrap-wysihtml5.css" />
+// Patient Details
+$patient_name = !empty($patient_info->name) ? $patient_info->name : (!empty($payment->patient_name) ? $payment->patient_name : '');
+$patient_phone = !empty($patient_info->phone) ? $patient_info->phone : (!empty($payment->patient_phone) ? $payment->patient_phone : '');
 
-    <link rel="stylesheet" type="text/css" media="screen" href="common/css/bootstrap-select.min.css">
-    <link rel="stylesheet" type="text/css" media="screen" href="common/css/bootstrap-select-country.min.css">
-    <link rel="stylesheet" type="text/css" media="screen" href="common/extranal/toast.css">
-
-
-    <link href="common/extranal/css/medical_history_calendar_modal.css" rel="stylesheet" type="text/css" media="screen">
-
-
-    <link href="common/css/style-responsive.css" rel="stylesheet" type="text/css" media="screen" />
-    <!--        <link href="common/extranal/css/finance/print_and_design_A4.css" rel="stylesheet" />-->
-
-</head>
-<style>
-    body {
-        print-color-adjust: exact;
+$age_str = '';
+if (!empty($patient_info) && !empty($patient_info->age)) {
+    $age_parts = explode('-', $patient_info->age);
+    if (count($age_parts) >= 2) {
+        $age_str = trim($age_parts[0] . ' Y ' . $age_parts[1] . ' M');
+    } else {
+        $age_str = trim($patient_info->age . ' Y');
     }
+}
+$gender_str = !empty($patient_info->sex) ? $patient_info->sex : '';
+$ag = [];
+if (!empty($age_str)) $ag[] = $age_str;
+if (!empty($gender_str)) $ag[] = $gender_str;
+$age_gender_display = !empty($ag) ? implode(' / ', $ag) : '-';
 
-    hr {
-        border-top: 1px solid #000 !important;
-        width: 100%;
+// Doctor Details in English
+$doctor_obj = null;
+$doc_id = !empty($payment->doctor) ? $payment->doctor : null;
+if (!empty($doc_id)) {
+    $doctor_obj = $this->doctor_model->getDoctorById($doc_id);
+}
+
+$doctor_details = [
+    'name' => '',
+    'department' => '',
+    'qualifications' => ''
+];
+
+if (!empty($doctor_obj)) {
+    if (!empty($doctor_obj->name_en) && preg_match('/[A-Za-z]/', $doctor_obj->name_en)) {
+        $doctor_details['name'] = trim($doctor_obj->name_en);
+    } elseif (!empty($doctor_obj->name) && preg_match('/^[A-Za-z0-9\s\.\(\)\,\-]+$/', trim($doctor_obj->name))) {
+        $doctor_details['name'] = trim($doctor_obj->name);
+    } elseif (!empty($payment->doctor_name) && preg_match('/^[A-Za-z0-9\s\.\(\)\,\-]+$/', trim($payment->doctor_name))) {
+        $doctor_details['name'] = trim($payment->doctor_name);
     }
-
-    h1,
-    h3,
-    h2,
-    h4,
-    h5,
-    h6 {
-        margin: 0px;
+    if (!empty($doctor_details['name']) && !preg_match('/^(Dr|Dr\.)/i', $doctor_details['name'])) {
+        $doctor_details['name'] = 'Dr. ' . $doctor_details['name'];
     }
-
-    p {
-        margin: 3px 0px;
-        font-size: .85rem;
+    if (!empty($doctor_obj->department_name) && preg_match('/[A-Za-z]/', $doctor_obj->department_name)) {
+        $doctor_details['department'] = trim($doctor_obj->department_name);
     }
-
-
-
-    .flex-wrapper {
-        display: flex;
-        /*            min-height: 100vh;*/
-        flex-direction: column;
-        justify-content: flex-start;
-    }
-
-    #footer {
-        margin-top: auto;
-    }
-
-    /*        .panel {
-            border: 0px solid #5c5c47;
-            background: #fff !important;
-            height: 100%;
-            margin: 20px 5px 5px 5px;
-            border-radius: 0px !important;
-            min-height: 700px;
-        }*/
-
-    .panel-body {
-        padding: 15px 15px !important;
-    }
-
-    .table-qr-hr {
-        margin-top: 10px !important;
-        margin-bottom: 20px !important;
-    }
-
-    .info_text {
-        font-size: 11px;
-    }
-
-    .control_label {
-        font-size: 12px;
-        width: 50px;
-    }
-
-    .reportBlock table {
-        border: 1px solid black;
-    }
-
-    .reportBlock table td {
-        border: 1px solid black;
-    }
-
-    .image_bar {
-        vertical-align: middle !important;
-    }
-
-    .theadd {
-        background: #f1f2f7 !important;
-        height: 34px !important;
-        /* margin-top: 100px!important; */
-    }
-
-    @media print {
-
-
-
-
-        .col-md-7 {
-            padding: 0px !important;
-        }
-
-        .panel {
-            margin: 0px;
-            padding: 0px;
-        }
-
-        .panel-body {
-            padding: 0px;
-        }
-
-        .wrapper {
-            margin: 0px !important;
-            padding: 0px !important;
-        }
-
-        #invoice_header {
-            border-bottom: none;
-        }
-
-        .foot {
-            right: 0;
-            position: fixed;
-            text-align: center;
-            bottom: 0;
-            margin-bottom: 10px !important;
-        }
-
-        /*        .panel {
-            background: #fff !important;
-            margin-top: -30px;
-            height: 100%;
-            border: 1px solid #000000;
-            -webkit-print-color-adjust: exact;
-            border-radius: 1px !important;
-        }*/
-
-        /*        .invoice_footer {
-            right: 0;
-            position: fixed;
-            text-align: center;
-            bottom: 0;
-            margin-bottom: 10px !important;
-        }*/
-
-        img {
-            vertical-align: middle !important;
-        }
-
-        table {
-            border: 1px solid #000000;
-            width: 100%;
-        }
-
-        .information_table {
-            border: none !important;
-
-            width: 100% !important;
-        }
-
-        #invoice_word {
-            padding-left: 19px !important;
-        }
-
-        .img_class_logo {
-            margin-top: -10px;
-            width: 120px;
-            padding-left: 2px !important;
-        }
-
-        .title {
-            font-weight: 900 !important;
-
-        }
-
-        h4 {
-            margin-top: -10px !important;
-            margin-left: 10px !important;
-        }
-
-        #first_td {
-            width: 17% !important;
-            padding-left: 40px !important;
-        }
-
-        .second_td {
-            width: 34% !important;
-        }
-
-        .last_td {
-            width: 49% !important;
-        }
-
-        .last_td_info {
-            margin-bottom: 14px;
-        }
-
-        .image_bar {
-            margin-top: 15px;
-            width: 195px;
-            height: 55px !important;
-        }
-
-        .col-md-6 {
-            width: 49% !important;
-            float: left !important;
-        }
-
-        .col-md-12 {
-            width: 100% !important;
-            float: left !important;
-
-        }
-
-        .information {
-            min-height: 400px !important;
-            border: 1px solid #000000;
-
-
-        }
-
-        .scroll {
-            border: none !important;
-        }
-
-
-        .first_th {
-            padding-left: 10px !important;
-            text-align: center;
-        }
-
-        .second_th {
-            padding-right: 10px !important;
-            text-align: center;
-        }
-
-        .third_th {
-            padding-right: 10px !important;
-            text-align: center;
-        }
-
-        .amount_th {
-            padding-left: 10px !important;
-            text-align: center;
-        }
-
-        .service_th {
-            padding-right: 10px !important;
-            text-align: center;
-        }
-
-        .description_th {
-            padding-right: 10px !important;
-            text-align: center;
-        }
-
-
-        .amount_in_word {
-            padding-left: 7px;
-            width: 28% !important;
-        }
-
-        .amount_instrong {
-            font: 600 !important;
-        }
-
-        .amount_bottom {
-            margin-bottom: 10px;
-        }
-
-        .font_amount {
-            font-size: 10px;
-        }
-
-        .calculation_second {
-            width: 22% !important;
-        }
-
-        .calculation_third {
-            width: 43% !important;
-        }
-
-        .signature {
-            margin-top: 10% !important;
-            justify-content: space-between;
-            flex-direction: column;
-        }
-
-        .table-striped th {
-            border: 1px solid #eee !important;
-            border-left: none !important;
-            border-right: none !important;
-        }
-
-        .table-striped .lang_payment {
-            height: 20px !important;
-        }
-
-        .table-striped {
-            border: 1px solid #000000 !important;
-        }
-
-        .description_info {
-            background-color: #1b62a5 !important;
-            color: #ffffff !important;
-        }
-
-        .description_info th {
-            color: #ffffff !important;
-        }
-
-        .scroll th {
-            height: 34px !important;
-            padding-left: 0px !important;
-        }
-
-        .info_text1 {
-            width: 10px !important;
-        }
-
-        .label_other {
-            width: 200px !important;
-            font-size: 12px;
-        }
-
-        .value_font {
-            font-weight: 600;
-        }
-
-        .barcode_first_td {
-            padding-left: 10px !important;
-        }
-
-        .info_rer {
-            border: 1px solid #000000 !important;
-        }
-
-        .panel {
-
-
-            padding: 20px;
-        }
-
-        .image_text {
-            margin-top: -20px !important;
+    if (!empty($doctor_obj->profile)) {
+        $rawProfile = trim(strip_tags($doctor_obj->profile));
+        if (preg_match('/\(([A-Za-z0-9\s,&\/\-\.\+]+)\)/', $rawProfile, $m)) {
+            $doctor_details['qualifications'] = trim($m[1]);
+        } elseif (preg_match('/[A-Za-z]{2,}/', $rawProfile)) {
+            $englishOnly = preg_replace('/[\x{0980}-\x{09FF}]+/u', '', $rawProfile);
+            $englishOnly = trim(preg_replace('/[\s\|\-\:\,]+$/', '', preg_replace('/^[\s\|\-\:\,]+/', '', $englishOnly)));
+            if (!empty($englishOnly) && strlen($englishOnly) > 3) {
+                $doctor_details['qualifications'] = $englishOnly;
+            }
         }
     }
-</style>
+} elseif (!empty($payment->doctor_name)) {
+    if (preg_match('/^[A-Za-z0-9\s\.\(\)\,\-]+$/', trim($payment->doctor_name))) {
+        $doctor_details['name'] = trim($payment->doctor_name);
+        if (!preg_match('/^(Dr|Dr\.)/i', $doctor_details['name'])) {
+            $doctor_details['name'] = 'Dr. ' . $doctor_details['name'];
+        }
+    }
+}
 
+// Referrer Information
+$referrer_display = '';
+if (!empty($payment->referrer_name)) {
+    $referrer_display = trim($payment->referrer_name);
+} elseif (!empty($payment->referrer)) {
+    $ref_obj = $this->db->get_where('referrer', array('id' => $payment->referrer))->row();
+    if (!empty($ref_obj->name)) {
+        $referrer_display = trim($ref_obj->name);
+    }
+}
 
-
-<table class="table_bar" style="height:30px; border: none!important">
-
-    <tr>
-        <td>&nbsp;</td>
-    </tr>
-
-
-</table>
-
-
-
-<div class="information">
-
-    <table class="table_bar table_item scroll">
-        <thead class="theadd">
-            <tr class="description_info">
-                <?php if ($payment->payment_from == 'appointment') { ?>
-                    <th class="first_th">#</th>
-                    <th class="description_th"><?php echo lang('description'); ?></th>
-                    <th class="third_th"><?php echo lang('date_time'); ?></th>
-                    <th class="second_th"><?php echo lang('doctor'); ?></th>
-                    <th class="amount_th"><?php echo lang('amount'); ?></th>
-                <?php } elseif ($payment->payment_from == 'admitted_patient_bed_service') { ?>
-                    <th class="first_th">#</th>
-                    <th class="description_th"><?php echo lang('service'); ?> <?php echo lang('name'); ?></th>
-                    <th class="third_th"><?php echo lang('unit'); ?> <?php echo lang('price') ?></th>
-                    <th class="second_th"><?php echo lang('quantity'); ?></th>
-                    <th class="amount_th"><?php echo lang('amount'); ?></th>
-                <?php } elseif ($payment->payment_from == 'admitted_patient_bed_medicine') { ?>
-                    <th class="first_th">#</th>
-                    <th class="description_th"><?php echo lang('medicine'); ?> <?php echo lang('name'); ?></th>
-                    <th class="third_th"><?php echo lang('unit'); ?> <?php echo lang('price') ?></th>
-                    <th class="second_th"><?php echo lang('quantity'); ?></th>
-                    <th class="amount_th"><?php echo lang('amount'); ?></th>
-                <?php } elseif ($payment->payment_from == 'payment') { ?>
-                    <th class="first_th">#</th>
-
-                    <th class="description_th"><?php echo lang('description'); ?></th>
-                    <th class="service_th"><?php echo lang('room_no'); ?></th>
-                    <th class="third_th"><?php echo lang('unit_price'); ?></th>
-                    <th class="second_th"><?php echo lang('qty'); ?></th>
-                    <th class="amount_th"><?php echo lang('amount'); ?></th>
-                <?php } else { ?>
-                    <th class="first_th">#</th>
-                    <th class="description_th"><?php echo lang('description'); ?></th>
-                    <th class="service_th"><?php echo lang('room_no'); ?></th>
-
-                    <th class="third_th"><?php echo lang('unit_price'); ?></th>
-                    <th class="second_th"><?php echo lang('qty'); ?></th>
-                    <th class="amount_th"><?php echo lang('amount'); ?></th>
-                <?php } ?>
-            </tr>
-        </thead>
-        <tbody id="info_all">
-            <?php
-            if ($payment->payment_from == 'appointment') {
-                if (!empty($payment->category_name)) {
-                    $appointment_details = $this->db->get_where('appointment', array('id' => $payment->appointment_id))->row();
-            ?>
-                    <tr>
-                        <td class="first_th"><?php echo '1'; ?> </td>
-                        <td class="description_th"><?php echo $payment->category_name; ?> </td>
-                        <td class="third_th"><?php echo date('d-m-Y', $appointment_details->date); ?> <br><?php echo $appointment_details->time_slot; ?> </td>
-                        <td class="second_th"> <?php echo $appointment_details->doctorname; ?> </td>
-                        <td class="amount_th"><?php echo $settings->currency; ?> <?php echo $payment->gross_total; ?> </td>
-                    </tr>
-                    <?php
-                }
-            } elseif ($payment->payment_from == 'admitted_patient_bed_medicine') {
-                if (!empty($payment->category_name)) {
-
-                    $category = explode('#', $payment->category_name);
-
-                    $i = 0;
-                    foreach ($category as $cat) {
-                        $i = $i + 1;
-                        $cat_new = array();
-                        $cat_new = explode('*', $cat);
-                    ?>
-                        <tr>
-                            <td class="first_th"><?php echo $i; ?> </td>
-                            <td class="description_th"><?php echo $cat_new[1]; ?> </td>
-                            <td class="third_th"><?php echo $settings->currency; ?> <?php echo $cat_new[2]; ?> </td>
-                            <td class="second_th"> <?php echo $cat_new[3]; ?> </td>
-                            <td class="amount_th"><?php echo $settings->currency; ?> <?php echo $cat_new[4]; ?> </td>
-                        </tr>
-                    <?php
-                    }
-                }
-            } elseif ($payment->payment_from == 'admitted_patient_bed_service') {
-                if (!empty($payment->category_name)) {
-
-                    $category = explode('#', $payment->category_name);
-
-                    $i = 0;
-                    foreach ($category as $cat) {
-                        $i = $i + 1;
-                        $cat_new = array();
-                        $cat_new = explode('*', $cat);
-                        $service = $this->db->get_where('pservice', array('id' => $cat_new[0]))->row();
-                    ?>
-                        <tr>
-                            <td class="first_th"><?php echo $i; ?> </td>
-                            <td class="description_th"> <?php echo $service->name; ?> </td>
-                            <td class="third_th"><?php echo $settings->currency; ?> <?php echo $cat_new[1]; ?> </td>
-                            <td class="second_th"> <?php echo '1'; ?> </td>
-                            <td class="amount_th"><?php echo $settings->currency; ?> <?php echo $cat_new[1]; ?> </td>
-                        </tr>
-                        <?php
-                    }
-                }
-            } else {
-                $payment_items = $this->db->get_where('payment_items', array('payment_id' => $payment->id))->result();
-                if (!empty($payment_items)) {
-                    $i = 0;
-                    foreach ($payment_items as $p_item) {
-                        $i = $i + 1;
-                        $cat_info = !empty($p_item->item_id) ? $this->finance_model->getPaymentcategoryById($p_item->item_id) : null;
-                        $room_no = !empty($cat_info) && !empty($cat_info->description) ? $cat_info->description : (!empty($cat_info->category) ? $cat_info->category : '-');
-                    ?>
-                        <tr>
-                            <td class="first_th"><?php echo $i; ?> </td>
-                            <td class="description_th"><?php echo $p_item->item_name; ?> </td>
-                            <td class="service_th"><?php echo $room_no; ?> </td>
-                            <td class="third_th"><?php echo $settings->currency; ?> <?php echo number_format($p_item->item_price, 2); ?> </td>
-                            <td class="second_th"> <?php echo $p_item->quantity; ?> </td>
-                            <td class="amount_th"><?php echo $settings->currency; ?> <?php echo number_format($p_item->subtotal, 2); ?> </td>
-                        </tr>
-                    <?php
-                    }
-                } elseif (!empty($payment->category_name)) {
-                    $category_name = $payment->category_name;
-                    $category_name1 = explode(',', $category_name);
-                    $i = 0;
-
-
-                    foreach ($category_name1 as $category_name2) {
-                        $i = $i + 1;
-                        $category_name3 = explode('*', $category_name2);
-
-                        if ($category_name3[3] > 0) {
-                        ?>
-
-                            <tr>
-                                <td class="first_th"><?php echo $i; ?> </td>
-
-                                <td class="description_th"><?php echo $this->finance_model->getPaymentcategoryById($category_name3[0])->category; ?> </td>
-                                <td class="service_th"><?php echo $this->finance_model->getPaymentcategoryById($category_name3[0])->description; ?> </td>
-                                <td class="third_th"><?php echo $settings->currency; ?> <?php echo $category_name3[1]; ?> </td>
-                                <td class="second_th"> <?php echo $category_name3[3]; ?> </td>
-                                <td class="amount_th"><?php echo $settings->currency; ?> <?php echo $category_name3[1] * $category_name3[3]; ?> </td>
-                            </tr>
-            <?php
-                        }
-                    }
+// Items Resolution
+$items = array();
+$payment_items = $this->db->get_where('payment_items', array('payment_id' => $payment->id))->result();
+if (!empty($payment_items)) {
+    $idx = 0;
+    foreach ($payment_items as $p_item) {
+        $idx++;
+        $cat_info = !empty($p_item->item_id) ? $this->finance_model->getPaymentcategoryById($p_item->item_id) : null;
+        $room_no = !empty($cat_info) && !empty($cat_info->description) ? $cat_info->description : (!empty($cat_info->category) ? $cat_info->category : '-');
+        $items[] = array(
+            'index' => $idx,
+            'name' => $p_item->item_name,
+            'room_no' => $room_no,
+            'unit_price' => floatval($p_item->item_price),
+            'qty' => floatval($p_item->quantity),
+            'amount' => floatval($p_item->subtotal)
+        );
+    }
+} else {
+    if (!empty($payment->category_name)) {
+        $cats = explode(',', $payment->category_name);
+        $idx = 0;
+        foreach ($cats as $cat) {
+            if (empty(trim($cat))) continue;
+            $parts = explode('*', $cat);
+            if (!empty($parts[0])) {
+                $cat_info = $this->finance_model->getPaymentcategoryById($parts[0]);
+                $name = !empty($cat_info->category) ? $cat_info->category : (!empty($parts[2]) ? $parts[2] : 'Item #' . $parts[0]);
+                $room_no = !empty($cat_info->description) ? $cat_info->description : $name;
+                $price = isset($parts[1]) ? floatval($parts[1]) : 0;
+                $qty = isset($parts[3]) ? floatval($parts[3]) : 1;
+                $amount = $price * $qty;
+                if ($qty > 0) {
+                    $idx++;
+                    $items[] = array(
+                        'index' => $idx,
+                        'name' => $name,
+                        'room_no' => $room_no,
+                        'unit_price' => $price,
+                        'qty' => $qty,
+                        'amount' => $amount
+                    );
                 }
             }
-            ?>
-
-        </tbody>
-
-    </table>
-
-</div>
-<table class="table_bar" style="height:30px; border-top: none!important">
-    <style>
-        .note {
-            margin-left: 50px !important;
-            font-size: 13px;
-            /* text-align: center; */
         }
-    </style>
-    <tr class="note">
-        <td>&nbsp;</td>
-        <td><?php echo lang('note'); ?> : <strong><?php echo $payment->remarks ?></strong></td>
-    </tr>
-</table>
-<table class="table_bar">
-    <tr>
-        <td class="amount_in_word">
-            <h5 class="font_amount amount_bottom"><strong class="amount_instrong"><?php echo lang('received_with_thanks'); ?> : (<?php echo $settings->currency; ?>)</strong><br>
-
-            </h5>
-            <h5 class="font_amount" style="margin-bottom: 55px;">
-                <?php echo AmountInWords($this->finance_model->getDepositAmountByPaymentId($payment->id)); ?>
-            </h5>
-            <div class="signature">
-
-                <strong>________________________<br>
-                    <?php echo lang('cashier_signature'); ?></strong>
-            </div>
-
-        </td>
-        <td class="calculation_second">
-            <div class=" float-left">
-                <?php if ($payment->gross_total - $this->finance_model->getDepositAmountByPaymentId($payment->id) == 0) { ?>
-                    <h4 style="font-weight: bold;border: 3px solid;
-    border-radius: 5px;
-    text-align: center; padding: 5px;"><?php echo lang("paid"); ?></h4>
-                <?php } else { ?>
-                    <h4 style="font-weight: bold; border: 3px solid;
-    border-radius: 5px;
-    text-align: center; padding: 5px;"><?php echo lang('due_have'); ?></h4>
-                <?php } ?>
-                <!-- <u><?php echo lang('report_delivery_time'); ?></u><br> -->
-                <?php
-
-                //    if (!empty($payment)) {
-                //        $date = new DateTime($payment->date_delivery.' '. $payment->time_delivery);
-
-                //        //Print out the 12 hour time using the format method.
-                //        $time = $date->format('h:ia') ;
-                //        echo $payment->date_delivery.'-'.$time;
-                //    }
-                ?>
-            </div>
-            <br>
-
-        </td>
-        <td class="calculation_third">
-            <div class="paragraphprint1 col-md-12">
-                <label class="label_other"><?php echo lang('gross_amount'); ?> </label>
-                <label class="info_text1"> : </label>
-
-                <span class="value_font"> <?php echo $settings->currency . ' ' . number_format($payment->amount, 2, ".", ""); ?>
-
-                </span>
-            </div>
-            <div class="paragraphprint1 col-md-12">
-                <label class="label_other">(+)<?php echo lang('vat'); ?>(<?php echo   number_format($payment->vat_amount_percent, 2, ".", ""); ?>%) </label>
-                <label class="info_text1"> : </label>
-
-                <span class="value_font"> <?php echo $settings->currency ?> <?php
-                                                                            if (!empty($payment->vat)) {
-                                                                                echo number_format($payment->vat, 2, ".", "");
-                                                                            } else {
-                                                                                echo  $settings->currency . ' ' . '0.00';
-                                                                            }
-                                                                            ?>
-
-                </span>
-            </div>
-            <div class="paragraphprint1 col-md-12">
-                <label class="label_other">(-)<?php echo lang('discount'); ?>(<?php echo  number_format($payment->percent_discount, 2, ".", ""); ?>%) </label>
-                <label class="info_text1"> : </label>
-
-                <span class="value_font"> <?php
-                                            $discount = explode('*', $payment->discount);
-                                            if (!empty($payment->discount)) {
-                                                echo  $settings->currency . ' ' . number_format($payment->discount, 2, ".", "");
-                                            } else {
-                                                echo $settings->currency . ' ' . '0.00';
-                                            }
-                                            ?>
-
-                </span>
-            </div>
-            <div class="paragraphprint1 col-md-12">
-                <label class="label_other"><?php echo lang('net_payable'); ?> </label>
-                <label class="info_text1"> : </label>
-
-                <span class="value_font"> <?php echo $settings->currency; ?> <?php echo $g = number_format($payment->gross_total, 2, ".", ""); ?>
-
-                </span>
-            </div>
-            <div class="paragraphprint1 col-md-12">
-                <label class="label_other"><?php echo lang('amount_received'); ?> </label>
-                <label class="info_text1"> : </label>
-
-                <span class="value_font"> <?php echo $settings->currency; ?> <?php echo $r = number_format($this->finance_model->getDepositAmountByPaymentId($payment->id), 2, ".", ""); ?>
-
-                </span>
-            </div>
-            <div class="paragraphprint1 col-md-12">
-                <label class="label_other"><?php echo lang('balance_due'); ?> </label>
-                <label class="info_text1"> : </label>
-
-                <span class="value_font"> <?php echo $settings->currency; ?> <?php echo number_format($g - $r, 2, ".", ""); ?>
-
-                </span>
-            </div>
-        </td>
-    </tr>
-
-</table>
-<?php $deposited_amount_payment = $this->finance_model->getDepositByInvoiceId($payment->id);
-if (count($deposited_amount_payment) > 1) {
-?>
-    <table class="table table table-striped">
-        <tr>
-            <td colspan="3" class="lang_payment" style="text-align: center;
-                                            font-weight: 600;"><?php echo lang('payment_history'); ?></td>
-        </tr>
-        <tr>
-            <th><?php echo lang('date'); ?></th>
-
-            <th><?php echo lang('amount'); ?></th>
-            <th><?php echo lang('payment_method'); ?></th>
-        </tr>
-        <?php foreach ($deposited_amount_payment as $deposited) { ?>
-            <tr>
-                <td>
-                    <?php echo date('d-m-y', $deposited->date); ?>
-                </td>
-
-                <td>
-                    <?php echo $settings->currency . ' ' . $deposited->deposited_amount; ?>
-                </td>
-                <td>
-                    <?php if ($deposited->deposit_type == 'Cash') {
-                        echo 'Cash';
-                    } else {
-                        echo $deposited->gateway;
-                    } ?>
-                </td>
-            </tr>
-        <?php } ?>
-    </table>
-
-<?php } ?>
-
-
-
-
-<?php
-function AmountInWords(float $amount)
-{
-    $amount_after_decimal = round($amount - ($num = floor($amount)), 2) * 100;
-    // Check if there is any number after decimal
-    $amt_hundred = null;
-    $count_length = strlen($num);
-    $x = 0;
-    $string = array();
-    $change_words = array(
-        0 => 'Zero', 1 => 'One', 2 => 'Two',
-        3 => 'Three', 4 => 'Four', 5 => 'Five', 6 => 'Six',
-        7 => 'Seven', 8 => 'Eight', 9 => 'Nine',
-        10 => 'Ten', 11 => 'Eleven', 12 => 'Twelve',
-        13 => 'Thirteen', 14 => 'Fourteen', 15 => 'Fifteen',
-        16 => 'Sixteen', 17 => 'Seventeen', 18 => 'Eighteen',
-        19 => 'Nineteen', 20 => 'Twenty', 30 => 'Thirty',
-        40 => 'Forty', 50 => 'Fifty', 60 => 'Sixty',
-        70 => 'Seventy', 80 => 'Eighty', 90 => 'Ninety'
-    );
-    $here_digits = array('', 'Hundred', 'Thousand', 'Lakh', 'Crore');
-    while ($x < $count_length) {
-        $get_divider = ($x == 2) ? 10 : 100;
-        $amount = floor($num % $get_divider);
-        $num = floor($num / $get_divider);
-        $x += $get_divider == 10 ? 1 : 2;
-        if ($amount) {
-            $add_plural = (($counter = count($string)) && $amount > 9) ? 's' : null;
-            $amt_hundred = ($counter == 1 && $string[0]) ? ' and ' : null;
-            $string[] = ($amount < 21) ? $change_words[$amount] . ' ' . $here_digits[$counter] . $add_plural . ' 
-                ' . $amt_hundred : $change_words[floor($amount / 10) * 10] . ' ' . $change_words[$amount % 10] . ' 
-                ' . $here_digits[$counter] . $add_plural . ' ' . $amt_hundred;
-        } else $string[] = null;
     }
-    $implode_to_Rupees = implode('', array_reverse($string));
-    $get_paise = ($amount_after_decimal > 0) ? "Point " . ($change_words[$amount_after_decimal / 10] . " 
-            " . $change_words[$amount_after_decimal % 10]) . ' ' : '';
-    return ($implode_to_Rupees ? $implode_to_Rupees . ' ' : '') . $get_paise;
 }
+
+// Financial Summary
+$gross_amount = floatval($payment->amount);
+$vat_percent = floatval(!empty($payment->vat_amount_percent) ? $payment->vat_amount_percent : 0);
+$vat_amount = floatval(!empty($payment->vat) ? $payment->vat : 0);
+$discount_percent = floatval(!empty($payment->percent_discount) ? $payment->percent_discount : 0);
+$discount_amount = floatval(!empty($payment->flat_discount) ? $payment->flat_discount : (!empty($payment->discount) ? $payment->discount : 0));
+$net_payable = floatval($payment->gross_total);
+$amount_received = floatval($this->finance_model->getDepositAmountByPaymentId($payment->id));
+$balance_due = max(0.00, $net_payable - $amount_received);
+
+// Status Badge
+$is_cancelled = (strtolower($payment->status ?? '') === 'cancelled');
+if ($is_cancelled) {
+    $status_text = 'CANCELLED';
+    $status_bg = '#fee2e2';
+    $status_color = '#dc2626';
+} elseif ($balance_due <= 0.009) {
+    $status_text = 'PAID IN FULL';
+    $status_bg = '#dcfce7';
+    $status_color = '#15803d';
+} elseif ($amount_received > 0.009) {
+    $status_text = 'PARTIALLY PAID';
+    $status_bg = '#fef3c7';
+    $status_color = '#b45309';
+} else {
+    $status_text = 'DUE';
+    $status_bg = '#fee2e2';
+    $status_color = '#dc2626';
+}
+
+// Cashier Name
+$cashier_name = '';
+$user_id = !empty($payment->user) ? $payment->user : null;
+if (!empty($user_id)) {
+    $staff = $this->db->get_where('accountant', array('ion_user_id' => $user_id))->row();
+    if (empty($staff) || empty($staff->name)) {
+        $staff = $this->db->get_where('receptionist', array('ion_user_id' => $user_id))->row();
+    }
+    if (!empty($staff) && !empty($staff->name)) {
+        $cashier_name = trim($staff->name);
+    } else {
+        $cashier_user = $this->db->get_where('users', array('id' => $user_id))->row();
+        if (!empty($cashier_user)) {
+            if (!empty($cashier_user->username)) {
+                $cashier_name = trim($cashier_user->username);
+            } elseif (!empty($cashier_user->first_name) || !empty($cashier_user->last_name)) {
+                $cashier_name = trim(($cashier_user->first_name ?? '') . ' ' . ($cashier_user->last_name ?? ''));
+            }
+        }
+    }
+}
+if (empty($cashier_name)) {
+    $cashier_name = 'Hospital Admin';
+}
+
+// Logo & Hospital Details
+if (!empty($settings->invoice_logo) && file_exists($settings->invoice_logo)) {
+    $hospital_logo = $settings->invoice_logo;
+} elseif (file_exists('uploads/logo-nonetext.png')) {
+    $hospital_logo = 'uploads/logo-nonetext.png';
+} elseif (file_exists('uploads/logo_1.png')) {
+    $hospital_logo = 'uploads/logo_1.png';
+} else {
+    $hospital_logo = !empty($settings->logo) ? $settings->logo : '';
+}
+
+$hospital_title = 'LIFECARE DIAGNOSTIC CENTER';
+$hospital_bangla = 'লাইফ কেয়ার ডায়াগনস্টিক সেন্টার';
+$hospital_address = 'Khaserhat Rastermatha, Charbata, Subarnachar, Noakhali';
+$phone_1 = '01829 95 25 95';
+$phone_2 = '01727 69 69 77';
+
+// Words Helper
+if (!function_exists('invoiceA4AmountWords')) {
+    function invoiceA4AmountWords($number) {
+        $decimal = round($number - ($no = floor($number)), 2) * 100;
+        $digits_length = strlen($no);
+        $i = 0;
+        $str = array();
+        $words = array(
+            0 => '', 1 => 'One', 2 => 'Two', 3 => 'Three', 4 => 'Four', 5 => 'Five',
+            6 => 'Six', 7 => 'Seven', 8 => 'Eight', 9 => 'Nine', 10 => 'Ten',
+            11 => 'Eleven', 12 => 'Twelve', 13 => 'Thirteen', 14 => 'Fourteen',
+            15 => 'Fifteen', 16 => 'Sixteen', 17 => 'Seventeen', 18 => 'Eighteen',
+            19 => 'Nineteen', 20 => 'Twenty', 30 => 'Thirty', 40 => 'Forty',
+            50 => 'Fifty', 60 => 'Sixty', 70 => 'Seventy', 80 => 'Eighty', 90 => 'Ninety'
+        );
+        $digits = array('', 'Hundred', 'Thousand', 'Lakh', 'Crore');
+        while ($i < $digits_length) {
+            $divider = ($i == 2) ? 10 : 100;
+            $number = floor($no % $divider);
+            $no = floor($no / $divider);
+            $i += $divider == 10 ? 1 : 2;
+            if ($number) {
+                $plural = (($counter = count($str)) && $number > 9) ? 's' : null;
+                $hundred = ($counter == 1 && $str[0]) ? ' and ' : null;
+                $str[] = ($number < 21) ? $words[$number] . ' ' . $digits[$counter] . $plural . ' ' . $hundred
+                    : $words[floor($number / 10) * 10] . ' ' . $words[$number % 10] . ' ' . $digits[$counter] . $plural . ' ' . $hundred;
+            } else $str[] = null;
+        }
+        $taka = implode('', array_reverse($str));
+        $poisha = ($decimal > 0) ? " and " . ($words[floor($decimal / 10) * 10] . " " . $words[$decimal % 10]) . ' Poisha' : '';
+        return ($taka ? trim($taka) . ' Taka' : 'Zero Taka') . $poisha . ' Only';
+    }
+}
+$word_amount = ($amount_received > 0) ? $amount_received : $net_payable;
+$amount_in_words = invoiceA4AmountWords($word_amount);
 ?>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body {
+    font-family: freeserif, freesans, sans-serif;
+    color: #1e293b;
+    font-size: 8.5pt;
+    line-height: 1.25;
+    margin: 0;
+    padding: 0;
+}
+.header-table {
+    width: 100%;
+    border-bottom: 2pt solid #1e3a8a;
+    padding-bottom: 4px;
+    margin-bottom: 5px;
+}
+.brand-title {
+    font-size: 13.5pt;
+    font-weight: bold;
+    color: #0f2942;
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+}
+.brand-bangla {
+    font-family: freeserif, sans-serif;
+    font-size: 10.5pt;
+    font-weight: normal;
+    color: #0f766e;
+    margin-top: 1px;
+}
+.brand-addr {
+    font-size: 7.2pt;
+    color: #475569;
+    margin-top: 2px;
+}
+.brand-phone {
+    font-size: 7.8pt;
+    font-weight: bold;
+    color: #1e293b;
+    margin-top: 1px;
+}
+.receipt-title {
+    font-size: 12.5pt;
+    font-weight: bold;
+    color: #1e3a8a;
+    text-align: right;
+    letter-spacing: 0.5px;
+}
+.receipt-type {
+    font-size: 6.8pt;
+    font-weight: bold;
+    color: #1e3a8a;
+    background: #e0f2fe;
+    text-align: right;
+    padding: 1px 5px;
+    border-radius: 2px;
+}
+.meta-table {
+    font-size: 7.8pt;
+    margin-top: 3px;
+    float: right;
+}
+.meta-table td {
+    padding: 1px 2px;
+}
+.patient-box {
+    width: 100%;
+    border: 1pt solid #cbd5e1;
+    background: #f8fafc;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    padding: 4px 6px;
+}
+.patient-table {
+    width: 100%;
+    font-size: 7.8pt;
+    border-collapse: collapse;
+}
+.patient-table td {
+    padding: 2.2px 3px;
+}
+.lbl {
+    color: #64748b;
+    font-weight: bold;
+}
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    margin-bottom: 6px;
+}
+.items-table th {
+    background: #1e3a8a;
+    color: #ffffff;
+    font-size: 7.8pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 5px 6px;
+    border: none;
+}
+.items-table td {
+    padding: 5px 6px;
+    border-bottom: 0.5pt solid #e2e8f0;
+}
+.items-table tr:nth-child(even) td {
+    background: #fafcff;
+}
+.col-num { width: 6%; text-align: center; }
+.col-service { width: 44%; text-align: left; font-weight: bold; color: #0f172a; }
+.col-room { width: 18%; text-align: left; color: #475569; }
+.col-price { width: 14%; text-align: right; }
+.col-qty { width: 6%; text-align: center; }
+.col-amount { width: 12%; text-align: right; font-weight: bold; color: #0f172a; }
+.items-table tr {
+    page-break-inside: avoid;
+}
+.bottom-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+    margin-bottom: 6px;
+    page-break-inside: avoid;
+}
+.bottom-table td {
+    vertical-align: top;
+}
+.status-card {
+    background: #f8fafc;
+    border: 1pt solid #cbd5e1;
+    border-radius: 4px;
+    padding: 5px 8px;
+    margin-bottom: 6px;
+}
+.badge-status {
+    display: inline-block;
+    background: <?php echo $status_bg; ?>;
+    color: <?php echo $status_color; ?>;
+    font-size: 7.2pt;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 8px;
+}
+.badge-due {
+    display: inline-block;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1pt solid #f87171;
+    font-size: 10pt;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: 8px;
+}
+.in-words {
+    font-size: 7.2pt;
+    color: #334155;
+    padding-top: 3px;
+    margin-top: 3px;
+    border-top: 0.5pt dashed #e2e8f0;
+}
+.instructions {
+    font-size: 6.8pt;
+    color: #475569;
+    background: #ffffff;
+    border: 0.5pt solid #e2e8f0;
+    padding: 3px 5px;
+    border-radius: 3px;
+    margin-top: 3px;
+    line-height: 1.35;
+}
+.summary-card {
+    border: 1pt solid #cbd5e1;
+    background: #ffffff;
+    border-radius: 4px;
+    padding: 5px 8px;
+}
+.summary-table {
+    width: 100%;
+    font-size: 7.8pt;
+    border-collapse: collapse;
+}
+.summary-table td {
+    padding: 2.2px 0;
+}
+.sum-title {
+    font-size: 7.8pt;
+    font-weight: bold;
+    color: #1e3a8a;
+    border-bottom: 0.5pt solid #e2e8f0;
+    padding-bottom: 2px;
+    margin-bottom: 3px;
+}
+.sum-net td {
+    font-weight: bold;
+    color: #1e3a8a;
+    font-size: 8.8pt;
+    border-top: 1pt solid #1e3a8a;
+    border-bottom: 1pt solid #1e3a8a;
+    padding: 3px 0;
+}
+.sum-due td {
+    font-weight: bold;
+    color: #dc2626;
+    font-size: 9.2pt;
+    padding: 3px 0;
+}
+.sig-table {
+    width: 100%;
+    margin-top: 20px;
+}
+.sig-line {
+    border-top: 0.5pt dashed #64748b;
+    margin-bottom: 2px;
+}
+.sig-lbl {
+    font-size: 6.8pt;
+    font-weight: bold;
+    color: #64748b;
+    text-transform: uppercase;
+}
+.sig-val {
+    font-size: 7.8pt;
+    font-weight: bold;
+    color: #0f172a;
+}
+.footer-sec {
+    border-top: 1pt solid #cbd5e1;
+    padding-top: 4px;
+    text-align: center;
+    font-size: 6.8pt;
+    color: #64748b;
+    width: 100%;
+    page-break-inside: avoid;
+}
+.footer-thanks {
+    font-size: 7.8pt;
+    font-weight: bold;
+    color: #1e3a8a;
+}
+</style>
+</head>
+<body>
+
+<htmlpageheader name="continuationHeader">
+    <div style="border-bottom: 1.5pt solid #1e3a8a; padding-bottom: 3px; font-size: 8pt; color: #1e3a8a; font-family: freeserif, sans-serif;">
+        <table style="width: 100%;">
+            <tr>
+                <td style="font-weight: bold; font-size: 9.5pt;">LIFECARE DIAGNOSTIC CENTER — MONEY RECEIPT</td>
+                <td style="text-align: right;"><strong>Bill No:</strong> <?php echo $vn; ?> &nbsp;|&nbsp; <strong>Patient:</strong> <?php echo html_escape($patient_name); ?> (HN: <?php echo $hn; ?>) &nbsp;|&nbsp; <strong>Page</strong> {PAGENO}/{nbpg}</td>
+            </tr>
+        </table>
+    </div>
+</htmlpageheader>
+<sethtmlpageheader name="continuationHeader" value="on" show-this-page="0" />
+
+<!-- 1. Header -->
+<table class="header-table">
+    <tr>
+        <td style="width: 60%; vertical-align: top;">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="width: 52px; vertical-align: top;">
+                        <?php if (!empty($hospital_logo) && file_exists($hospital_logo)) { ?>
+                            <img src="<?php echo $hospital_logo; ?>" width="48" style="vertical-align: top;">
+                        <?php } ?>
+                    </td>
+                    <td style="vertical-align: top; padding-left: 6px;">
+                        <div class="brand-title"><?php echo html_escape($hospital_title); ?></div>
+                        <div class="brand-bangla"><?php echo html_escape($hospital_bangla); ?></div>
+                        <div class="brand-addr"><?php echo html_escape($hospital_address); ?></div>
+                        <div class="brand-phone">Phone: <?php echo $phone_1; ?> | <?php echo $phone_2; ?></div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+        <td style="width: 40%; vertical-align: top; text-align: right;">
+            <div class="receipt-title">MONEY RECEIPT</div>
+            <div style="text-align: right; margin: 2px 0;">
+                <span class="receipt-type">DIAGNOSTIC SERVICE</span>
+            </div>
+            <div style="text-align: right; margin: 2px 0;">
+                <img src="<?php echo site_url('lab/barcode'); ?>?text=<?php echo $vn; ?>&print=false&size=20&sizefactor=0.85" height="22">
+            </div>
+            <table class="meta-table" align="right">
+                <tr><td class="lbl">Bill No:</td><td style="font-weight: bold;"><?php echo $vn; ?></td></tr>
+                <tr><td class="lbl">Date:</td><td><?php echo $invoice_date . ' ' . $invoice_time; ?></td></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+<!-- 2. Patient & Prescriber Information -->
+<div class="patient-box">
+    <table class="patient-table">
+        <tr>
+            <td class="lbl" style="width: 15%;">Patient Name</td>
+            <td style="width: 2%;">:</td>
+            <td style="width: 35%;"><strong><?php echo !empty($patient_name) ? html_escape($patient_name) : '-'; ?></strong></td>
+            <td class="lbl" style="width: 18%;">Patient ID (HN)</td>
+            <td style="width: 2%;">:</td>
+            <td style="width: 28%;"><?php echo $hn; ?></td>
+        </tr>
+        <tr>
+            <td class="lbl">Age / Gender</td>
+            <td>:</td>
+            <td><?php echo html_escape($age_gender_display); ?></td>
+            <td class="lbl">Bill No (VN)</td>
+            <td>:</td>
+            <td><?php echo $vn; ?></td>
+        </tr>
+        <tr>
+            <td class="lbl">Contact Phone</td>
+            <td>:</td>
+            <td><?php echo !empty($patient_phone) ? html_escape($patient_phone) : '-'; ?></td>
+            <td class="lbl">Billing Date</td>
+            <td>:</td>
+            <td><?php echo $visit_date; ?></td>
+        </tr>
+        <tr>
+            <td class="lbl">Doctor / Ref.</td>
+            <td>:</td>
+            <td colspan="4">
+                <?php if (!empty($doctor_details['name'])) { ?>
+                    <strong><?php echo html_escape($doctor_details['name']); ?></strong>
+                    <?php if (!empty($doctor_details['department'])) { ?>
+                        <span style="color: #1e3a8a;">(<?php echo html_escape($doctor_details['department']); ?>)</span>
+                    <?php } ?>
+                    <?php if (!empty($doctor_details['qualifications'])) { ?>
+                        <span style="color: #64748b;">- <?php echo html_escape($doctor_details['qualifications']); ?></span>
+                    <?php } ?>
+                <?php } else { ?>
+                    <span>Self / General</span>
+                <?php } ?>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- 3. Investigation Items Table -->
+<table class="items-table">
+    <thead>
+        <tr>
+            <th class="col-num">#</th>
+            <th class="col-service">Test / Investigation Name</th>
+            <th class="col-room">Service / Room</th>
+            <th class="col-price">Unit Price</th>
+            <th class="col-qty">Qty</th>
+            <th class="col-amount">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php 
+        $rendered_count = 0;
+        if (!empty($items)) {
+            foreach ($items as $row) {
+                $rendered_count++;
+                ?>
+                <tr>
+                    <td class="col-num"><?php echo $row['index']; ?></td>
+                    <td class="col-service"><?php echo html_escape($row['name']); ?></td>
+                    <td class="col-room"><?php echo html_escape($row['room_no']); ?></td>
+                    <td class="col-price"><?php echo $currency . ' ' . number_format($row['unit_price'], 2); ?></td>
+                    <td class="col-qty"><?php echo $row['qty']; ?></td>
+                    <td class="col-amount"><?php echo $currency . ' ' . number_format($row['amount'], 2); ?></td>
+                </tr>
+            <?php }
+        } else { ?>
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 10px; color: #64748b;">No diagnostic tests recorded on this invoice.</td>
+            </tr>
+        <?php }
+        ?>
+    </tbody>
+</table>
+
+<!-- 4. Bottom Section -->
+<table class="bottom-table">
+    <tr>
+        <!-- Left Pane (54%) -->
+        <td style="width: 54%; padding-right: 8px;">
+            <div class="status-card">
+                <div>
+                    <span class="badge-status"><?php echo $status_text; ?></span>
+                    <span class="badge-due">Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?></span>
+                </div>
+                <div class="in-words">
+                    <strong>In Words:</strong> <?php echo html_escape($amount_in_words); ?>
+                </div>
+                <div class="instructions">
+                    <strong>Instructions:</strong> Please preserve this receipt. It is required during diagnostic report collection.<br>
+                    • Report Delivery: 05:00 PM - 09:00 PM (Daily)
+                    <?php if (!empty(trim($payment->remarks ?? ''))) { ?>
+                        <br>• Note: <?php echo html_escape(trim($payment->remarks)); ?>
+                    <?php } ?>
+                </div>
+            </div>
+
+            <!-- Dual Signatures -->
+            <table class="sig-table">
+                <tr>
+                    <td style="width: 48%; text-align: center;">
+                        <div class="sig-line"></div>
+                        <div class="sig-lbl">Prepared By</div>
+                        <div class="sig-val"><?php echo html_escape($cashier_name); ?></div>
+                    </td>
+                    <td style="width: 4%;"></td>
+                    <td style="width: 48%; text-align: center;">
+                        <div class="sig-line"></div>
+                        <div class="sig-lbl">Authorized Signature</div>
+                        <div class="sig-val">&nbsp;</div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+
+        <!-- Right Pane (46%) -->
+        <td style="width: 46%;">
+            <div class="summary-card">
+                <div class="sum-title">BILL SUMMARY (BDT)</div>
+                <table class="summary-table">
+                    <tr>
+                        <td style="color: #64748b;">Gross Amount</td>
+                        <td style="text-align: right; font-weight: bold;"><?php echo $currency . ' ' . number_format($gross_amount, 2); ?></td>
+                    </tr>
+                    <?php if ($discount_amount > 0 || $discount_percent > 0) { ?>
+                        <tr>
+                            <td style="color: #64748b;">Discount <?php if ($discount_percent > 0) { echo '(' . number_format($discount_percent, 2) . '%)'; } ?></td>
+                            <td style="text-align: right; font-weight: bold;">-<?php echo $currency . ' ' . number_format($discount_amount, 2); ?></td>
+                        </tr>
+                    <?php } ?>
+                    <?php if ($vat_amount > 0 || $vat_percent > 0) { ?>
+                        <tr>
+                            <td style="color: #64748b;">VAT <?php if ($vat_percent > 0) { echo '(' . number_format($vat_percent, 2) . '%)'; } ?></td>
+                            <td style="text-align: right; font-weight: bold;"><?php echo $currency . ' ' . number_format($vat_amount, 2); ?></td>
+                        </tr>
+                    <?php } ?>
+                    <tr class="sum-net">
+                        <td>Net Payable</td>
+                        <td style="text-align: right;"><?php echo $currency . ' ' . number_format($net_payable, 2); ?></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #64748b;">Amount Received</td>
+                        <td style="text-align: right; font-weight: bold;"><?php echo $currency . ' ' . number_format($amount_received, 2); ?></td>
+                    </tr>
+                    <tr class="sum-due">
+                        <td>Due Amount</td>
+                        <td style="text-align: right;"><?php echo $currency . ' ' . number_format($balance_due, 2); ?></td>
+                    </tr>
+                </table>
+            </div>
+        </td>
+    </tr>
+</table>
+
+<!-- 5. Footer -->
+<div class="footer-sec">
+    <div class="footer-thanks">Thank you for choosing LifeCare Diagnostic Center. We wish you good health!</div>
+    <div style="margin: 2px 0;"><?php echo html_escape($hospital_address); ?> &nbsp;|&nbsp; Phone: <?php echo $phone_1; ?>, <?php echo $phone_2; ?></div>
+    <div style="font-style: italic;">Printed: <?php echo $print_date; ?> • Computer Generated Invoice • Software by INNOVA</div>
+</div>
+
+</body>
+</html>

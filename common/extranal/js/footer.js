@@ -1,14 +1,14 @@
 "use strict";
 $(".multi-select").multiSelect({
   selectableHeader:
-    "<input type='text' class='search-input col-md-12' autocomplete='off' placeholder=' search...'>",
+    "<div class='ms-search-wrap'><input type='text' class='search-input' autocomplete='off' placeholder='Search tests (e.g. CBC, X-Ray, ECG)...'><button type='button' class='ms-search-clear' style='display:none;' title='Clear search'>&times;</button></div>",
   selectionHeader:
     "<input type='text' class='search-input col-md-12' autocomplete='off' placeholder=''>",
   afterInit: function (ms) {
     "use strict";
     var that = this,
-      $selectableSearch = that.$selectableUl.prev(),
-      $selectionSearch = that.$selectionUl.prev(),
+      $selectableSearch = that.$selectableContainer.find('.search-input'),
+      $selectionSearch = that.$selectionContainer.find('.search-input'),
       selectableSearchString =
         "#" +
         that.$container.attr("id") +
@@ -38,13 +38,30 @@ $(".multi-select").multiSelect({
   },
   afterSelect: function () {
     "use strict";
-    this.qs1.cache();
-    this.qs2.cache();
+    var that = this;
+    var $search = that.$selectableContainer.find('.search-input');
+    if ($search.length) {
+      $search.val('');
+      that.$selectableContainer.find('.ms-search-clear').hide();
+      that.$selectableUl.find('.ms-elem-selectable').show();
+      that.$selectableUl.find('.ms-optgroup-container').show();
+      that.$selectableUl.find('.ms-optgroup-label').show();
+    }
+    if (this.qs1 && typeof this.qs1.cache === 'function') {
+      this.qs1.cache();
+    }
+    if (this.qs2 && typeof this.qs2.cache === 'function') {
+      this.qs2.cache();
+    }
   },
   afterDeselect: function () {
     "use strict";
-    this.qs1.cache();
-    this.qs2.cache();
+    if (this.qs1 && typeof this.qs1.cache === 'function') {
+      this.qs1.cache();
+    }
+    if (this.qs2 && typeof this.qs2.cache === 'function') {
+      this.qs2.cache();
+    }
   },
 });
 $(document).ready(function () {
@@ -79,38 +96,23 @@ $(document).ready(function () {
         if ($("#id-div" + idd).length) {
         } else {
           $("#editPaymentForm .qfloww").append(
-            '<div class="remove1" id="id-div' +
-            idd +
-            '">  ' +
-            '<i class="remove_attr fa fa-times" id="id-remove-' +
-            idd +
-            '" style="font-size:16px;color:red"></i> ' +
-            $(this).data("cat_name") +
-            "-" +
-            currency +
-            $(this).data("id") +
-            "</div>"
+            '<div class="cart-item-row remove1" id="id-div' + idd + '">' +
+              '<div class="cart-item-left">' +
+                '<button type="button" class="btn-cart-del remove_attr" id="id-remove-' + idd + '" title="Remove item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><i class="fas fa-times d-none"></i></button>' +
+                '<span class="cart-item-title">' + $(this).data("cat_name") + '</span>' +
+                ' <span class="cart-item-price">- ' + currency + $(this).data("id") + '</span>' +
+              '</div>' +
+              '<div class="cart-item-right">' +
+                '<div class="cart-stepper">' +
+                  '<button type="button" class="btn-stepper btn-qty-plus" data-idd="' + idd + '">+</button>' +
+                  '<input type="text" class="remove cart-qty-num" id="idinput-' + idd + '" name="quantity[]" value="' + (qtity ? qtity : 1) + '" autocomplete="off">' +
+                  '<button type="button" class="btn-stepper btn-qty-minus" data-idd="' + idd + '">-</button>' +
+                '</div>' +
+                '<input type="hidden" class="remove" id="categoryinput-' + idd + '" name="category_id[]" value="' + idd + '">' +
+              '</div>' +
+            '</div>'
           );
         }
-        var input2 = $("<input>")
-          .attr({
-            type: "text",
-            class: "remove",
-            id: "idinput-" + idd,
-            name: "quantity[]",
-            value: qtity,
-          })
-          .appendTo("#editPaymentForm .qfloww");
-
-        $("<input>")
-          .attr({
-            type: "hidden",
-            class: "remove",
-            id: "categoryinput-" + idd,
-            name: "category_id[]",
-            value: idd,
-          })
-          .appendTo("#editPaymentForm .qfloww");
       }
       $(document).ready(function () {
         "use strict";

@@ -240,7 +240,7 @@ if ($language == 'english') {
     });
 </script>
 
-<script src="common/extranal/js/footer.js"></script>
+<script src="common/extranal/js/footer.js?v=pos-2026-v12"></script>
 
 
 

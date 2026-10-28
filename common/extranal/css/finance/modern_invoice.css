@@ -1,6 +1,8 @@
 /**
  * LifeCare Diagnostic Center - Modern Medical Invoice Stylesheet
- * High-precision A4 Portrait Layout, Browser Print, and Screen Preview
+ * Engineered specifically for ISO A5 Portrait Paper (148mm x 210mm)
+ * High-definition typography, perfect proportional scaling, zero clipping
+ * Completely fills the full A5 page vertically and horizontally
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap');
@@ -8,23 +10,28 @@
 :root {
     --inv-primary: #1b62a5;
     --inv-primary-dark: #0f2942;
+    --inv-primary-navy: #1e3a8a;
     --inv-primary-light: #e0f2fe;
     --inv-primary-soft: #f0f7ff;
     --inv-teal: #0d9488;
     --inv-teal-dark: #0f766e;
-    --inv-green: #16a34a;
+    --inv-green: #15803d;
     --inv-green-light: #dcfce7;
     --inv-green-soft: #f0fdf4;
     --inv-red: #dc2626;
     --inv-red-light: #fee2e2;
-    --inv-amber: #d97706;
+    --inv-amber: #b45309;
     --inv-amber-light: #fef3c7;
     --inv-text-dark: #0f172a;
     --inv-text-body: #334155;
     --inv-text-muted: #64748b;
-    --inv-border: #e2e8f0;
-    --inv-border-light: #f1f5f9;
+    --inv-border: #cbd5e1;
+    --inv-border-light: #e2e8f0;
     --inv-card-bg: #f8fafc;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
 }
 
 /* ----------------------------------------------------
@@ -33,24 +40,25 @@
 .invoice-screen-wrapper {
     background-color: #f1f5f9;
     min-height: calc(100vh - 110px);
-    padding: 20px 12px 40px;
+    padding: 16px 12px 36px;
     font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     color: var(--inv-text-body);
 }
 
 .invoice-action-toolbar {
-    max-width: 210mm;
-    margin: 0 auto 16px;
+    width: 100%;
+    max-width: 148mm;
+    margin: 0 auto 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 10px 16px;
+    gap: 8px;
+    padding: 8px 14px;
     background: #ffffff;
     border-radius: 8px;
-    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
-    border: 1px solid var(--inv-border);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    border: 1px solid var(--inv-border-light);
 }
 
 .invoice-toolbar-left,
@@ -65,8 +73,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 7px 14px;
-    font-size: 12.5px;
+    padding: 6px 12px;
+    font-size: 12px;
     font-weight: 600;
     border-radius: 6px;
     cursor: pointer;
@@ -129,17 +137,17 @@
 .invoice-status-badge {
     display: inline-flex;
     align-items: center;
-    padding: 3px 10px;
+    padding: 3px 9px;
     border-radius: 9999px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     text-transform: uppercase;
 }
 
 .status-paid {
     background: var(--inv-green-light);
-    color: #15803d;
+    color: var(--inv-green);
     border: 1px solid #86efac;
 }
 
@@ -162,7 +170,7 @@
 }
 
 /* ----------------------------------------------------
-   A4 INVOICE CONTAINER
+   A5 INVOICE PAPER CONTAINER (148mm screen width, 200mm height)
    ---------------------------------------------------- */
 .invoice-container-wrapper {
     overflow-x: auto;
@@ -170,35 +178,36 @@
 }
 
 .invoice-paper {
-    width: 210mm;
-    max-width: 100%;
-    min-height: 297mm;
+    width: 100%;
+    max-width: 176mm;
+    min-height: 240mm;
     margin: 0 auto;
     background: #ffffff;
-    padding: 10mm 12mm 8mm;
+    padding: 5mm 6mm;
     box-sizing: border-box;
-    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.09);
     border-radius: 6px;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: var(--inv-text-body);
-    font-size: 11px;
-    line-height: 1.4;
+    font-size: 10.5px;
+    line-height: 1.35;
     position: relative;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
 }
 
-/* Watermark Stamp for Cancelled Invoices */
+/* Cancelled Watermark */
 .invoice-cancelled-stamp {
     position: absolute;
     top: 40%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(-25deg);
-    font-size: 64px;
+    font-size: 54px;
     font-weight: 900;
-    color: rgba(239, 68, 68, 0.18);
-    border: 6px dashed rgba(239, 68, 68, 0.28);
-    padding: 10px 36px;
+    color: rgba(239, 68, 68, 0.16);
+    border: 5px dashed rgba(239, 68, 68, 0.28);
+    padding: 8px 30px;
     border-radius: 12px;
     text-transform: uppercase;
     letter-spacing: 5px;
@@ -211,19 +220,22 @@
 }
 
 /* ----------------------------------------------------
-   1. HEADER SECTION
+   1. HEADER SECTION (LOGO + HOSPITAL BRANDING + VN BARCODE)
    ---------------------------------------------------- */
 .invoice-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--inv-primary);
-    gap: 16px;
+    padding-bottom: 6px;
+    border-bottom: 2.5px solid var(--inv-primary-navy);
+    margin-bottom: 6px;
+    gap: 8px;
+    width: 100%;
 }
 
 .invoice-header-brand-group {
-    flex: 1.8;
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     flex-direction: column;
 }
@@ -231,34 +243,37 @@
 .invoice-brand-top {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 4px;
+    gap: 8px;
+    margin-bottom: 2px;
 }
 
 .hospital-logo {
-    max-height: 54px;
-    max-width: 110px;
+    max-height: 48px;
+    max-width: 80px;
     object-fit: contain;
+    flex-shrink: 0;
 }
 
 .hospital-brand-titles {
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .hospital-brand-title {
-    font-size: 19px;
+    font-size: 16.5px;
     font-weight: 800;
     color: var(--inv-primary-dark);
     line-height: 1.15;
     letter-spacing: -0.2px;
     margin: 0;
     text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .hospital-brand-bangla {
     font-family: 'Hind Siliguri', 'Inter', sans-serif;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--inv-teal-dark);
     line-height: 1.25;
@@ -266,24 +281,24 @@
 }
 
 .hospital-brand-address {
-    font-size: 10.5px;
+    font-size: 9.5px;
     color: #475569;
-    margin-top: 4px;
+    margin-top: 2px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
 }
 
 .hospital-brand-address i {
     color: var(--inv-primary);
-    font-size: 10.5px;
+    font-size: 9px;
 }
 
 .hospital-brand-phones {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
     color: #1e293b;
-    margin-top: 3px;
+    margin-top: 1.5px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -292,12 +307,12 @@
 .phone-item {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
 }
 
 .phone-item i {
     color: var(--inv-teal);
-    font-size: 9.5px;
+    font-size: 9px;
 }
 
 .phone-separator {
@@ -305,9 +320,9 @@
     font-weight: 400;
 }
 
-/* Header Metadata (Right) */
+/* Header Metadata (Right side: Money Receipt title, Barcode, Bill No) */
 .invoice-header-meta {
-    flex: 1.2;
+    flex: 0 0 auto;
     text-align: right;
     display: flex;
     flex-direction: column;
@@ -315,481 +330,469 @@
 }
 
 .invoice-title-large {
-    font-size: 22px;
+    font-size: 17px;
     font-weight: 800;
-    color: var(--inv-primary-dark);
+    color: var(--inv-primary-navy);
     line-height: 1;
-    letter-spacing: 1.2px;
-    margin: 0 0 3px 0;
+    letter-spacing: 0.6px;
+    margin: 0 0 2px 0;
 }
 
 .invoice-type-pill {
     display: inline-block;
     background: #dbeafe;
     color: #1e40af;
-    padding: 2px 10px;
+    padding: 2px 8px;
     border-radius: 9999px;
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.4px;
     text-transform: uppercase;
-    margin-bottom: 6px;
-}
-
-.invoice-meta-table {
-    margin-left: auto;
-    font-size: 10.5px;
-    border-collapse: collapse;
-}
-
-.invoice-meta-table td {
-    padding: 1.5px 3px;
-    text-align: right;
-}
-
-.invoice-meta-table td.meta-label {
-    color: var(--inv-text-muted);
-    font-weight: 500;
-}
-
-.invoice-meta-table td.meta-separator {
-    color: var(--inv-text-muted);
-    width: 8px;
-    text-align: center;
-}
-
-.invoice-meta-table td.meta-value {
-    color: var(--inv-text-dark);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
-
-.invoice-meta-table td.meta-value-number {
-    font-weight: 700;
-    font-size: 11.5px;
-    color: #0f172a;
-    font-family: monospace, sans-serif;
-    letter-spacing: 0.5px;
-}
-
-/* ----------------------------------------------------
-   2. PATIENT INFORMATION & BARCODES SECTION
-   ---------------------------------------------------- */
-.patient-visit-grid {
-    display: flex;
-    gap: 10px;
-    margin-top: 8px;
-    margin-bottom: 6px;
-    align-items: stretch;
-}
-
-.meta-card {
-    background: var(--inv-card-bg);
-    border: 1px solid var(--inv-border);
-    border-radius: 6px;
-    padding: 8px 12px;
-    box-sizing: border-box;
-}
-
-.patient-card {
-    flex: 1.45;
-}
-
-.barcode-card {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.card-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--inv-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-    padding-bottom: 3px;
-    border-bottom: 1px solid #eef2f6;
-    display: flex;
-    align-items: center;
-}
-
-.patient-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 12px;
-    row-gap: 3px;
-    font-size: 10.5px;
-}
-
-.grid-item {
-    display: flex;
-    align-items: baseline;
-    line-height: 1.35;
-}
-
-.grid-item .label {
-    width: 85px;
-    color: var(--inv-text-muted);
-    font-weight: 500;
-    flex-shrink: 0;
-}
-
-.grid-item .colon {
-    width: 10px;
-    color: var(--inv-text-muted);
-    flex-shrink: 0;
-    text-align: center;
-}
-
-.grid-item .value {
-    color: var(--inv-text-dark);
-    font-weight: 600;
-    word-break: break-word;
-    flex-grow: 1;
-}
-
-/* Barcode Section */
-.barcode-wrapper {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    gap: 8px;
-    height: 100%;
-}
-
-.barcode-item {
-    text-align: center;
-    flex: 1;
-}
-
-.barcode-title {
-    font-size: 9px;
-    font-weight: 700;
-    color: var(--inv-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     margin-bottom: 2px;
 }
 
-.barcode-img {
-    height: 28px;
-    max-width: 100%;
+.invoice-header-barcode {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 1px;
+}
+
+.invoice-header-barcode img {
+    height: 24px;
+    max-width: 130px;
+    object-fit: contain;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
 }
 
-.barcode-digits {
-    font-family: monospace, sans-serif;
+.invoice-header-meta-table {
+    margin-left: auto;
     font-size: 9.5px;
-    font-weight: 700;
-    color: var(--inv-text-dark);
-    letter-spacing: 0.5px;
-    margin-top: 1px;
+    border-collapse: collapse;
+    margin-top: 2px;
 }
 
-.barcode-separator {
-    width: 1px;
-    height: 38px;
-    background: #e2e8f0;
-    flex-shrink: 0;
+.invoice-header-meta-table td {
+    padding: 0.5px 2px;
+    text-align: right;
+}
+
+.invoice-header-meta-table td.lbl {
+    color: var(--inv-text-muted);
+    font-weight: 500;
+}
+
+.invoice-header-meta-table td.sep {
+    color: var(--inv-text-muted);
+    width: 6px;
+    text-align: center;
+}
+
+.invoice-header-meta-table td.val {
+    color: var(--inv-text-dark);
+    font-weight: 700;
+    font-family: monospace, sans-serif;
+    letter-spacing: 0.3px;
 }
 
 /* ----------------------------------------------------
-   3. DOCTOR INFORMATION (DEDICATED FULL-WIDTH BAR)
-   Prevents narrow vertical character wrapping!
+   2. PATIENT & PRESCRIBER INFORMATION (UNIFIED TABLE BOX)
+   100% immune to flexbox squishing and word-break bugs
    ---------------------------------------------------- */
-.doctor-info-bar {
-    background: #f0f7ff;
-    border: 1px solid #bae6fd;
-    border-radius: 6px;
-    padding: 6px 12px;
-    margin-bottom: 8px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+.patient-doctor-box {
+    width: 100%;
+    border: 1px solid var(--inv-border);
+    border-radius: 5px;
+    background: var(--inv-card-bg);
+    overflow: hidden;
+    margin-bottom: 6px;
 }
 
-.doctor-header-line {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+.patient-info-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 10px;
 }
 
-.doctor-tag {
+.patient-info-table td {
+    padding: 4px 7px;
+    vertical-align: middle;
+    line-height: 1.35;
+}
+
+.patient-info-table td.lbl {
+    width: 16%;
+    color: #475569;
+    font-weight: 600;
     font-size: 9.5px;
-    font-weight: 700;
-    color: var(--inv-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
+    white-space: nowrap;
 }
 
-.doc-name {
-    font-size: 12px;
+.patient-info-table td.sep {
+    width: 2%;
+    color: #94a3b8;
+    text-align: center;
+    font-weight: 600;
+}
+
+.patient-info-table td.val {
+    width: 32%;
+    color: var(--inv-text-dark);
+    font-weight: 600;
+    font-size: 10px;
+    word-break: normal;
+}
+
+.patient-info-table td.val strong {
+    color: #0f172a;
     font-weight: 700;
-    color: #0c4a6e;
-    letter-spacing: -0.1px;
+    font-size: 11px;
+}
+
+.patient-info-table td.val.font-monospace {
+    font-family: monospace, sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.4px;
+}
+
+.patient-info-table tr.doctor-subrow td {
+    background: #f0f7ff;
+    border-top: 1px solid #e0f2fe;
+    padding-top: 4.5px;
+    padding-bottom: 4.5px;
 }
 
 .doc-dept-badge {
     background: #e0f2fe;
-    color: #0369a1;
+    color: #0284c7;
     border: 1px solid #bae6fd;
-    padding: 1px 7px;
-    border-radius: 4px;
-    font-size: 10px;
+    padding: 1.5px 6px;
+    border-radius: 3px;
+    font-size: 9px;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
 }
 
-.doctor-sub-details {
-    font-size: 10px;
-    color: #334155;
+.doc-sub-text {
+    font-size: 9px;
+    color: #475569;
     font-weight: 500;
-    margin-top: 2px;
-    line-height: 1.35;
-    word-break: normal;
 }
 
 /* ----------------------------------------------------
-   4. TEST / SERVICE TABLE
+   3. DIAGNOSTIC SERVICES TABLE
    ---------------------------------------------------- */
 .invoice-items-table-wrapper {
-    margin-bottom: 8px;
+    width: 100%;
+    margin-bottom: 6px;
     border: 1px solid var(--inv-border);
-    border-radius: 6px;
+    border-radius: 5px;
     overflow: hidden;
+    background: #ffffff;
 }
 
 .invoice-items-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
     font-size: 10.5px;
 }
 
+.table-continuation-row th {
+    background: #f1f5f9;
+    color: #1e3a8a;
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 3.5px 8px;
+    border-bottom: 1.5px solid #cbd5e1;
+    text-transform: none;
+    letter-spacing: 0.2px;
+}
+
+.continuation-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.continuation-meta {
+    font-weight: 500;
+    color: #475569;
+}
+
 .invoice-items-table thead th {
-    background: #1e3a8a;
+    background: var(--inv-primary-navy);
     color: #ffffff;
     font-weight: 700;
-    font-size: 10px;
+    font-size: 9.5px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 6px 8px;
+    letter-spacing: 0.4px;
+    padding: 6px 7px;
     border: none;
-    line-height: 1.2;
+    line-height: 1.25;
 }
 
 .invoice-items-table tbody td {
-    padding: 5px 8px;
+    padding: 6px 7px;
     border-bottom: 1px solid #f1f5f9;
     color: #1e293b;
     vertical-align: middle;
-    line-height: 1.3;
+    line-height: 1.35;
 }
 
 .invoice-items-table tbody tr:nth-child(even) {
-    background-color: #fbfcfe;
+    background-color: #fafcff;
+}
+
+.empty-filler-row td {
+    height: 25px;
+    border-bottom: 1px dashed #e2e8f0;
+    color: #cbd5e1;
 }
 
 .col-num {
-    width: 32px;
+    width: 6%;
     text-align: center;
     color: var(--inv-text-muted);
     font-weight: 600;
 }
 
 .col-service {
+    width: 42%;
     text-align: left;
     font-weight: 600;
     color: #0f172a;
     word-break: break-word;
+    font-size: 10.5px;
 }
 
 .col-room {
-    width: 140px;
+    width: 20%;
     text-align: left;
-    color: var(--inv-text-muted);
+    color: #475569;
+    font-size: 10px;
 }
 
 .col-price {
-    width: 80px;
+    width: 12%;
     text-align: right;
     font-variant-numeric: tabular-nums;
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 10.5px;
 }
 
 .col-qty {
-    width: 45px;
+    width: 6%;
     text-align: center;
     font-weight: 600;
 }
 
 .col-amount {
-    width: 90px;
+    width: 14%;
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
     color: #0f172a;
+    font-size: 10.5px;
 }
 
 /* ----------------------------------------------------
-   5. BOTTOM SECTION: NOTES & BILL SUMMARY
+   4. FINANCIAL SUMMARY & NOTES SECTION (BALANCED TWO PANES)
    ---------------------------------------------------- */
 .invoice-bottom-grid {
     display: flex;
-    gap: 12px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 6px;
     align-items: stretch;
+    width: 100%;
 }
 
-/* Left: Payment & Notes */
-.invoice-notes-card {
-    flex: 1.25;
-    background: var(--inv-card-bg);
-    border: 1px solid var(--inv-border);
-    border-radius: 6px;
-    padding: 8px 12px;
+/* Left Pane: Payment Status, Advisory, Signatures */
+.invoice-left-pane {
+    flex: 1 1 54%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    gap: 6px;
 }
 
-.invoice-notes-header {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-bottom: 4px;
-    color: var(--inv-primary);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
+.status-highlight-card {
+    background: var(--inv-card-bg);
+    border: 1px solid var(--inv-border);
+    border-radius: 5px;
+    padding: 6px 10px;
 }
 
-.invoice-note-content {
-    font-size: 10px;
-    color: #475569;
-    line-height: 1.35;
-    min-height: 24px;
-}
-
-.invoice-notes-bottom {
-    margin-top: 8px;
+.status-row-top {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    gap: 10px;
+    align-items: center;
+    margin-bottom: 4px;
 }
 
-.received-thanks-badge {
+.due-amount-banner {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 13.5px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}
+
+.banner-has-due {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1.5px solid #f87171;
+}
+
+.banner-no-due {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1.5px solid #86efac;
+}
+
+.received-thanks-banner {
     background: var(--inv-green-soft);
     color: var(--inv-green);
     border: 1px solid #bbf7d0;
     padding: 3px 8px;
     border-radius: 4px;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
 }
 
-.cashier-signature-block {
-    text-align: center;
-    min-width: 120px;
+.in-words-row {
+    font-size: 9.5px;
+    color: #334155;
+    padding: 4px 0 3px;
+    border-top: 1px dashed #e2e8f0;
+    line-height: 1.35;
+}
+.in-words-row strong {
+    color: #0f172a;
 }
 
-.signature-line {
-    border-top: 1px dashed #94a3b8;
+.patient-instructions-box {
+    font-size: 9px;
+    color: #475569;
+    line-height: 1.4;
+    background: #ffffff;
+    border: 1px solid var(--inv-border-light);
+    border-radius: 4px;
+    padding: 4.5px 8px;
+    margin-top: 4px;
+}
+
+.patient-instructions-box strong {
+    color: #0f172a;
+}
+
+.signatures-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-top: 20px;
+    gap: 14px;
+}
+
+.sig-block {
+    text-align: center;
+    min-width: 95px;
+}
+
+.sig-line {
+    border-top: 1px dashed #64748b;
     margin-bottom: 3px;
 }
 
-.signature-label {
-    font-size: 9px;
-    font-weight: 600;
+.sig-label {
+    font-size: 8.5px;
+    font-weight: 700;
     color: var(--inv-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 
-.cashier-name {
+.sig-name {
     font-size: 9.5px;
     font-weight: 700;
     color: var(--inv-text-dark);
 }
 
-/* Right: Bill Summary Card */
-.invoice-summary-card {
-    flex: 1;
+/* Right Pane: Bill Summary */
+.invoice-right-pane {
+    flex: 0 0 44%;
+    min-width: 0;
     background: #ffffff;
     border: 1px solid var(--inv-border);
-    border-radius: 6px;
-    padding: 8px 12px;
+    border-radius: 5px;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
-.invoice-summary-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
+.bill-summary-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--inv-primary-navy);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 3px;
     padding-bottom: 3px;
     border-bottom: 1px solid #eef2f6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.invoice-summary-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--inv-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 0;
-}
-
-.invoice-summary-table {
+.bill-summary-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 10.5px;
+    font-size: 10px;
 }
 
-.invoice-summary-table td {
-    padding: 2.5px 0;
+.bill-summary-table td {
+    padding: 2.2px 0;
     vertical-align: middle;
 }
 
-.summary-label {
+.sum-lbl {
     color: var(--inv-text-muted);
     font-weight: 500;
     text-align: left;
 }
 
-.summary-colon {
-    width: 10px;
+.sum-sep {
+    width: 6px;
     color: var(--inv-text-muted);
     text-align: center;
 }
 
-.summary-value {
+.sum-val {
     text-align: right;
     font-weight: 600;
     color: var(--inv-text-dark);
     font-variant-numeric: tabular-nums;
 }
 
-.summary-row-payable td {
-    padding: 4px 0;
+.sum-row-net td {
+    padding: 3.5px 0;
     font-weight: 700;
-    color: #1e3a8a;
+    color: var(--inv-primary-navy);
     font-size: 11px;
-    border-top: 1px solid #cbd5e1;
-    border-bottom: 1px solid #cbd5e1;
+    border-top: 1.5px solid var(--inv-primary-navy);
+    border-bottom: 1.5px solid var(--inv-primary-navy);
 }
 
-.summary-row-due td {
-    padding: 4px 0;
+.sum-row-due td {
+    padding: 3.5px 0;
     font-weight: 800;
     font-size: 11.5px;
 }
@@ -803,54 +806,55 @@
 }
 
 /* ----------------------------------------------------
-   6. FOOTER SECTION
+   5. FOOTER SECTION
    ---------------------------------------------------- */
 .invoice-footer-container {
     margin-top: auto;
-    padding-top: 8px;
+    padding-top: 5px;
     border-top: 1.5px solid var(--inv-border);
     text-align: center;
+    width: 100%;
 }
 
 .footer-thankyou {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    color: var(--inv-primary);
+    color: var(--inv-primary-navy);
     letter-spacing: 0.2px;
 }
 
 .footer-address {
-    font-size: 9.5px;
+    font-size: 8.5px;
     color: #475569;
-    margin-top: 2px;
+    margin-top: 1.5px;
 }
 
 .footer-contact {
-    font-size: 9.5px;
+    font-size: 8.5px;
     font-weight: 600;
     color: #1e293b;
-    margin-top: 2px;
+    margin-top: 1.5px;
 }
 
 .footer-contact i {
     color: var(--inv-teal);
-    font-size: 9px;
+    font-size: 8px;
 }
 
 .footer-note {
-    font-size: 8.5px;
+    font-size: 8px;
     color: #64748b;
-    margin-top: 3px;
+    margin-top: 2px;
     font-style: italic;
 }
 
 /* ----------------------------------------------------
-   7. PRINT OPTIMIZATIONS (@media print)
+   6. PRINT OPTIMIZATIONS (@media print) - FULL ISO A5 PORTRAIT
    ---------------------------------------------------- */
 @media print {
     @page {
-        size: A4 portrait;
-        margin: 8mm 10mm;
+        size: 176mm 250mm;
+        margin: 5mm;
     }
 
     html, body {
@@ -858,12 +862,16 @@
         margin: 0 !important;
         padding: 0 !important;
         width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
         height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
-    /* Hide non-printable app UI */
+    /* Hide all non-printable UI elements */
     .no-print,
     .main-header,
     .main-sidebar,
@@ -871,59 +879,171 @@
     .invoice-action-toolbar,
     .main-footer,
     footer.main-footer,
+    .site-footer,
     .sidebar,
-    #sidebar {
+    #sidebar,
+    .modal,
+    .modal-backdrop,
+    #loader {
         display: none !important;
     }
 
-    .content-wrapper {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        min-height: auto !important;
-    }
-
-    .invoice-screen-wrapper {
-        background: #ffffff !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        min-height: auto !important;
-    }
-
+    /* Reset AdminLTE wrapper hierarchy to eliminate min-width: 992px constraint and blank first page */
+    .wrapper,
+    .content-wrapper,
+    .invoice-screen-wrapper,
     .invoice-container-wrapper {
-        padding: 0 !important;
         margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        position: static !important;
+        overflow: visible !important;
+        transform: none !important;
+        -webkit-transform: none !important;
     }
 
+    /* The invoice paper fills the full ISO B5 portrait printable area (176mm x 250mm) with dynamic multi-page flow */
     .invoice-paper {
         width: 100% !important;
+        min-width: 0 !important;
         max-width: 100% !important;
-        min-height: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
         margin: 0 !important;
         padding: 0 !important;
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
+        display: block !important;
+        box-sizing: border-box !important;
+        page-break-before: auto !important;
+        page-break-after: auto !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        overflow: visible !important;
+    }
+
+    .invoice-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-bottom: 6px !important;
+    }
+
+    .patient-doctor-box {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-bottom: 6px !important;
+    }
+
+    .invoice-items-table-wrapper {
+        width: 100% !important;
+        overflow: visible !important;
+        border: 1px solid var(--inv-border) !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        margin-bottom: 6px !important;
+    }
+
+    .invoice-items-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+    }
+
+    .invoice-items-table thead {
+        display: table-header-group !important;
+    }
+
+    .invoice-items-table thead tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .invoice-items-table tbody tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .table-continuation-row th {
+        background: #f1f5f9 !important;
+        color: #1e3a8a !important;
+        border-bottom: 1.5px solid #cbd5e1 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .invoice-bottom-grid {
+        display: flex !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-top: 8px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .invoice-footer-container {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-top: 8px !important;
     }
 
     .invoice-items-table thead th {
         background: #1e3a8a !important;
         color: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
     }
 
-    .doctor-info-bar {
+    .patient-info-table tr.doctor-subrow td {
         background: #f0f7ff !important;
-        border: 1px solid #bae6fd !important;
+        -webkit-print-color-adjust: exact !important;
     }
 
-    .received-thanks-badge {
+    .due-amount-banner.banner-has-due {
+        background: #fef2f2 !important;
+        color: #dc2626 !important;
+        border: 1.5px solid #f87171 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .due-amount-banner.banner-no-due {
         background: #f0fdf4 !important;
         color: #16a34a !important;
-        border: 1px solid #bbf7d0 !important;
+        border: 1.5px solid #86efac !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
-    .meta-card {
-        background: #f8fafc !important;
-        border: 1px solid #e2e8f0 !important;
+    .received-thanks-banner {
+        background: #f0fdf4 !important;
+        color: #15803d !important;
+        border: 1px solid #bbf7d0 !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+
+    .status-paid {
+        background: #dcfce7 !important;
+        color: #15803d !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+
+    .status-partial {
+        background: #fef3c7 !important;
+        color: #b45309 !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+
+    .status-due {
+        background: #fee2e2 !important;
+        color: #dc2626 !important;
+        -webkit-print-color-adjust: exact !important;
     }
 }
