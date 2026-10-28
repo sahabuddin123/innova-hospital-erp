@@ -60,6 +60,7 @@ class Doctor extends MX_Controller
 
         $redirect = $this->input->post('redirect');
         $name = $this->input->post('name');
+        $degrees = $this->input->post('degrees');
         $password = $this->input->post('password');
         $email = $this->input->post('email');
         $address = $this->input->post('address');
@@ -165,6 +166,7 @@ class Doctor extends MX_Controller
                     $data = array(
                         'img_url' => $img_url,
                         'name' => $name,
+                        'degrees' => $degrees,
                         'email' => $email,
                         'address' => $address,
                         'phone' => $phone,
@@ -180,6 +182,7 @@ class Doctor extends MX_Controller
                     $data = array(
                         'img_url' => $img_url,
                         'name' => $name,
+                        'degrees' => $degrees,
                         'email' => $email,
                         'address' => $address,
                         'phone' => $phone,
@@ -203,6 +206,7 @@ class Doctor extends MX_Controller
                     $data = array(
 
                         'name' => $name,
+                        'degrees' => $degrees,
                         'email' => $email,
                         'address' => $address,
                         'phone' => $phone,
@@ -218,6 +222,7 @@ class Doctor extends MX_Controller
                     $data = array();
                     $data = array(
                         'name' => $name,
+                        'degrees' => $degrees,
                         'email' => $email,
                         'address' => $address,
                         'phone' => $phone,
@@ -492,13 +497,21 @@ class Doctor extends MX_Controller
 
 
 
+            $profile_display = '';
+            if (!empty($doctor->degrees)) {
+                $profile_display .= '<div class="text-primary font-weight-bold">' . html_escape($doctor->degrees) . '</div>';
+            }
+            if (!empty($doctor->profile)) {
+                $profile_display .= '<div>' . $doctor->profile . '</div>';
+            }
+
             $info[] = array(
                 $doctor->id,
                 $doctor->name,
                 $doctor->email,
                 $doctor->phone,
                 $depart,
-                $doctor->profile,
+                $profile_display,
                 $options6 . ' ' . $options1 . ' ' . $options2 . ' ' . $options4 . ' ' . $options5 . ' ' . $options3,
                 // $dropdownOptions
             );
@@ -568,6 +581,7 @@ class Doctor extends MX_Controller
 
         $name = trim((string)$this->input->post('name'));
         $name_en = trim((string)$this->input->post('name_en'));
+        $degrees = trim((string)$this->input->post('degrees'));
         $phone = trim((string)$this->input->post('phone'));
         $department_name = trim((string)$this->input->post('department_name'));
         $profile = trim((string)$this->input->post('profile'));
@@ -647,6 +661,7 @@ class Doctor extends MX_Controller
         $doctor_data = array(
             'name' => $name,
             'name_en' => !empty($name_en) ? $name_en : null,
+            'degrees' => !empty($degrees) ? $degrees : null,
             'email' => $email,
             'address' => !empty($address) ? $address : '',
             'phone' => $phone,
@@ -680,6 +695,7 @@ class Doctor extends MX_Controller
                 'id' => $doctor_id,
                 'name' => $name,
                 'name_en' => $name_en,
+                'degrees' => $degrees,
                 'text' => $formatted_text,
                 'phone' => $phone,
                 'department_name' => $department_name

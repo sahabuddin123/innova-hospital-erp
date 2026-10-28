@@ -530,7 +530,11 @@ class Referral_model extends CI_Model
 
 
     /**
-     * Process payment deposit and earn commission proportionally
+     * Process payment deposit and allocate collected money
+     * Rule 3: When a patient makes a partial payment, allocate collected money to the hospital first
+     * until the hospital's full share is paid. Only then credit subsequent collections to the referrer's
+     * wallet, up to the referrer's remaining commission entitlement.
+     * Rule 4 & 5: Support multiple payments, prevent duplicate credits, handle refunds/reductions safely.
      */
     function processPaymentCommission($payment_id, $new_deposit_amount, $gross_total, $hospital_id = null)
     {
@@ -544,23 +548,39 @@ class Referral_model extends CI_Model
         }
 
         $referrer_id = $payment->referrer;
-        $gross_total = floatval($payment->gross_total);
-        if ($gross_total <= 0) {
-            return false;
+        if (empty($hospital_id)) {
+            $hospital_id = !empty($payment->hospital_id) ? $payment->hospital_id : null;
         }
 
-        // Calculate total deposited so far from patient_deposit, payment.amount_received, or new_deposit_amount
+        $gross_total = floatval($payment->gross_total);
+        $referral_entitlement = isset($payment->referral_amount) ? floatval($payment->referral_amount) : 0.00;
+        $hospital_share = isset($payment->hospital_amount) ? floatval($payment->hospital_amount) : 0.00;
+
+        if (!isset($payment->hospital_amount) || $payment->hospital_amount === null) {
+            $doctor_amount = isset($payment->doctor_amount) ? floatval($payment->doctor_amount) : 0.00;
+            $hospital_share = max(0.00, round($gross_total - $doctor_amount - $referral_entitlement, 2));
+        }
+
+        // Calculate total deposited so far from patient_deposit
         $this->db->select_sum('deposited_amount');
         $this->db->where('payment_id', $payment_id);
         $dep_row = $this->db->get('patient_deposit')->row();
-        $total_deposited = ($dep_row && !empty($dep_row->deposited_amount)) ? floatval($dep_row->deposited_amount) : floatval($payment->amount_received);
+        $total_deposited = ($dep_row && $dep_row->deposited_amount !== null) ? floatval($dep_row->deposited_amount) : floatval($payment->amount_received);
 
-        if (!empty($new_deposit_amount) && floatval($new_deposit_amount) > $total_deposited) {
+        // If no records in patient_deposit yet, fallback to $new_deposit_amount
+        if ($total_deposited <= 0 && !empty($new_deposit_amount) && floatval($new_deposit_amount) > 0) {
             $total_deposited = floatval($new_deposit_amount);
         }
+        $total_deposited = max(0.00, $total_deposited);
 
-        // Calculate paid ratio (capped at 1.0)
-        $paid_ratio = min(1.0, max(0.0, $total_deposited / $gross_total));
+        // Rule 3: Hospital paid first, referrer only gets collections after hospital share is paid
+        if ($referral_entitlement <= 0 || $total_deposited <= $hospital_share) {
+            $cumulative_target_earned = 0.00;
+        } else {
+            $surplus = round($total_deposited - $hospital_share, 2);
+            $cumulative_target_earned = min($referral_entitlement, $surplus);
+        }
+        $cumulative_target_earned = max(0.00, $cumulative_target_earned);
 
         // Get all pending/earned ledger entries for this invoice
         $this->db->where('invoice_id', $payment_id);
@@ -571,46 +591,61 @@ class Referral_model extends CI_Model
             return false;
         }
 
+        $already_earned_total = 0.00;
+        $total_ledger_commission = 0.00;
+        foreach ($ledger_entries as $entry) {
+            $already_earned_total += floatval($entry->earned_amount);
+            $total_ledger_commission += floatval($entry->commission_amount);
+        }
+        $already_earned_total = round($already_earned_total, 2);
+        $total_ledger_commission = round($total_ledger_commission, 2);
+
+        // Determine net change to credit or debit
+        $net_diff = round($cumulative_target_earned - $already_earned_total, 2);
+
+        // If no net change, return true without touching wallet to prevent duplicate entries
+        if (abs($net_diff) < 0.005) {
+            return true;
+        }
+
         $wallet = $this->getOrCreateWallet($referrer_id, $hospital_id);
-        $total_newly_earned = 0;
-        $total_reversed = 0;
 
         $this->db->trans_start();
 
-        foreach ($ledger_entries as $entry) {
-            $total_item_commission = floatval($entry->commission_amount);
-            $already_earned = floatval($entry->earned_amount);
-            $target_earned = round($total_item_commission * $paid_ratio, 2);
-            $diff = round($target_earned - $already_earned, 2);
+        // Distribute cumulative_target_earned across ledger entries
+        $allocated_earned_so_far = 0.00;
+        $num_entries = count($ledger_entries);
 
-            if ($diff > 0) {
-                $new_status = ($target_earned >= $total_item_commission) ? 'Earned' : 'Pending';
+        for ($i = 0; $i < $num_entries; $i++) {
+            $entry = $ledger_entries[$i];
+            $comm_amt = floatval($entry->commission_amount);
 
-                $this->db->where('id', $entry->id)->update('referral_commission_ledger', array(
-                    'earned_amount' => $target_earned,
-                    'status' => $new_status,
-                    'payment_reference' => 'INV-' . $payment_id . ' (Paid: ' . number_format($paid_ratio * 100, 1) . '%)'
-                ));
-
-                $total_newly_earned += $diff;
-            } elseif ($diff < 0) {
-                $rev_amt = abs($diff);
-                $new_status = ($target_earned <= 0) ? 'Pending' : 'Pending';
-
-                $this->db->where('id', $entry->id)->update('referral_commission_ledger', array(
-                    'earned_amount' => $target_earned,
-                    'status' => $new_status,
-                    'payment_reference' => 'INV-' . $payment_id . ' (Refund/Reduction: Paid ' . number_format($paid_ratio * 100, 1) . '%)'
-                ));
-
-                $total_reversed += $rev_amt;
+            if ($total_ledger_commission > 0) {
+                if ($i === $num_entries - 1) {
+                    $entry_target_earned = max(0.00, round($cumulative_target_earned - $allocated_earned_so_far, 2));
+                } else {
+                    $entry_target_earned = round(($comm_amt / $total_ledger_commission) * $cumulative_target_earned, 2);
+                    $allocated_earned_so_far += $entry_target_earned;
+                }
+            } else {
+                $entry_target_earned = 0.00;
             }
+
+            $new_status = ($entry_target_earned >= $comm_amt && $comm_amt > 0) ? 'Earned' : 'Pending';
+
+            $this->db->where('id', $entry->id)->update('referral_commission_ledger', array(
+                'earned_amount' => $entry_target_earned,
+                'status' => $new_status,
+                'payment_reference' => 'INV-' . $payment_id . ' (Collected: ৳' . number_format($total_deposited, 2) . ')'
+            ));
         }
 
-        if ($total_newly_earned > 0) {
-            $new_available = floatval($wallet->available_balance) + $total_newly_earned;
-            $new_total_earned = floatval($wallet->total_earned) + $total_newly_earned;
-            $new_pending = max(0.0, floatval($wallet->pending_commission) - $total_newly_earned);
+        if ($net_diff > 0) {
+            // Credit to referrer wallet
+            $credit_amount = $net_diff;
+            $new_available = round(floatval($wallet->available_balance) + $credit_amount, 2);
+            $new_total_earned = round(floatval($wallet->total_earned) + $credit_amount, 2);
+            $new_pending = max(0.00, round(floatval($wallet->pending_commission) - $credit_amount, 2));
 
             $this->db->where('id', $wallet->id)->update('referral_wallet', array(
                 'available_balance' => $new_available,
@@ -619,25 +654,25 @@ class Referral_model extends CI_Model
                 'updated_at' => time()
             ));
 
-            // Record in wallet ledger
+            // Record credit in wallet ledger
             $this->recordWalletTransaction(array(
                 'referrer_id' => $referrer_id,
                 'type' => 'credit',
-                'amount' => $total_newly_earned,
+                'amount' => $credit_amount,
                 'balance_after' => $new_available,
                 'source' => 'commission',
                 'reference_id' => 'INV-' . $payment_id,
-                'description' => 'Referral commission earned from Invoice #' . $payment_id . ' payment (' . number_format($paid_ratio * 100, 1) . '% paid)',
+                'description' => 'Referral commission earned from Invoice #' . $payment_id . ' (Collected: ৳' . number_format($total_deposited, 2) . ', Hospital Share: ৳' . number_format($hospital_share, 2) . ')',
                 'hospital_id' => $hospital_id
             ));
 
-            $this->logAction('Commission Earned', 'INV-' . $payment_id, null, 'Amount: ' . $total_newly_earned, $hospital_id);
-        }
-
-        if ($total_reversed > 0) {
-            $new_available = floatval($wallet->available_balance) - $total_reversed;
-            $new_total_earned = max(0.0, floatval($wallet->total_earned) - $total_reversed);
-            $new_pending = floatval($wallet->pending_commission) + $total_reversed;
+            $this->logAction('Commission Earned', 'INV-' . $payment_id, null, 'Credited: ৳' . $credit_amount . ' (Total Earned for Inv: ৳' . $cumulative_target_earned . ')', $hospital_id);
+        } elseif ($net_diff < 0) {
+            // Debit / reversal from referrer wallet (e.g. deposit reduced or refunded)
+            $debit_amount = abs($net_diff);
+            $new_available = max(0.00, round(floatval($wallet->available_balance) - $debit_amount, 2));
+            $new_total_earned = max(0.00, round(floatval($wallet->total_earned) - $debit_amount, 2));
+            $new_pending = round(floatval($wallet->pending_commission) + $debit_amount, 2);
 
             $this->db->where('id', $wallet->id)->update('referral_wallet', array(
                 'available_balance' => $new_available,
@@ -650,7 +685,7 @@ class Referral_model extends CI_Model
             $this->recordWalletTransaction(array(
                 'referrer_id' => $referrer_id,
                 'type' => 'debit',
-                'amount' => $total_reversed,
+                'amount' => $debit_amount,
                 'balance_after' => $new_available,
                 'source' => 'reversal',
                 'reference_id' => 'INV-' . $payment_id,
@@ -658,7 +693,7 @@ class Referral_model extends CI_Model
                 'hospital_id' => $hospital_id
             ));
 
-            $this->logAction('Commission Reversed (Refund)', 'INV-' . $payment_id, 'Reversed: ' . $total_reversed, 'Paid ratio: ' . number_format($paid_ratio * 100, 1) . '%', $hospital_id);
+            $this->logAction('Commission Reversed (Refund)', 'INV-' . $payment_id, 'Reversed: ৳' . $debit_amount, 'Remaining Earned: ৳' . $cumulative_target_earned, $hospital_id);
         }
 
         $this->db->trans_complete();

@@ -111,6 +111,8 @@
 
   <link rel="stylesheet" href="common/assets/bootstrap-datepicker/css/bootstrap-datepicker.css" />
 
+  <!-- Core jQuery Library loaded in head for all views and inline scripts -->
+  <script src="common/js/jquery.js"></script>
 
 </head>
 

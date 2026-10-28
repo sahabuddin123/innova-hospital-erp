@@ -123,6 +123,10 @@ $(document).ready(function () {
           .find('[name="department"]')
           .val(response.doctor.department)
           .end();
+        $("#editDoctorForm")
+          .find('[name="degrees"]')
+          .val(response.doctor.degrees || "")
+          .end();
 
         // myEditor3.setData(response.doctor.profile);
         //$("#profile1").val(response.doctor.profile);
@@ -180,6 +184,7 @@ $(document).ready(function () {
     $(".addressClass").html("").end();
     $(".phoneClass").html("").end();
     $(".departmentClass").html("").end();
+    $(".degreesClass").html("").end();
     $(".profileClass").html("").end();
     $.ajax({
       url: "doctor/editDoctorByJason?id=" + iid,
@@ -195,6 +200,7 @@ $(document).ready(function () {
         $(".addressClass").append(response.doctor.address).end();
         $(".phoneClass").append(response.doctor.phone).end();
         $(".departmentClass").append(response.doctor.department_name).end();
+        $(".degreesClass").append(response.doctor.degrees || "N/A").end();
         $(".profileClass").append(response.doctor.profile).end();
 
         $("#img1").attr(

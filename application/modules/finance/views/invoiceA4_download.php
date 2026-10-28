@@ -41,6 +41,15 @@ $doc_id = !empty($payment->doctor) ? $payment->doctor : null;
 if (!empty($doc_id)) {
     $doctor_obj = $this->doctor_model->getDoctorById($doc_id);
 }
+if (empty($doctor_obj) && !empty($payment->doctor_name)) {
+    $doc_by_name = $this->db->get_where('doctor', array('name' => trim($payment->doctor_name)))->row();
+    if (empty($doc_by_name)) {
+        $doc_by_name = $this->db->get_where('doctor', array('name_en' => trim($payment->doctor_name)))->row();
+    }
+    if (!empty($doc_by_name)) {
+        $doctor_obj = $doc_by_name;
+    }
+}
 
 $doctor_details = [
     'name' => '',
@@ -62,7 +71,10 @@ if (!empty($doctor_obj)) {
     if (!empty($doctor_obj->department_name) && preg_match('/[A-Za-z]/', $doctor_obj->department_name)) {
         $doctor_details['department'] = trim($doctor_obj->department_name);
     }
-    if (!empty($doctor_obj->profile)) {
+    // Dynamic qualifications from degrees, fallback to profile extraction
+    if (!empty($doctor_obj->degrees)) {
+        $doctor_details['qualifications'] = trim($doctor_obj->degrees);
+    } elseif (!empty($doctor_obj->profile)) {
         $rawProfile = trim(strip_tags($doctor_obj->profile));
         if (preg_match('/\(([A-Za-z0-9\s,&\/\-\.\+]+)\)/', $rawProfile, $m)) {
             $doctor_details['qualifications'] = trim($m[1]);
@@ -94,19 +106,88 @@ if (!empty($payment->referrer_name)) {
     }
 }
 
-// Items Resolution
+// Items Resolution & Automatic Delivery Date
 $items = array();
+$calc_delivery_date = function($cat_info, $invoice_ts) {
+    $delivery_days = 0;
+    if (!empty($cat_info)) {
+        if (isset($cat_info->delivery_days) && intval($cat_info->delivery_days) > 0) {
+            $delivery_days = intval($cat_info->delivery_days);
+        } elseif (!empty($cat_info->is_hormone) || strcasecmp($cat_info->payment_category_name ?? '', 'Hormone') === 0 || strcasecmp($cat_info->payment_category_name ?? '', 'Hormonal') === 0) {
+            $delivery_days = 3;
+        }
+    }
+    
+    $dt = new DateTime();
+    $dt->setTimestamp($invoice_ts);
+    if ($delivery_days > 0) {
+        $dt->modify("+$delivery_days days");
+    }
+    return $dt->format('d/m/Y');
+};
+
+$detected_rooms = array();
+$detect_test_room = function($cat_info, $item_name) use (&$detected_rooms) {
+    $cid = 0;
+    $cname = '';
+    $tname = strtolower(trim($item_name ?? ''));
+    
+    if (!empty($cat_info)) {
+        if (!empty($cat_info->payment_category)) {
+            $cid = intval($cat_info->payment_category);
+        }
+        if (!empty($cat_info->payment_category_name)) {
+            $cname = strtolower(trim($cat_info->payment_category_name));
+        }
+        if (empty($tname) && !empty($cat_info->category)) {
+            $tname = strtolower(trim($cat_info->category));
+        }
+    }
+
+    // 1. X-ray: Room 106
+    if ($cid === 16 || strpos($cname, 'x-ray') !== false || strpos($cname, 'xray') !== false || strpos($tname, 'x-ray') !== false || strpos($tname, 'xray') !== false) {
+        $detected_rooms['xray'] = 'X-ray: 106';
+        return;
+    }
+
+    // 2. ECG: Room 104
+    if ($cid === 18 || $cname === 'ecg' || strpos($tname, 'ecg') !== false) {
+        $detected_rooms['ecg'] = 'ECG: 104';
+        return;
+    }
+
+    // 3. Ultrasound / USG: Room 104
+    if ($cid === 17 || strpos($cname, 'ultra') !== false || strpos($cname, 'usg') !== false || strpos($tname, 'usg') !== false || strpos($tname, 'ultrasound') !== false) {
+        $detected_rooms['usg'] = 'USG: 104';
+        return;
+    }
+
+    // 4. Echo: Room 104
+    if ($cid === 22 || strpos($cname, 'echo') !== false || strpos($tname, 'echo') !== false) {
+        $detected_rooms['echo'] = 'Echo: 104';
+        return;
+    }
+
+    // 5. Pathology: Room 105
+    $path_cat_ids = [11, 12, 13, 14, 15, 20, 21];
+    if (in_array($cid, $path_cat_ids) || (!empty($cat_info->is_hormone)) || strpos($cname, 'path') !== false || strpos($cname, 'blood') !== false || strpos($cname, 'stool') !== false || strpos($cname, 'urine') !== false || strpos($cname, 'hormon') !== false) {
+        $detected_rooms['pathology'] = 'Pathology: 105';
+        return;
+    }
+};
+
 $payment_items = $this->db->get_where('payment_items', array('payment_id' => $payment->id))->result();
 if (!empty($payment_items)) {
     $idx = 0;
     foreach ($payment_items as $p_item) {
         $idx++;
         $cat_info = !empty($p_item->item_id) ? $this->finance_model->getPaymentcategoryById($p_item->item_id) : null;
-        $room_no = !empty($cat_info) && !empty($cat_info->description) ? $cat_info->description : (!empty($cat_info->category) ? $cat_info->category : '-');
+        $delivery_date = $calc_delivery_date($cat_info, $payment->date);
+        $detect_test_room($cat_info, $p_item->item_name);
         $items[] = array(
             'index' => $idx,
             'name' => $p_item->item_name,
-            'room_no' => $room_no,
+            'delivery_date' => $delivery_date,
             'unit_price' => floatval($p_item->item_price),
             'qty' => floatval($p_item->quantity),
             'amount' => floatval($p_item->subtotal)
@@ -122,7 +203,8 @@ if (!empty($payment_items)) {
             if (!empty($parts[0])) {
                 $cat_info = $this->finance_model->getPaymentcategoryById($parts[0]);
                 $name = !empty($cat_info->category) ? $cat_info->category : (!empty($parts[2]) ? $parts[2] : 'Item #' . $parts[0]);
-                $room_no = !empty($cat_info->description) ? $cat_info->description : $name;
+                $delivery_date = $calc_delivery_date($cat_info, $payment->date);
+                $detect_test_room($cat_info, $name);
                 $price = isset($parts[1]) ? floatval($parts[1]) : 0;
                 $qty = isset($parts[3]) ? floatval($parts[3]) : 1;
                 $amount = $price * $qty;
@@ -131,7 +213,7 @@ if (!empty($payment_items)) {
                     $items[] = array(
                         'index' => $idx,
                         'name' => $name,
-                        'room_no' => $room_no,
+                        'delivery_date' => $delivery_date,
                         'unit_price' => $price,
                         'qty' => $qty,
                         'amount' => $amount
@@ -141,6 +223,16 @@ if (!empty($payment_items)) {
         }
     }
 }
+
+// Assemble comma-separated room assignments in standard logical order
+$room_order = ['xray', 'ecg', 'usg', 'echo', 'pathology'];
+$room_assignments = array();
+foreach ($room_order as $rk) {
+    if (isset($detected_rooms[$rk])) {
+        $room_assignments[] = $detected_rooms[$rk];
+    }
+}
+$invoice_rooms_line = implode(', ', $room_assignments);
 
 // Financial Summary
 $gross_amount = floatval($payment->amount);
@@ -360,12 +452,21 @@ body {
 .items-table tr:nth-child(even) td {
     background: #fafcff;
 }
-.col-num { width: 6%; text-align: center; }
-.col-service { width: 44%; text-align: left; font-weight: bold; color: #0f172a; }
-.col-room { width: 18%; text-align: left; color: #475569; }
-.col-price { width: 14%; text-align: right; }
-.col-qty { width: 6%; text-align: center; }
-.col-amount { width: 12%; text-align: right; font-weight: bold; color: #0f172a; }
+.col-num { width: 6%; text-align: center; font-weight: bold; }
+.col-test-name { width: 36%; text-align: left; font-weight: bold; color: #0f172a; }
+.col-delivery-date { width: 18%; text-align: center; color: #334155; }
+.col-unit-price { width: 15%; text-align: right; font-weight: bold; }
+.col-qty { width: 8%; text-align: center; color: #334155; }
+.col-amount { width: 17%; text-align: right; font-weight: bold; color: #0f172a; }
+.doc-badge {
+    background: #e0f2fe;
+    color: #0284c7;
+    border: 0.5pt solid #93c5fd;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 7.2pt;
+    font-weight: bold;
+}
 .items-table tr {
     page-break-inside: avoid;
 }
@@ -569,7 +670,7 @@ body {
             <td><?php echo !empty($patient_phone) ? html_escape($patient_phone) : '-'; ?></td>
             <td class="lbl">Billing Date</td>
             <td>:</td>
-            <td><?php echo $visit_date; ?></td>
+            <td><?php echo $invoice_date; ?></td>
         </tr>
         <tr>
             <td class="lbl">Doctor / Ref.</td>
@@ -577,11 +678,10 @@ body {
             <td colspan="4">
                 <?php if (!empty($doctor_details['name'])) { ?>
                     <strong><?php echo html_escape($doctor_details['name']); ?></strong>
-                    <?php if (!empty($doctor_details['department'])) { ?>
-                        <span style="color: #1e3a8a;">(<?php echo html_escape($doctor_details['department']); ?>)</span>
-                    <?php } ?>
                     <?php if (!empty($doctor_details['qualifications'])) { ?>
-                        <span style="color: #64748b;">- <?php echo html_escape($doctor_details['qualifications']); ?></span>
+                        &nbsp;<span class="doc-badge"><?php echo html_escape($doctor_details['qualifications']); ?></span>
+                    <?php } elseif (!empty($doctor_details['department'])) { ?>
+                        &nbsp;<span class="doc-badge"><?php echo html_escape($doctor_details['department']); ?></span>
                     <?php } ?>
                 <?php } else { ?>
                     <span>Self / General</span>
@@ -595,26 +695,23 @@ body {
 <table class="items-table">
     <thead>
         <tr>
-            <th class="col-num">#</th>
-            <th class="col-service">Test / Investigation Name</th>
-            <th class="col-room">Service / Room</th>
-            <th class="col-price">Unit Price</th>
-            <th class="col-qty">Qty</th>
-            <th class="col-amount">Amount</th>
+            <th class="col-num">SL</th>
+            <th class="col-test-name">TEST NAME</th>
+            <th class="col-delivery-date">DELIVERY DATE</th>
+            <th class="col-unit-price">UNIT PRICE</th>
+            <th class="col-qty">QTY</th>
+            <th class="col-amount">AMOUNT</th>
         </tr>
     </thead>
     <tbody>
         <?php 
-        $rendered_count = 0;
         if (!empty($items)) {
-            foreach ($items as $row) {
-                $rendered_count++;
-                ?>
+            foreach ($items as $row) { ?>
                 <tr>
                     <td class="col-num"><?php echo $row['index']; ?></td>
-                    <td class="col-service"><?php echo html_escape($row['name']); ?></td>
-                    <td class="col-room"><?php echo html_escape($row['room_no']); ?></td>
-                    <td class="col-price"><?php echo $currency . ' ' . number_format($row['unit_price'], 2); ?></td>
+                    <td class="col-test-name"><?php echo html_escape($row['name']); ?></td>
+                    <td class="col-delivery-date"><?php echo $row['delivery_date']; ?></td>
+                    <td class="col-unit-price"><?php echo $currency . ' ' . number_format($row['unit_price'], 2); ?></td>
                     <td class="col-qty"><?php echo $row['qty']; ?></td>
                     <td class="col-amount"><?php echo $currency . ' ' . number_format($row['amount'], 2); ?></td>
                 </tr>
@@ -623,8 +720,7 @@ body {
             <tr>
                 <td colspan="6" style="text-align: center; padding: 10px; color: #64748b;">No diagnostic tests recorded on this invoice.</td>
             </tr>
-        <?php }
-        ?>
+        <?php } ?>
     </tbody>
 </table>
 
@@ -642,27 +738,31 @@ body {
                     <strong>In Words:</strong> <?php echo html_escape($amount_in_words); ?>
                 </div>
                 <div class="instructions">
-                    <strong>Instructions:</strong> Please preserve this receipt. It is required during diagnostic report collection.<br>
-                    • Report Delivery: 05:00 PM - 09:00 PM (Daily)
-                    <?php if (!empty(trim($payment->remarks ?? ''))) { ?>
-                        <br>• Note: <?php echo html_escape(trim($payment->remarks)); ?>
+                    <div><strong>Instructions:</strong> Please preserve this receipt. It is required during diagnostic report collection.</div>
+                    <?php if (!empty($invoice_rooms_line)) { ?>
+                        <div style="margin-top: 2px; font-weight: bold; color: #1e3a8a; font-size: 7.5pt;">
+                            <strong style="color: #0f172a;">Room No:</strong> <?php echo html_escape($invoice_rooms_line); ?>
+                        </div>
                     <?php } ?>
                 </div>
             </div>
 
-            <!-- Dual Signatures -->
+            <!-- Signatures -->
             <table class="sig-table">
                 <tr>
-                    <td style="width: 48%; text-align: center;">
-                        <div class="sig-line"></div>
-                        <div class="sig-lbl">Prepared By</div>
-                        <div class="sig-val"><?php echo html_escape($cashier_name); ?></div>
+                    <td style="width: 50%; text-align: left;">
+                        <div style="width: 140px; text-align: center;">
+                            <div class="sig-line"></div>
+                            <div class="sig-lbl">Prepared By</div>
+                            <div class="sig-val"><?php echo html_escape($cashier_name); ?></div>
+                        </div>
                     </td>
-                    <td style="width: 4%;"></td>
-                    <td style="width: 48%; text-align: center;">
-                        <div class="sig-line"></div>
-                        <div class="sig-lbl">Authorized Signature</div>
-                        <div class="sig-val">&nbsp;</div>
+                    <td style="width: 50%; text-align: right;">
+                        <div style="width: 140px; text-align: center; float: right;">
+                            <div class="sig-line"></div>
+                            <div class="sig-lbl">Authorized Signature</div>
+                            <div class="sig-val">&nbsp;</div>
+                        </div>
                     </td>
                 </tr>
             </table>

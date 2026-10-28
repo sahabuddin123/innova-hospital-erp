@@ -146,6 +146,23 @@
                                     </select>
                                 </div>
 
+                                <div class="form-group mb-4">
+                                    <label class="text-uppercase text-sm">Delivery Turnaround (Days) <span class="text-muted">(Normal: 0 = Same Day, Hormonal: 3 or 5 Days)</span></label>
+                                    <select class="form-control form-control-lg" name="delivery_days">
+                                        <option value="0" <?php echo (isset($category->delivery_days) && $category->delivery_days == 0) ? 'selected' : ''; ?>>0 Days (Same Day / Normal Test)</option>
+                                        <option value="3" <?php echo (isset($category->delivery_days) && $category->delivery_days == 3) ? 'selected' : ''; ?>>3 Days (Hormonal / Special Turnaround)</option>
+                                        <option value="5" <?php echo (isset($category->delivery_days) && $category->delivery_days == 5) ? 'selected' : ''; ?>>5 Days (Extended Turnaround)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-4">
+                                    <label class="text-uppercase text-sm">Is Hormonal Test?</label>
+                                    <select class="form-control form-control-lg" name="is_hormone">
+                                        <option value="0" <?php echo (empty($category->is_hormone)) ? 'selected' : ''; ?>>No (Normal Diagnostic Test)</option>
+                                        <option value="1" <?php echo (!empty($category->is_hormone)) ? 'selected' : ''; ?>>Yes (Hormonal Investigation)</option>
+                                    </select>
+                                </div>
+
                                 <input type="hidden" name="id" value='<?php
                                                                         if (!empty($category->id)) {
                                                                             echo $category->id;

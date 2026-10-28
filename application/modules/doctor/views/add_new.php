@@ -145,6 +145,20 @@
 
                                     <div class="col-md-12 mb-4">
                                         <div class="form-group">
+                                            <label class="text-uppercase font-weight-bold text-muted">Degrees / Qualifications (e.g. MBBS, FCPS, MS)</label>
+                                            <input type="text" class="form-control form-control-lg shadow-sm" name="degrees" placeholder="e.g. MBBS (RU), MS (Ortho)" value='<?php
+                                                if (!empty($setval)) {
+                                                    echo set_value('degrees');
+                                                }
+                                                if (!empty($doctor->degrees)) {
+                                                    echo html_escape($doctor->degrees);
+                                                }
+                                            ?>'>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-12 mb-4">
+                                        <div class="form-group">
                                             <label class="text-uppercase font-weight-bold text-muted"><?php echo lang('profile'); ?> <span class="text-danger">*</span></label>
                                             <textarea class="form-control ckeditor" id="editor1" name="profile" rows="6"><?php
                                                                                                                             if (!empty($setval)) {

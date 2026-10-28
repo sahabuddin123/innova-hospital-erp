@@ -44,6 +44,15 @@ $doc_id = !empty($payment->doctor) ? $payment->doctor : null;
 if (!empty($doc_id)) {
     $doctor_obj = $this->doctor_model->getDoctorById($doc_id);
 }
+if (empty($doctor_obj) && !empty($payment->doctor_name)) {
+    $doc_by_name = $this->db->get_where('doctor', array('name' => trim($payment->doctor_name)))->row();
+    if (empty($doc_by_name)) {
+        $doc_by_name = $this->db->get_where('doctor', array('name_en' => trim($payment->doctor_name)))->row();
+    }
+    if (!empty($doc_by_name)) {
+        $doctor_obj = $doc_by_name;
+    }
+}
 
 $doctor_details = [
     'name' => '',
@@ -73,8 +82,10 @@ if (!empty($doctor_obj)) {
         $doctor_details['department'] = trim($doctor_obj->department_name);
     }
 
-    // 3. Qualifications / Profile in English (No Bengali characters)
-    if (!empty($doctor_obj->profile)) {
+    // 3. Qualifications / Degrees (Dynamic from doctor->degrees, fallback to profile extraction)
+    if (!empty($doctor_obj->degrees)) {
+        $doctor_details['qualifications'] = trim($doctor_obj->degrees);
+    } elseif (!empty($doctor_obj->profile)) {
         $rawProfile = trim(strip_tags($doctor_obj->profile));
         if (preg_match('/\(([A-Za-z0-9\s,&\/\-\.\+]+)\)/', $rawProfile, $m)) {
             $doctor_details['qualifications'] = trim($m[1]);
@@ -106,19 +117,88 @@ if (!empty($payment->referrer_name)) {
     }
 }
 
-// Line Items Resolution (Historical Snapshot Compatibility)
+// Line Items Resolution (Historical Snapshot Compatibility & Automatic Delivery Date)
 $items = array();
+$calc_delivery_date = function($cat_info, $invoice_ts) {
+    $delivery_days = 0;
+    if (!empty($cat_info)) {
+        if (isset($cat_info->delivery_days) && intval($cat_info->delivery_days) > 0) {
+            $delivery_days = intval($cat_info->delivery_days);
+        } elseif (!empty($cat_info->is_hormone) || strcasecmp($cat_info->payment_category_name ?? '', 'Hormone') === 0 || strcasecmp($cat_info->payment_category_name ?? '', 'Hormonal') === 0) {
+            $delivery_days = 3;
+        }
+    }
+    
+    $dt = new DateTime();
+    $dt->setTimestamp($invoice_ts);
+    if ($delivery_days > 0) {
+        $dt->modify("+$delivery_days days");
+    }
+    return $dt->format('d/m/Y');
+};
+
+$detected_rooms = array();
+$detect_test_room = function($cat_info, $item_name) use (&$detected_rooms) {
+    $cid = 0;
+    $cname = '';
+    $tname = strtolower(trim($item_name ?? ''));
+    
+    if (!empty($cat_info)) {
+        if (!empty($cat_info->payment_category)) {
+            $cid = intval($cat_info->payment_category);
+        }
+        if (!empty($cat_info->payment_category_name)) {
+            $cname = strtolower(trim($cat_info->payment_category_name));
+        }
+        if (empty($tname) && !empty($cat_info->category)) {
+            $tname = strtolower(trim($cat_info->category));
+        }
+    }
+
+    // 1. X-ray: Room 106
+    if ($cid === 16 || strpos($cname, 'x-ray') !== false || strpos($cname, 'xray') !== false || strpos($tname, 'x-ray') !== false || strpos($tname, 'xray') !== false) {
+        $detected_rooms['xray'] = 'X-ray: 106';
+        return;
+    }
+
+    // 2. ECG: Room 104
+    if ($cid === 18 || $cname === 'ecg' || strpos($tname, 'ecg') !== false) {
+        $detected_rooms['ecg'] = 'ECG: 104';
+        return;
+    }
+
+    // 3. Ultrasound / USG: Room 104
+    if ($cid === 17 || strpos($cname, 'ultra') !== false || strpos($cname, 'usg') !== false || strpos($tname, 'usg') !== false || strpos($tname, 'ultrasound') !== false) {
+        $detected_rooms['usg'] = 'USG: 104';
+        return;
+    }
+
+    // 4. Echo: Room 104
+    if ($cid === 22 || strpos($cname, 'echo') !== false || strpos($tname, 'echo') !== false) {
+        $detected_rooms['echo'] = 'Echo: 104';
+        return;
+    }
+
+    // 5. Pathology: Room 105
+    $path_cat_ids = [11, 12, 13, 14, 15, 20, 21];
+    if (in_array($cid, $path_cat_ids) || (!empty($cat_info->is_hormone)) || strpos($cname, 'path') !== false || strpos($cname, 'blood') !== false || strpos($cname, 'stool') !== false || strpos($cname, 'urine') !== false || strpos($cname, 'hormon') !== false) {
+        $detected_rooms['pathology'] = 'Pathology: 105';
+        return;
+    }
+};
+
 $payment_items = $this->db->get_where('payment_items', array('payment_id' => $payment->id))->result();
 if (!empty($payment_items)) {
     $idx = 0;
     foreach ($payment_items as $p_item) {
         $idx++;
         $cat_info = !empty($p_item->item_id) ? $this->finance_model->getPaymentcategoryById($p_item->item_id) : null;
-        $room_no = !empty($cat_info) && !empty($cat_info->description) ? $cat_info->description : (!empty($cat_info->category) ? $cat_info->category : '-');
+        $delivery_date = $calc_delivery_date($cat_info, $payment->date);
+        $detect_test_room($cat_info, $p_item->item_name);
         $items[] = array(
             'index' => $idx,
             'name' => $p_item->item_name,
-            'room_no' => $room_no,
+            'delivery_date' => $delivery_date,
             'unit_price' => floatval($p_item->item_price),
             'qty' => floatval($p_item->quantity),
             'amount' => floatval($p_item->subtotal)
@@ -132,7 +212,7 @@ if (!empty($payment_items)) {
             $items[] = array(
                 'index' => 1,
                 'name' => $payment->category_name . (!empty($appointment_details->time_slot) ? ' (' . $appointment_details->time_slot . ')' : ''),
-                'room_no' => !empty($appointment_details->doctorname) ? $appointment_details->doctorname : '-',
+                'delivery_date' => date('d/m/Y', $payment->date),
                 'unit_price' => floatval($payment->gross_total),
                 'qty' => 1,
                 'amount' => floatval($payment->gross_total)
@@ -150,7 +230,7 @@ if (!empty($payment_items)) {
                     $items[] = array(
                         'index' => $idx,
                         'name' => $cat_new[1],
-                        'room_no' => '-',
+                        'delivery_date' => date('d/m/Y', $payment->date),
                         'unit_price' => floatval($cat_new[2]),
                         'qty' => floatval($cat_new[3]),
                         'amount' => floatval($cat_new[4])
@@ -173,7 +253,7 @@ if (!empty($payment_items)) {
                     $items[] = array(
                         'index' => $idx,
                         'name' => $s_name,
-                        'room_no' => '-',
+                        'delivery_date' => date('d/m/Y', $payment->date),
                         'unit_price' => $price,
                         'qty' => 1,
                         'amount' => $price
@@ -191,7 +271,8 @@ if (!empty($payment_items)) {
                 if (!empty($parts[0])) {
                     $cat_info = $this->finance_model->getPaymentcategoryById($parts[0]);
                     $name = !empty($cat_info->category) ? $cat_info->category : (!empty($parts[2]) ? $parts[2] : 'Item #' . $parts[0]);
-                    $room_no = !empty($cat_info->description) ? $cat_info->description : $name;
+                    $delivery_date = $calc_delivery_date($cat_info, $payment->date);
+                    $detect_test_room($cat_info, $name);
                     $price = isset($parts[1]) ? floatval($parts[1]) : 0;
                     $qty = isset($parts[3]) ? floatval($parts[3]) : 1;
                     $amount = $price * $qty;
@@ -200,7 +281,7 @@ if (!empty($payment_items)) {
                         $items[] = array(
                             'index' => $idx,
                             'name' => $name,
-                            'room_no' => $room_no,
+                            'delivery_date' => $delivery_date,
                             'unit_price' => $price,
                             'qty' => $qty,
                             'amount' => $amount
@@ -211,6 +292,16 @@ if (!empty($payment_items)) {
         }
     }
 }
+
+// Assemble comma-separated room assignments in standard logical order
+$room_order = ['xray', 'ecg', 'usg', 'echo', 'pathology'];
+$room_assignments = array();
+foreach ($room_order as $rk) {
+    if (isset($detected_rooms[$rk])) {
+        $room_assignments[] = $detected_rooms[$rk];
+    }
+}
+$invoice_rooms_line = implode(', ', $room_assignments);
 
 // Financial Summary (Authoritative values from database)
 $gross_amount = floatval($payment->amount);
@@ -526,15 +617,7 @@ if (!function_exists('invoiceAmountInWords')) {
                             <td class="val"><?php echo !empty($patient_phone) ? html_escape($patient_phone) : '-'; ?></td>
                             <td class="lbl">Billing Date</td>
                             <td class="sep">:</td>
-                            <td class="val"><?php echo $visit_date; ?></td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Referred By</td>
-                            <td class="sep">:</td>
-                            <td class="val"><?php echo !empty($referrer_display) ? html_escape($referrer_display) : '-'; ?></td>
-                            <td class="lbl">Report Delivery</td>
-                            <td class="sep">:</td>
-                            <td class="val">05:00 PM - 09:00 PM</td>
+                            <td class="val"><?php echo $invoice_date; ?></td>
                         </tr>
                         <!-- Doctor Row (English strictly) -->
                         <tr class="doctor-subrow">
@@ -543,11 +626,10 @@ if (!function_exists('invoiceAmountInWords')) {
                             <td class="val" colspan="4">
                                 <?php if (!empty($doctor_details['name'])) { ?>
                                     <strong><?php echo html_escape($doctor_details['name']); ?></strong>
-                                    <?php if (!empty($doctor_details['department'])) { ?>
-                                        <span class="doc-dept-badge ml-1"><?php echo html_escape($doctor_details['department']); ?></span>
-                                    <?php } ?>
                                     <?php if (!empty($doctor_details['qualifications'])) { ?>
-                                        <span class="doc-sub-text ml-1">&bull; <?php echo html_escape($doctor_details['qualifications']); ?></span>
+                                        <span class="doc-badge ml-2"><?php echo html_escape($doctor_details['qualifications']); ?></span>
+                                    <?php } elseif (!empty($doctor_details['department'])) { ?>
+                                        <span class="doc-badge ml-2"><?php echo html_escape($doctor_details['department']); ?></span>
                                     <?php } ?>
                                 <?php } else { ?>
                                     <span class="text-muted font-italic">Self / General</span>
@@ -561,35 +643,24 @@ if (!function_exists('invoiceAmountInWords')) {
                 <div class="invoice-items-table-wrapper">
                     <table class="invoice-items-table">
                         <thead>
-                            <tr class="table-continuation-row">
-                                <th colspan="6">
-                                    <div class="continuation-info">
-                                        <span><strong>LIFECARE DIAGNOSTIC CENTER</strong> — <?php echo lang('money_receipt'); ?></span>
-                                        <span class="continuation-meta">Bill No: <strong><?php echo $vn; ?></strong> &nbsp;|&nbsp; Patient: <strong><?php echo html_escape($patient_name); ?></strong> (HN: <?php echo $hn; ?>)</span>
-                                    </div>
-                                </th>
-                            </tr>
                             <tr class="table-columns-header-row">
-                                <th class="col-num">#</th>
-                                <th class="col-service"><?php echo lang('test'); ?> / Investigation Name</th>
-                                <th class="col-room">Service / Room</th>
-                                <th class="col-price"><?php echo lang('unit_price'); ?></th>
-                                <th class="col-qty"><?php echo lang('qty'); ?></th>
-                                <th class="col-amount"><?php echo lang('amount'); ?></th>
+                                <th class="col-num">SL</th>
+                                <th class="col-test-name">TEST NAME</th>
+                                <th class="col-delivery-date">DELIVERY DATE</th>
+                                <th class="col-unit-price">UNIT PRICE</th>
+                                <th class="col-qty">QTY</th>
+                                <th class="col-amount">AMOUNT</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php 
-                            $total_rendered = 0;
                             if (!empty($items)) {
-                                foreach ($items as $row) { 
-                                    $total_rendered++;
-                                    ?>
+                                foreach ($items as $row) { ?>
                                     <tr>
                                         <td class="col-num"><?php echo $row['index']; ?></td>
-                                        <td class="col-service"><?php echo html_escape($row['name']); ?></td>
-                                        <td class="col-room"><?php echo html_escape($row['room_no']); ?></td>
-                                        <td class="col-price"><?php echo $currency . ' ' . number_format($row['unit_price'], 2); ?></td>
+                                        <td class="col-test-name"><?php echo html_escape($row['name']); ?></td>
+                                        <td class="col-delivery-date"><?php echo $row['delivery_date']; ?></td>
+                                        <td class="col-unit-price"><?php echo $currency . ' ' . number_format($row['unit_price'], 2); ?></td>
                                         <td class="col-qty"><?php echo $row['qty']; ?></td>
                                         <td class="col-amount"><?php echo $currency . ' ' . number_format($row['amount'], 2); ?></td>
                                     </tr>
@@ -598,8 +669,7 @@ if (!function_exists('invoiceAmountInWords')) {
                                 <tr>
                                     <td colspan="6" class="text-center py-3 text-muted">No diagnostic services or tests recorded on this invoice.</td>
                                 </tr>
-                            <?php } 
-                            ?>
+                            <?php } ?>
                         </tbody>
                     </table>
                 </div>
@@ -609,7 +679,7 @@ if (!function_exists('invoiceAmountInWords')) {
                     
                     <!-- Left Pane: Payment Status, Advisory, Signatures -->
                     <div class="invoice-left-pane">
-                        <div class="status-highlight-card">
+                        <div>
                             <div class="status-row-top">
                                 <span class="invoice-status-badge <?php echo $status_class; ?>">
                                     <i class="fas fa-circle mr-1" style="font-size: 7px;"></i> <?php echo $status_text; ?>
@@ -630,53 +700,46 @@ if (!function_exists('invoiceAmountInWords')) {
 
                             <div class="patient-instructions-box">
                                 <div><strong>Instructions:</strong> Please preserve this receipt. It is required during diagnostic report collection.</div>
-                                <div class="text-muted" style="margin-top: 2px;">• Report Delivery: 05:00 PM - 09:00 PM (Daily)</div>
-                                <?php if (!empty(trim($payment->remarks ?? ''))) { ?>
-                                    <div style="margin-top: 2px;">• Note: <?php echo nl2br(html_escape(trim($payment->remarks))); ?></div>
+                                <?php if (!empty($invoice_rooms_line)) { ?>
+                                    <div class="invoice-room-numbers">
+                                        <strong>Room No:</strong> <?php echo html_escape($invoice_rooms_line); ?>
+                                    </div>
                                 <?php } ?>
                             </div>
                         </div>
 
-                        <!-- Dual Signature Blocks -->
-                        <div class="signatures-row">
-                            <div class="sig-block">
-                                <div class="sig-line"></div>
-                                <div class="sig-label">Prepared By</div>
-                                <div class="sig-name"><?php echo !empty($cashier_name) ? html_escape($cashier_name) : 'Cashier'; ?></div>
-                            </div>
-
-                            <div class="sig-block">
-                                <div class="sig-line"></div>
-                                <div class="sig-label">Authorized Signature</div>
-                                <div class="sig-name">&nbsp;</div>
-                            </div>
+                        <!-- Left Signature Block -->
+                        <div class="sig-block-left">
+                            <div class="sig-line">-----------------------------</div>
+                            <div class="sig-label">PREPARED BY</div>
+                            <div class="sig-name"><?php echo !empty($cashier_name) ? html_escape($cashier_name) : 'Hospital Admin'; ?></div>
                         </div>
                     </div>
 
-                    <!-- Right Pane: Bill Summary -->
-                    <div class="invoice-right-pane">
-                        <div>
+                    <!-- Right Pane: Bill Summary & Authorized Signature -->
+                    <div class="invoice-right-pane-wrapper">
+                        <div class="invoice-right-pane">
                             <div class="bill-summary-title">
                                 <span>Bill Summary</span>
-                                <span class="text-muted" style="font-size: 8px;"><?php echo $settings->currency; ?> BDT</span>
+                                <span class="currency-tag"><?php echo $currency; ?> BDT</span>
                             </div>
 
                             <table class="bill-summary-table">
                                 <tr>
-                                    <td class="sum-lbl"><?php echo lang('gross_amount'); ?></td>
+                                    <td class="sum-lbl">Gross Amount</td>
                                     <td class="sum-sep">:</td>
                                     <td class="sum-val"><?php echo $currency . ' ' . number_format($gross_amount, 2); ?></td>
                                 </tr>
                                 <?php if ($discount_amount > 0 || $discount_percent > 0) { ?>
                                     <tr>
-                                        <td class="sum-lbl"><?php echo lang('discount'); ?> <?php if ($discount_percent > 0) { echo '(' . number_format($discount_percent, 2) . '%)'; } ?></td>
+                                        <td class="sum-lbl">Discount <?php if ($discount_percent > 0) { echo '(' . number_format($discount_percent, 2) . '%)'; } ?></td>
                                         <td class="sum-sep">:</td>
                                         <td class="sum-val">-<?php echo $currency . ' ' . number_format($discount_amount, 2); ?></td>
                                     </tr>
                                 <?php } ?>
                                 <?php if ($vat_amount > 0 || $vat_percent > 0) { ?>
                                     <tr>
-                                        <td class="sum-lbl"><?php echo lang('vat'); ?> <?php if ($vat_percent > 0) { echo '(' . number_format($vat_percent, 2) . '%)'; } ?></td>
+                                        <td class="sum-lbl">VAT <?php if ($vat_percent > 0) { echo '(' . number_format($vat_percent, 2) . '%)'; } ?></td>
                                         <td class="sum-sep">:</td>
                                         <td class="sum-val"><?php echo $currency . ' ' . number_format($vat_amount, 2); ?></td>
                                     </tr>
@@ -690,7 +753,7 @@ if (!function_exists('invoiceAmountInWords')) {
                                 </tr>
 
                                 <tr>
-                                    <td class="sum-lbl"><?php echo lang('amount_received'); ?></td>
+                                    <td class="sum-lbl">Amount Received</td>
                                     <td class="sum-sep">:</td>
                                     <td class="sum-val"><?php echo $currency . ' ' . number_format($amount_received, 2); ?></td>
                                 </tr>
@@ -704,6 +767,12 @@ if (!function_exists('invoiceAmountInWords')) {
                                     </td>
                                 </tr>
                             </table>
+                        </div>
+
+                        <!-- Right Signature Block -->
+                        <div class="sig-block-right">
+                            <div class="sig-line">-----------------------------</div>
+                            <div class="sig-label">AUTHORIZED SIGNATURE</div>
                         </div>
                     </div>
                 </div>

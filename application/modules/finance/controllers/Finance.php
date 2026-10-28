@@ -508,18 +508,21 @@ class Finance extends MX_Controller
             $flat_discount = max(0.00, min($flat_discount, $sub_total));
             $gross_total = $sub_total - $flat_discount + $vat;
 
-            // 2. CORE BUSINESS RULE: Commission Base Amount = Final Net Invoice Amount After Discount
-            $net_invoice = max(0.00, $sub_total - $flat_discount);
-            $commission_base_amount = $net_invoice;
-
-            // 3. Multi-Item Proportional Discount Allocation
+            // 2. REFERRAL & DOCTOR COMMISSION CALCULATION
+            // Rule 1: Calculate referral commission using each test's configured Referral Commission Rate.
+            // Rule 2: If a referral is selected, deduct the invoice discount from the referrer's total commission, not the hospital's share.
+            //         If no referral is selected, deduct the discount from the hospital's share.
             $doctor_amount_by_category = array();
             $referral_amount_by_category = array();
             $invoice_items_data = array();
 
             $all_cat_name = explode(',', $category_name);
             $parsed_items = array();
+            $total_gross_ref_comm = 0.00;
+            $total_doc_comm = 0.00;
+
             foreach ($all_cat_name as $indiviual_cat_nam) {
+                if (empty(trim($indiviual_cat_nam))) continue;
                 $indiviual_cat_nam1 = explode('*', $indiviual_cat_nam);
                 $cat_id = $indiviual_cat_nam1[0];
                 $unit_price = floatval($indiviual_cat_nam1[1]);
@@ -532,6 +535,12 @@ class Finance extends MX_Controller
                 $d_rate = (!empty($doctor) && isset($cat_details->d_commission)) ? floatval($cat_details->d_commission) : 0.00;
                 $r_rate = (!empty($referrer) && isset($cat_details->r_commission)) ? floatval($cat_details->r_commission) : 0.00;
 
+                $d_comm_line = (!empty($doctor)) ? round(($line_total * $d_rate) / 100, 2) : 0.00;
+                $r_comm_line_gross = (!empty($referrer)) ? round(($line_total * $r_rate) / 100, 2) : 0.00;
+
+                $total_doc_comm += $d_comm_line;
+                $total_gross_ref_comm += $r_comm_line_gross;
+
                 $parsed_items[] = array(
                     'cat_id' => $cat_id,
                     'cat_item_name' => $cat_item_name,
@@ -539,31 +548,42 @@ class Finance extends MX_Controller
                     'qty' => $qty,
                     'line_total' => $line_total,
                     'd_rate' => $d_rate,
-                    'r_rate' => $r_rate
+                    'r_rate' => $r_rate,
+                    'd_comm_line' => $d_comm_line,
+                    'r_comm_line_gross' => $r_comm_line_gross
                 );
             }
 
+            // Deduct discount from referrer's commission if referral selected; otherwise from hospital share
+            if (!empty($referrer)) {
+                $referral_amount = max(0.00, round($total_gross_ref_comm - $flat_discount, 2));
+            } else {
+                $referral_amount = 0.00;
+            }
+
+            $doctor_amount = round($total_doc_comm, 2);
+            $hospital_amount = max(0.00, round($gross_total - $doctor_amount - $referral_amount, 2));
+
+            // Distribute net referral commission entitlement across items for ledger snapshots
             $num_items = count($parsed_items);
-            $allocated_net_so_far = 0.00;
+            $allocated_ref_so_far = 0.00;
 
             for ($i = 0; $i < $num_items; $i++) {
                 $p_item = $parsed_items[$i];
                 $line_total = $p_item['line_total'];
 
-                if ($sub_total > 0 && $net_invoice > 0) {
+                if (!empty($referrer) && $total_gross_ref_comm > 0) {
                     if ($i === $num_items - 1) {
-                        // Last item absorbs any rounding remainder so sum($item_net_base) === $net_invoice exactly
-                        $item_net_base = max(0.00, round($net_invoice - $allocated_net_so_far, 2));
+                        $r_comm_line = max(0.00, round($referral_amount - $allocated_ref_so_far, 2));
                     } else {
-                        $item_net_base = round(($line_total / $sub_total) * $net_invoice, 2);
-                        $allocated_net_so_far += $item_net_base;
+                        $r_comm_line = round(($p_item['r_comm_line_gross'] / $total_gross_ref_comm) * $referral_amount, 2);
+                        $allocated_ref_so_far += $r_comm_line;
                     }
                 } else {
-                    $item_net_base = 0.00;
+                    $r_comm_line = 0.00;
                 }
 
-                $d_comm_line = round(($item_net_base * $p_item['d_rate']) / 100, 2);
-                $r_comm_line = round(($item_net_base * $p_item['r_rate']) / 100, 2);
+                $d_comm_line = $p_item['d_comm_line'];
 
                 $doctor_amount_by_category[] = $d_comm_line;
                 $referral_amount_by_category[] = $r_comm_line;
@@ -574,17 +594,13 @@ class Finance extends MX_Controller
                     'item_price' => $p_item['unit_price'],
                     'quantity' => $p_item['qty'],
                     'subtotal' => $line_total,
-                    'net_subtotal' => $item_net_base,
+                    'net_subtotal' => ($sub_total > 0) ? round(($line_total / $sub_total) * $gross_total, 2) : $line_total,
                     'doctor_commission_rate' => $p_item['d_rate'],
                     'doctor_commission_amount' => $d_comm_line,
                     'referral_commission_rate' => $p_item['r_rate'],
                     'referral_commission_amount' => $r_comm_line
                 );
             }
-
-            $doctor_amount = array_sum($doctor_amount_by_category);
-            $referral_amount = array_sum($referral_amount_by_category);
-            $hospital_amount = $gross_total - $doctor_amount - $referral_amount;
 
             $data = array();
 
@@ -1455,6 +1471,11 @@ class Finance extends MX_Controller
             $r_commission = 100.00;
         }
 
+        $delivery_days_post = $this->input->post('delivery_days');
+        $delivery_days = (isset($delivery_days_post) && $delivery_days_post !== '') ? intval($delivery_days_post) : 0;
+        $is_hormone_post = $this->input->post('is_hormone');
+        $is_hormone = !empty($is_hormone_post) ? 1 : ($delivery_days > 0 ? 1 : 0);
+
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
         // Validating Category Name Field
@@ -1491,6 +1512,8 @@ class Finance extends MX_Controller
                 'c_price' => $c_price,
                 'd_commission' => $d_commission,
                 'r_commission' => $r_commission,
+                'delivery_days' => $delivery_days,
+                'is_hormone' => $is_hormone,
                 'code' => $code,
                 'payment_category' => $payment_category,
                 'payment_category_name' => $payment_category_name
@@ -2081,6 +2104,9 @@ class Finance extends MX_Controller
                     $payment_id = $amount_received_payment_id[0];
                     $data_amount_received = array('amount_received' => $deposited_amount);
                     $this->finance_model->updatePayment($amount_received_payment_id[0], $data_amount_received);
+                }
+                if (!empty($payment_id)) {
+                    $this->referral_model->recalculateCommissionAfterDepositChange($payment_id, $this->session->userdata('hospital_id'));
                 }
 
                 show_swal(lang('payment_updated_successfully'), 'success', lang('updated'));
@@ -2856,7 +2882,10 @@ class Finance extends MX_Controller
         $new_gross_total = max(0.00, round($subtotal - $new_discount + $vat, 2));
         $net_invoice = max(0.00, $subtotal - $new_discount);
 
-        // Recalculate commissions proportionally if category_name is present
+        // Recalculate commissions according to referral & doctor commission rules:
+        // Rule 1: Calculate referral commission using each test's configured Referral Commission Rate.
+        // Rule 2: If a referral is selected, deduct the invoice discount from the referrer's total commission, not the hospital's share.
+        //         If no referral is selected, deduct the discount from the hospital's share.
         $doctor_amount_by_category = array();
         $referral_amount_by_category = array();
         $invoice_items_data = array();
@@ -2864,6 +2893,9 @@ class Finance extends MX_Controller
         if (!empty($payment->category_name)) {
             $all_cat_name = explode(',', $payment->category_name);
             $parsed_items = array();
+            $total_gross_ref_comm = 0.00;
+            $total_doc_comm = 0.00;
+
             foreach ($all_cat_name as $indiviual_cat_nam) {
                 if (empty(trim($indiviual_cat_nam))) continue;
                 $indiviual_cat_nam1 = explode('*', $indiviual_cat_nam);
@@ -2879,6 +2911,12 @@ class Finance extends MX_Controller
                     $d_rate = (!empty($payment->doctor) && isset($cat_details->d_commission)) ? floatval($cat_details->d_commission) : 0.00;
                     $r_rate = (!empty($payment->referrer) && isset($cat_details->r_commission)) ? floatval($cat_details->r_commission) : 0.00;
 
+                    $d_comm_line = (!empty($payment->doctor)) ? round(($line_total * $d_rate) / 100, 2) : 0.00;
+                    $r_comm_line_gross = (!empty($payment->referrer)) ? round(($line_total * $r_rate) / 100, 2) : 0.00;
+
+                    $total_doc_comm += $d_comm_line;
+                    $total_gross_ref_comm += $r_comm_line_gross;
+
                     $parsed_items[] = array(
                         'cat_id' => $cat_id,
                         'cat_item_name' => $cat_item_name,
@@ -2886,31 +2924,43 @@ class Finance extends MX_Controller
                         'qty' => $qty,
                         'line_total' => $line_total,
                         'd_rate' => $d_rate,
-                        'r_rate' => $r_rate
+                        'r_rate' => $r_rate,
+                        'd_comm_line' => $d_comm_line,
+                        'r_comm_line_gross' => $r_comm_line_gross
                     );
                 }
             }
 
+            // Deduct discount from referrer's commission if referral selected; otherwise from hospital share
+            if (!empty($payment->referrer)) {
+                $referral_amount = max(0.00, round($total_gross_ref_comm - $new_discount, 2));
+            } else {
+                $referral_amount = 0.00;
+            }
+
+            $doctor_amount = round($total_doc_comm, 2);
+            $hospital_amount = max(0.00, round($new_gross_total - $doctor_amount - $referral_amount, 2));
+
+            // Distribute net referral commission entitlement across items for ledger snapshots
             $num_items = count($parsed_items);
-            $allocated_net_so_far = 0.00;
+            $allocated_ref_so_far = 0.00;
 
             for ($i = 0; $i < $num_items; $i++) {
                 $p_item = $parsed_items[$i];
                 $line_total = $p_item['line_total'];
 
-                if ($subtotal > 0 && $net_invoice > 0) {
+                if (!empty($payment->referrer) && $total_gross_ref_comm > 0) {
                     if ($i === $num_items - 1) {
-                        $item_net_base = max(0.00, round($net_invoice - $allocated_net_so_far, 2));
+                        $r_comm_line = max(0.00, round($referral_amount - $allocated_ref_so_far, 2));
                     } else {
-                        $item_net_base = round(($line_total / $subtotal) * $net_invoice, 2);
-                        $allocated_net_so_far += $item_net_base;
+                        $r_comm_line = round(($p_item['r_comm_line_gross'] / $total_gross_ref_comm) * $referral_amount, 2);
+                        $allocated_ref_so_far += $r_comm_line;
                     }
                 } else {
-                    $item_net_base = 0.00;
+                    $r_comm_line = 0.00;
                 }
 
-                $d_comm_line = round(($item_net_base * $p_item['d_rate']) / 100, 2);
-                $r_comm_line = round(($item_net_base * $p_item['r_rate']) / 100, 2);
+                $d_comm_line = $p_item['d_comm_line'];
 
                 $doctor_amount_by_category[] = $d_comm_line;
                 $referral_amount_by_category[] = $r_comm_line;
@@ -2921,21 +2971,23 @@ class Finance extends MX_Controller
                     'item_price' => $p_item['unit_price'],
                     'quantity' => $p_item['qty'],
                     'subtotal' => $line_total,
-                    'net_subtotal' => $item_net_base,
+                    'net_subtotal' => ($subtotal > 0) ? round(($line_total / $subtotal) * $new_gross_total, 2) : $line_total,
                     'doctor_commission_rate' => $p_item['d_rate'],
                     'doctor_commission_amount' => $d_comm_line,
                     'referral_commission_rate' => $p_item['r_rate'],
                     'referral_commission_amount' => $r_comm_line
                 );
             }
-
-            $doctor_amount = array_sum($doctor_amount_by_category);
-            $referral_amount = array_sum($referral_amount_by_category);
-            $hospital_amount = $new_gross_total - $doctor_amount - $referral_amount;
         } else {
             $doctor_amount = floatval($payment->doctor_amount ?? 0);
-            $referral_amount = floatval($payment->referral_amount ?? 0);
-            $hospital_amount = max(0.00, $new_gross_total - $doctor_amount - $referral_amount);
+            if (!empty($payment->referrer)) {
+                $old_discount = floatval($existing_discount);
+                $estimated_gross_ref = floatval($payment->referral_amount ?? 0) + $old_discount;
+                $referral_amount = max(0.00, round($estimated_gross_ref - $new_discount, 2));
+            } else {
+                $referral_amount = 0.00;
+            }
+            $hospital_amount = max(0.00, round($new_gross_total - $doctor_amount - $referral_amount, 2));
         }
 
         $this->db->trans_start();

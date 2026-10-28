@@ -8,9 +8,11 @@ function updateCommissionSummary() {
   var referrer_id = $("#add_referrer").val();
   var has_referrer = (referrer_id !== "" && referrer_id !== null && referrer_id !== undefined);
 
-  // 1. Calculate Gross Item Subtotal
+  // 1. Calculate Gross Item Subtotal and Gross Test Commissions
   var gross_subtotal = 0;
-  var items = [];
+  var total_gross_doc_comm = 0;
+  var total_gross_ref_comm = 0;
+
   $.each($("select.multi-select option:selected"), function () {
     var id1 = $(this).data("idd");
     var qty_elem = $("#idinput-" + id1);
@@ -22,11 +24,12 @@ function updateCommissionSummary() {
     var d_rate = parseFloat($(this).data("d_commission")) || 0;
     var r_rate = parseFloat($(this).data("r_commission")) || 0;
 
-    items.push({
-      item_subtotal: item_subtotal,
-      d_rate: d_rate,
-      r_rate: r_rate
-    });
+    if (has_doctor) {
+      total_gross_doc_comm += (item_subtotal * d_rate) / 100;
+    }
+    if (has_referrer) {
+      total_gross_ref_comm += (item_subtotal * r_rate) / 100;
+    }
   });
 
   // 2. Calculate Discount Amount
@@ -43,31 +46,25 @@ function updateCommissionSummary() {
   }
   flat_discount = Math.max(0, Math.min(flat_discount, gross_subtotal));
 
-  // 3. CORE RULE: Commission Base Amount = Final Net Invoice Amount After Discount
   var net_invoice = Math.max(0, gross_subtotal - flat_discount);
-  var commission_base = net_invoice;
-  var net_ratio = gross_subtotal > 0 ? (commission_base / gross_subtotal) : 1.0;
 
-  // 4. Calculate Commissions proportionally on Discount-Adjusted Net Base
-  for (var i = 0; i < items.length; i++) {
-    var itm = items[i];
-    var item_net_base = itm.item_subtotal * net_ratio;
-
-    if (has_doctor) {
-      var d_amount = (item_net_base * itm.d_rate) / 100;
-      total_doc_comm += d_amount;
-    }
-
-    if (has_referrer) {
-      var r_amount = (item_net_base * itm.r_rate) / 100;
-      total_ref_comm += r_amount;
-    }
+  // 3. Referral Commission Rules:
+  // Rule 1: Calculate referral commission using each test's configured rate.
+  // Rule 2: If a referral is selected, deduct invoice discount from referrer's total commission, not hospital's share.
+  //         If no referral is selected, deduct discount from hospital's share.
+  if (has_referrer) {
+    total_ref_comm = Math.max(0, total_gross_ref_comm - flat_discount);
+  } else {
+    total_ref_comm = 0;
   }
 
-  var gross_val = parseFloat($("#gross").val()) || 0;
-  var net_revenue = gross_val - total_doc_comm - total_ref_comm;
+  // Preserve existing doctor commission rules
+  total_doc_comm = total_gross_doc_comm;
 
-  // 5. Update UI Displays
+  var gross_val = parseFloat($("#gross").val()) || net_invoice;
+  var net_revenue = Math.max(0, gross_val - total_doc_comm - total_ref_comm);
+
+  // 4. Update UI Displays
   if ($("#comm_gross_display").length) {
     $("#comm_gross_display").text(currency + " " + gross_subtotal.toFixed(2));
   }
@@ -78,7 +75,7 @@ function updateCommissionSummary() {
     $("#comm_net_invoice_display").text(currency + " " + net_invoice.toFixed(2));
   }
   if ($("#comm_base_display").length) {
-    $("#comm_base_display").text(currency + " " + commission_base.toFixed(2));
+    $("#comm_base_display").text(currency + " " + (has_referrer ? total_gross_ref_comm : gross_subtotal).toFixed(2));
   }
   if ($("#comm_doctor_display").length) {
     $("#comm_doctor_display").text(currency + " " + total_doc_comm.toFixed(2));
@@ -972,6 +969,7 @@ $(document).ready(function () {
         name_en: name_en,
         phone: phone,
         department_name: department_name,
+        degrees: profile,
         profile: profile,
         address: address
       },

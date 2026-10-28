@@ -84,7 +84,11 @@ if ($language == 'english') {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.26.1/axios.min.js"></script>
 
 
-<script src="adminlte/plugins/jquery/jquery.min.js"></script>
+<script>
+    if (typeof jQuery === 'undefined') {
+        document.write('<script src="adminlte/plugins/jquery/jquery.min.js"><\/script>');
+    }
+</script>
 <script src="adminlte/plugins/jquery-ui/jquery-ui.min.js"></script>
 
 

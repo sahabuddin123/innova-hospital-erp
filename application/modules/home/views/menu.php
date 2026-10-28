@@ -1414,7 +1414,6 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
                             <p id="chatCount">0</p>
                         </a>
                     </li>
-                    <script src="common/js/jquery.js"></script>
                     <script src="common/extranal/js/chat.js"></script>
                 <?php } ?>
             <?php } ?>

@@ -855,7 +855,7 @@ $can_create_referrer = $this->ion_auth->in_group(array('admin', 'superadmin', 'A
                                                 <span id="comm_net_display"><?php echo $settings->currency; ?> 0.00</span>
                                             </div>
                                             <div class="text-muted mt-1" style="font-size: 0.68rem; font-style: italic;">
-                                                * Commissions calculated proportionally on Final Net Invoice Amount after discount.
+                                                * Invoice discount is deducted from referrer commission if referral selected; hospital share is paid first on partial collections.
                                             </div>
                                         </div>
                                     </div>

@@ -557,42 +557,46 @@
 .col-num {
     width: 6%;
     text-align: center;
-    color: var(--inv-text-muted);
-    font-weight: 600;
+    color: #0f172a;
+    font-weight: 700;
 }
 
-.col-service {
-    width: 42%;
+.col-test-name {
+    width: 36%;
     text-align: left;
-    font-weight: 600;
+    font-weight: 700;
     color: #0f172a;
     word-break: break-word;
     font-size: 10.5px;
 }
 
-.col-room {
-    width: 20%;
-    text-align: left;
-    color: #475569;
+.col-delivery-date {
+    width: 18%;
+    text-align: center;
+    color: #334155;
     font-size: 10px;
+    font-weight: 500;
 }
 
-.col-price {
-    width: 12%;
+.col-unit-price {
+    width: 15%;
     text-align: right;
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 700;
+    color: #0f172a;
     font-size: 10.5px;
 }
 
 .col-qty {
-    width: 6%;
+    width: 8%;
     text-align: center;
-    font-weight: 600;
+    font-weight: 500;
+    color: #334155;
+    font-size: 10px;
 }
 
 .col-amount {
-    width: 14%;
+    width: 17%;
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
@@ -605,8 +609,10 @@
    ---------------------------------------------------- */
 .invoice-bottom-grid {
     display: flex;
-    gap: 10px;
-    margin-bottom: 6px;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 6px;
+    margin-bottom: 8px;
     align-items: stretch;
     width: 100%;
 }
@@ -618,43 +624,43 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 6px;
 }
 
-.status-highlight-card {
-    background: var(--inv-card-bg);
-    border: 1px solid var(--inv-border);
-    border-radius: 5px;
-    padding: 6px 10px;
+.invoice-right-pane-wrapper {
+    flex: 0 0 42%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .status-row-top {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
+    gap: 12px;
+    margin-bottom: 6px;
 }
 
 .due-amount-banner {
     display: inline-flex;
     align-items: center;
-    padding: 4px 12px;
-    border-radius: 4px;
-    font-size: 13.5px;
-    font-weight: 800;
-    letter-spacing: 0.3px;
+    padding: 3px 14px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
 }
 
 .banner-has-due {
-    background: #fef2f2;
+    background: #ffffff;
     color: #dc2626;
-    border: 1.5px solid #f87171;
+    border: 1.5px solid #ef4444;
 }
 
 .banner-no-due {
-    background: #f0fdf4;
+    background: #ffffff;
     color: #16a34a;
-    border: 1.5px solid #86efac;
+    border: 1.5px solid #22c55e;
 }
 
 .received-thanks-banner {
@@ -668,10 +674,9 @@
 }
 
 .in-words-row {
-    font-size: 9.5px;
+    font-size: 10px;
     color: #334155;
-    padding: 4px 0 3px;
-    border-top: 1px dashed #e2e8f0;
+    margin: 6px 0;
     line-height: 1.35;
 }
 .in-words-row strong {
@@ -679,13 +684,13 @@
 }
 
 .patient-instructions-box {
-    font-size: 9px;
+    font-size: 9.5px;
     color: #475569;
     line-height: 1.4;
     background: #ffffff;
-    border: 1px solid var(--inv-border-light);
-    border-radius: 4px;
-    padding: 4.5px 8px;
+    border: 1px solid var(--inv-border);
+    border-radius: 5px;
+    padding: 5px 9px;
     margin-top: 4px;
 }
 
@@ -693,22 +698,29 @@
     color: #0f172a;
 }
 
-.signatures-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding-top: 20px;
-    gap: 14px;
+.invoice-room-numbers {
+    margin-top: 3px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #1e3a8a;
+    letter-spacing: 0.1px;
 }
 
-.sig-block {
-    text-align: center;
-    min-width: 95px;
+.invoice-room-numbers strong {
+    color: #0f172a;
+}
+
+.sig-block-left,
+.sig-block-right {
+    padding-top: 25px;
 }
 
 .sig-line {
-    border-top: 1px dashed #64748b;
-    margin-bottom: 3px;
+    color: #64748b;
+    font-family: monospace;
+    font-size: 11px;
+    margin-bottom: 2px;
+    letter-spacing: 1px;
 }
 
 .sig-label {
@@ -716,40 +728,42 @@
     font-weight: 700;
     color: var(--inv-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
 }
 
 .sig-name {
-    font-size: 9.5px;
+    font-size: 10.5px;
     font-weight: 700;
     color: var(--inv-text-dark);
 }
 
 /* Right Pane: Bill Summary */
 .invoice-right-pane {
-    flex: 0 0 44%;
-    min-width: 0;
     background: #ffffff;
     border: 1px solid var(--inv-border);
     border-radius: 5px;
-    padding: 6px 10px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    padding: 8px 12px;
 }
 
 .bill-summary-title {
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 700;
     color: var(--inv-primary-navy);
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
     padding-bottom: 3px;
-    border-bottom: 1px solid #eef2f6;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.currency-tag {
+    font-size: 9px;
+    color: #94a3b8;
+    font-weight: 500;
+    text-transform: none;
 }
 
 .bill-summary-table {

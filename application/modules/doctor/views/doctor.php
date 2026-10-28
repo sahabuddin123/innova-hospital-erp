@@ -130,6 +130,13 @@
 
                         <div class="col-md-12 mb-4">
                             <div class="form-group">
+                                <label class="text-uppercase font-weight-bold text-muted">Degrees / Qualifications (e.g. MBBS, FCPS, MS)</label>
+                                <input type="text" class="form-control form-control-lg shadow-sm" name="degrees" placeholder="e.g. MBBS (RU), MS (Ortho)">
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mb-4">
+                            <div class="form-group">
                                 <label class="text-uppercase font-weight-bold text-muted"><?php echo lang('doctor'); ?> <?php echo lang('description'); ?></label>
                                 <textarea class="form-control shadow-sm" id="editor1" name="profile" rows="5"></textarea>
                             </div>
@@ -245,6 +252,13 @@
 
                         <div class="col-md-12 mb-4">
                             <div class="form-group">
+                                <label class="text-uppercase font-weight-bold text-muted">Degrees / Qualifications (e.g. MBBS, FCPS, MS)</label>
+                                <input type="text" class="form-control form-control-lg shadow-sm" name="degrees" placeholder="e.g. MBBS (RU), MS (Ortho)">
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mb-4">
+                            <div class="form-group">
                                 <label class="text-uppercase font-weight-bold text-muted"><?php echo lang('doctor'); ?> <?php echo lang('description'); ?></label>
                                 <textarea class="form-control shadow-sm" id="editor3" name="profile" rows="5"></textarea>
                             </div>
@@ -336,6 +350,11 @@
                                 <div class="row mb-3">
                                     <div class="col-md-4 text-uppercase font-weight-bold text-muted"><?php echo lang('department'); ?></div>
                                     <div class="col-md-8 departmentClass"></div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-4 text-uppercase font-weight-bold text-muted">Degrees</div>
+                                    <div class="col-md-8 degreesClass"></div>
                                 </div>
 
                                 <div class="row">
