@@ -3,7 +3,8 @@
         <?php echo date('Y'); ?> &copy;
         <?php
         $this->db->where('hospital_id', $this->hospital_id);
-        echo $this->db->get('settings')->row()->footer_message;
+        $setting_row = $this->db->get('settings')->row();
+        echo (!empty($setting_row) && !empty($setting_row->footer_message)) ? $setting_row->footer_message : 'By INNOVA Computers BD';
         ?>
         <a href="<?php echo current_url() . '#'; ?>" class="go-top">
             <i class="fa fa-angle-up"></i>

@@ -23,7 +23,7 @@ Options -Indexes
 </IfModule>
 
 # Block direct access to sensitive files
-<FilesMatch "(^\.env|^\.git|\.sql$|deploy\.sh$|clean_demo_data\.php$|composer\.(json|lock)$|package(-lock)?\.json$)">
+<FilesMatch "(^\.env|^\.git|\.sql$|deploy\.sh$|clean_demo_data\.php$|composer\.(json|lock)$|package(-lock)?\.json$|\.xlsx$|\.csv$|\.json$|\.bak$|\.log$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

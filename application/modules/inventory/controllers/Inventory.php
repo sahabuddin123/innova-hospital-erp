@@ -1043,200 +1043,22 @@ class Inventory extends MX_Controller
 
     public function test_category_insert()
     {
-        // Simple test to insert a category directly
-        $test_data = array(
-            'name' => 'Test Category ' . date('Y-m-d H:i:s'),
-            'description' => 'Test description',
-            'parent_id' => null,
-            'status' => 'active',
-            'hospital_id' => 1, // Use hospital ID 1 for testing
-            'created_by' => 1,  // Use user ID 1 for testing
-            'created_at' => date('Y-m-d H:i:s')
-        );
-        
-        $result = $this->inventory_model->insertInventoryCategory($test_data);
-        
-        if ($result) {
-            echo "SUCCESS: Category inserted with ID: " . $result;
-        } else {
-            echo "FAILED: Could not insert category";
-        }
-        
-        echo "<br><br>Test data: <pre>" . print_r($test_data, true) . "</pre>";
-        echo "<br>Database error: <pre>" . print_r($this->db->error(), true) . "</pre>";
+        redirect('home/permission');
     }
 
     public function debug_categories()
     {
-        echo "<h3>Debug Categories</h3>";
-        
-        // Check if table exists
-        echo "<h4>Table Check:</h4>";
-        echo "Table exists: " . ($this->db->table_exists('inventory_categories') ? 'YES' : 'NO') . "<br>";
-        
-        // Check hospital_id
-        $hospital_id = $this->session->userdata('hospital_id');
-        echo "Hospital ID from session: " . ($hospital_id ?: 'NOT SET') . "<br>";
-        
-        // Check all categories in table
-        echo "<h4>All Categories in Table:</h4>";
-        $all_categories = $this->db->get('inventory_categories')->result();
-        echo "<pre>" . print_r($all_categories, true) . "</pre>";
-        
-        // Check categories for current hospital
-        echo "<h4>Categories for Current Hospital:</h4>";
-        $categories = $this->inventory_model->getInventoryCategories();
-        echo "<pre>" . print_r($categories, true) . "</pre>";
-        
-        // Check DataTable response
-        echo "<h4>DataTable Response:</h4>";
-        $this->getCategories();
+        redirect('home/permission');
     }
 
     public function init_categories()
     {
-        // Force create table and insert sample data
-        echo "<h3>Initializing Categories</h3>";
-        
-        // Drop table if exists and recreate
-        $this->db->query("DROP TABLE IF EXISTS `inventory_categories`");
-        
-        // Create the table
-        $this->db->query("
-            CREATE TABLE `inventory_categories` (
-              `id` int(11) NOT NULL AUTO_INCREMENT,
-              `name` varchar(255) NOT NULL,
-              `description` text DEFAULT NULL,
-              `parent_id` int(11) DEFAULT NULL,
-              `status` enum('active','inactive') DEFAULT 'active',
-              `hospital_id` int(11) NOT NULL,
-              `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-              `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-              `created_by` int(11) DEFAULT NULL,
-              PRIMARY KEY (`id`),
-              KEY `idx_hospital_id` (`hospital_id`),
-              KEY `idx_parent_id` (`parent_id`),
-              KEY `idx_status` (`status`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
-        
-        echo "Table created successfully<br>";
-        
-        // Insert sample categories for all possible hospital IDs
-        $sample_categories = array(
-            array(
-                'name' => 'Medical Equipment',
-                'description' => 'Medical devices and equipment',
-                'parent_id' => null,
-                'status' => 'active',
-                'hospital_id' => 1,
-                'created_by' => 1,
-                'created_at' => date('Y-m-d H:i:s')
-            ),
-            array(
-                'name' => 'Surgical Instruments',
-                'description' => 'Surgical tools and instruments',
-                'parent_id' => null,
-                'status' => 'active',
-                'hospital_id' => 1,
-                'created_by' => 1,
-                'created_at' => date('Y-m-d H:i:s')
-            ),
-            array(
-                'name' => 'Pharmaceuticals',
-                'description' => 'Medicines and drugs',
-                'parent_id' => null,
-                'status' => 'active',
-                'hospital_id' => 1,
-                'created_by' => 1,
-                'created_at' => date('Y-m-d H:i:s')
-            ),
-            array(
-                'name' => 'Laboratory Supplies',
-                'description' => 'Lab consumables and reagents',
-                'parent_id' => null,
-                'status' => 'active',
-                'hospital_id' => 1,
-                'created_by' => 1,
-                'created_at' => date('Y-m-d H:i:s')
-            ),
-            array(
-                'name' => 'Office Supplies',
-                'description' => 'Administrative and office materials',
-                'parent_id' => null,
-                'status' => 'active',
-                'hospital_id' => 1,
-                'created_by' => 1,
-                'created_at' => date('Y-m-d H:i:s')
-            )
-        );
-        
-        $result = $this->db->insert_batch('inventory_categories', $sample_categories);
-        
-        if ($result) {
-            echo "Sample categories inserted successfully<br>";
-        } else {
-            echo "Failed to insert sample categories<br>";
-            echo "Database error: " . print_r($this->db->error(), true) . "<br>";
-        }
-        
-        // Verify insertion
-        $count = $this->db->count_all_results('inventory_categories');
-        echo "Total categories in table: " . $count . "<br>";
-        
-        // Show all categories
-        $all_categories = $this->db->get('inventory_categories')->result();
-        echo "<h4>All Categories:</h4>";
-        echo "<pre>" . print_r($all_categories, true) . "</pre>";
-        
-        echo "<br><a href='" . base_url('inventory/categories') . "'>Go to Categories Page</a>";
+        redirect('home/permission');
     }
 
     public function check_session()
     {
-        echo "<h3>Session Debug</h3>";
-        
-        // Check session data
-        echo "<h4>Session Data:</h4>";
-        echo "<pre>" . print_r($this->session->all_userdata(), true) . "</pre>";
-        
-        // Check hospital_id specifically
-        $hospital_id = $this->session->userdata('hospital_id');
-        echo "<h4>Hospital ID:</h4>";
-        echo "Hospital ID: " . ($hospital_id ?: 'NOT SET') . "<br>";
-        
-        // Check if user is logged in
-        echo "<h4>User Info:</h4>";
-        if ($this->ion_auth->logged_in()) {
-            $user = $this->ion_auth->user()->row();
-            echo "User ID: " . $user->id . "<br>";
-            echo "Username: " . $user->username . "<br>";
-            echo "Email: " . $user->email . "<br>";
-        } else {
-            echo "User not logged in<br>";
-        }
-        
-        // Check database connection
-        echo "<h4>Database Check:</h4>";
-        if ($this->db->simple_query('SELECT 1')) {
-            echo "Database connection: OK<br>";
-        } else {
-            echo "Database connection: FAILED<br>";
-        }
-        
-        // Check if inventory_categories table exists
-        echo "Table exists: " . ($this->db->table_exists('inventory_categories') ? 'YES' : 'NO') . "<br>";
-        
-        if ($this->db->table_exists('inventory_categories')) {
-            $count = $this->db->count_all_results('inventory_categories');
-            echo "Total categories: " . $count . "<br>";
-            
-            if ($count > 0) {
-                $categories = $this->db->get('inventory_categories')->result();
-                echo "<h4>All Categories:</h4>";
-                echo "<pre>" . print_r($categories, true) . "</pre>";
-            }
-        }
+        redirect('home/permission');
     }
 
     private function ensureCategoriesTableExists()

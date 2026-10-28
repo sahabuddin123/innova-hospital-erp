@@ -878,7 +878,20 @@ class Site extends MX_Controller
 
     public function update()
     {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
         $id = $this->input->post('id');
+        if (!$this->ion_auth->in_group(array('superadmin'))) {
+            $existing_settings = $this->site_model->getSettings();
+            if (!empty($existing_settings) && !empty($id) && $existing_settings->id != $id) {
+                redirect('home/permission');
+            }
+        }
         $title = $this->input->post('title');
         $description = $this->input->post('description');
         $email = $this->input->post('email');
@@ -975,9 +988,9 @@ class Site extends MX_Controller
                 $config = array(
                     'file_name' => $new_file_name,
                     'upload_path' => "./uploads/",
-                    'allowed_types' => "gif|jpg|png|jpeg|pdf",
+                    'allowed_types' => "gif|jpg|png|jpeg",
                     'overwrite' => False,
-                    'max_size' => "20480000", // Can be set to particular file size , here it is 2 MB(2048 Kb)
+                    'max_size' => "2048", // 2 MB (2048 KB)
                     'max_height' => "10000",
                     'max_width' => "10000"
                 );
@@ -1060,9 +1073,9 @@ class Site extends MX_Controller
                 $config = array(
                     'file_name' => $new_file_name,
                     'upload_path' => "./uploads/",
-                    'allowed_types' => "gif|jpg|png|jpeg|pdf",
+                    'allowed_types' => "gif|jpg|png|jpeg",
                     'overwrite' => False,
-                    'max_size' => "20480000", // Can be set to particular file size , here it is 2 MB(2048 Kb)
+                    'max_size' => "2048", // 2 MB (2048 KB)
                     'max_height' => "10000",
                     'max_width' => "10000"
                 );

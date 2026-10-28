@@ -412,6 +412,10 @@ class Doctor extends MX_Controller
     {
         $id = $this->input->get('id');
         $doctor = $this->doctor_model->getDoctorById($id);
+        if (empty($doctor)) {
+            echo json_encode(array('doctor' => null, 'schedules' => [], 'holidays' => [], 'visits' => []));
+            return;
+        }
         if ($doctor->department == null && $doctor->department_name != null) {
             $department_details = $this->department_model->getDepartmentByName($doctor->department_name);
             if ($department_details) {
@@ -452,26 +456,36 @@ class Doctor extends MX_Controller
 
     function delete()
     {
-
-        if ($this->ion_auth->in_group(array('Patient'))) {
+        if (!$this->ion_auth->in_group(array('admin', 'superadmin'))) {
             redirect('home/permission');
         }
 
-        $data = array();
         $id = $this->input->get('id');
-        $user_data = $this->db->get_where('doctor', array('id' => $id))->row();
-        $path = $user_data->img_url;
-        $path1 = $user_data->signature;
+        $doctor = $this->doctor_model->getDoctorById($id);
+        if (empty($doctor)) {
+            redirect('doctor');
+        }
 
-        if (!empty($path)) {
-            unlink($path);
+        if (!$this->ion_auth->in_group(array('superadmin')) && $doctor->hospital_id != $this->session->userdata('hospital_id')) {
+            redirect('home/permission');
         }
-        if (!empty($path1)) {
-            unlink($path);
+
+        $uploads_real = realpath('./uploads/');
+        $path = $doctor->img_url;
+        $path1 = $doctor->signature;
+
+        if (!empty($path) && file_exists($path) && $uploads_real && strpos(realpath($path), $uploads_real) === 0) {
+            @unlink($path);
         }
-        $ion_user_id = $user_data->ion_user_id;
-        $this->db->where('id', $ion_user_id);
-        $this->db->delete('users');
+        if (!empty($path1) && file_exists($path1) && $uploads_real && strpos(realpath($path1), $uploads_real) === 0) {
+            @unlink($path1);
+        }
+
+        $ion_user_id = $doctor->ion_user_id;
+        if (!empty($ion_user_id)) {
+            $this->db->where('id', $ion_user_id);
+            $this->db->delete('users');
+        }
         $this->doctor_model->delete($id);
         show_swal(lang('a_doctor_deleted_from_the_list'), 'warning', lang('deleted'));
         redirect('doctor');

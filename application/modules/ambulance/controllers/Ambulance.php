@@ -383,7 +383,8 @@ class Ambulance extends MX_Controller
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         
         if (!empty($searchTerm)) {
-            $this->db->where("(booking_number LIKE '%" . $searchTerm . "%' OR patient_name LIKE '%" . $searchTerm . "%')", NULL, FALSE);
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(booking_number LIKE '%" . $s . "%' OR patient_name LIKE '%" . $s . "%')", NULL, FALSE);
         }
         
         $this->db->order_by('id', 'desc');

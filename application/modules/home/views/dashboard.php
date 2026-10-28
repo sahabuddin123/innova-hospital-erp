@@ -187,7 +187,22 @@
       </ul>
 
       <!-- Right navbar links -->
-      <ul class="navbar-nav ml-auto">
+      <ul class="navbar-nav ml-auto align-items-center">
+
+        <!-- Header Quick Action Buttons: New Invoice & Due Collection -->
+        <?php if ($this->ion_auth->logged_in() && !$this->ion_auth->in_group(array('Patient', 'superadmin'))) { ?>
+          <li class="nav-item d-none d-sm-flex align-items-center mr-2">
+            <a href="finance/addPaymentView" class="nav-quick-btn nav-btn-invoice" title="<?php echo lang('new_invoice'); ?>">
+              <i class="fas fa-plus mr-1"></i> New Invoice
+            </a>
+          </li>
+          <li class="nav-item d-none d-sm-flex align-items-center mr-2">
+            <a href="finance/dueCollection" class="nav-quick-btn nav-btn-due" title="Due Collection">
+              <i class="fas fa-hand-holding-usd mr-1"></i> Due Collection
+            </a>
+          </li>
+        <?php } ?>
+
         <!-- Search Section -->
         <li class="nav-item search-item">
           <div class="form-inline">
@@ -1217,6 +1232,49 @@
 
     .search-icon {
       font-size: 0.9rem;
+    }
+
+    /* Top Header Quick Action Buttons */
+    .nav-quick-btn {
+      height: 38px;
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+      text-decoration: none !important;
+      border: none;
+      cursor: pointer;
+    }
+    .nav-btn-invoice {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #ffffff !important;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    }
+    .nav-btn-invoice:hover {
+      background: linear-gradient(135deg, #1d4ed8, #1e40af);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      color: #ffffff !important;
+    }
+    .nav-btn-due {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #ffffff !important;
+      box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+    }
+    .nav-btn-due:hover {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+      color: #ffffff !important;
+    }
+    .nav-quick-btn i {
+      font-size: 13px;
     }
 
     /* Enhanced Notification Elements - Subtle Improvements */

@@ -687,7 +687,7 @@ $sidebar_hidden_modules = array(
     <?php } ?>
 <?php } ?>
 
-<?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+<?php if ($this->ion_auth->in_group(array('admin', 'Accountant'))) { ?>
     <li class="nav-item">
         <a class="nav-link text-white" href="#">
             <i class="text-secondary nav-icon fas fa-user-friends"></i>

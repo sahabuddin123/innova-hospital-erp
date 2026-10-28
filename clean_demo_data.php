@@ -153,7 +153,9 @@ $financialTables = [
     'payment',
     'draft_payment',
     'ot_payment',
-    'pharmacy_payment'
+    'pharmacy_payment',
+    'transaction_logs',
+    'logs'
 ];
 
 foreach ($financialTables as $tbl) {

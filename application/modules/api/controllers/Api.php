@@ -25,32 +25,33 @@ class Api extends MX_Controller
         $identity = $this->input->post('email');
         $password = $this->input->post('password');
         $remember = false;
-
         $group = $this->input->post('group');
 
-        $users = $this->db->get_where('users', array('email' => $identity))->row();
-        $ion_user_id = $users->id;
-        if (!empty($ion_user_id)) {
+        if (empty($identity) || empty($password)) {
+            $data = array('idToken' => null, 'ion_id' => null, 'expiresIn' => null, 'message' => 'failed1', 'error' => 'Missing credentials');
+            echo json_encode($data);
+            return;
+        }
+
+        if ($this->ion_auth->login($identity, $password, $remember)) {
+            $ion_user_id = $this->ion_auth->get_user_id();
             if ($group == 'Doctor' || $group == 'doctor') {
                 $doctor_details = $this->db->get_where('doctor', array('ion_user_id' => $ion_user_id))->row();
-                $data['user_id'] = $doctor_details->id;
+                $data['user_id'] = !empty($doctor_details) ? $doctor_details->id : null;
             } else {
                 $patient_details = $this->db->get_where('patient', array('ion_user_id' => $ion_user_id))->row();
-                $data['user_id'] = $patient_details->id;
+                $data['user_id'] = !empty($patient_details) ? $patient_details->id : null;
             }
 
-            $data['hospital_id'] = $this->getHospitalID($data['ion_id']);
-            $data['message'] = 'successful';
-            $data['idToken'] = rand(1111, 9999);
             $data['ion_id'] = $ion_user_id;
+            $data['hospital_id'] = $this->getHospitalID($ion_user_id);
+            $data['message'] = 'successful';
+            $data['idToken'] = bin2hex(random_bytes(16));
             $data['expiresIn'] = 86400;
             $data['error'] = null;
             echo json_encode($data);
         } else {
-            $data['idToken'] = null;
-            $data['ion_id'] = null;
-            $data['expiresIn'] = null;
-            $data['message'] = 'failed1';
+            $data = array('idToken' => null, 'ion_id' => null, 'expiresIn' => null, 'message' => 'failed1', 'error' => 'Invalid email or password');
             echo json_encode($data);
         }
     }
@@ -59,37 +60,39 @@ class Api extends MX_Controller
     {
         $identity = $this->input->post('email');
         $password = $this->input->post('password');
-        // echo json_encode( $this->input->post('email'));
-        // die();
-        //  echo json_encode($password);
-
         $remember = false;
-
         $group = $this->input->post('group');
+
+        if (empty($identity) || empty($password)) {
+            $data = array('idToken' => null, 'ion_id' => null, 'expiresIn' => null, 'message' => 'failed2', 'error' => 'Missing credentials');
+            echo json_encode($data);
+            return;
+        }
+
         if ($this->ion_auth->login($identity, $password, $remember)) {
             $id = $this->ion_auth->get_user_id();
             $group_id = $this->db->get_where('users_groups', array('user_id' => $id))->row();
-            $group2 = $this->db->get_where('groups', array('id' => $group_id->group_id))->row();
-            if ($group2->name == $group) {
-                if ($group == 'Doctor') {
+            $group2 = !empty($group_id) ? $this->db->get_where('groups', array('id' => $group_id->group_id))->row() : null;
+            if (!empty($group2) && strtolower($group2->name) == strtolower($group)) {
+                if (strtolower($group) == 'doctor') {
                     $user_id = $this->db->get_where('doctor', array('ion_user_id' => $id))->row();
                 } else {
                     $user_id = $this->db->get_where('patient', array('ion_user_id' => $id))->row();
                 }
 
                 $data['message'] = 'successful';
-                $data['idToken'] = rand(1111, 9999);
-                $data['ion_id'] = $this->ion_auth->get_user_id();
-                $data['user_id'] = $user_id->id;
+                $data['idToken'] = bin2hex(random_bytes(16));
+                $data['ion_id'] = $id;
+                $data['user_id'] = !empty($user_id) ? $user_id->id : null;
                 $data['expiresIn'] = 86400;
                 $data['error'] = null;
-                $data['hospital_id'] = $this->getHospitalID($data['ion_id']);
+                $data['hospital_id'] = $this->getHospitalID($id);
                 echo json_encode($data);
             } else {
                 $data['message'] = 'failed1';
+                $data['error'] = 'Group mismatch';
                 echo json_encode($data);
             }
-            // echo json_encode("b");
         } else {
             $data['email'] = $identity;
             $data['message'] = 'failed2';
@@ -2117,13 +2120,35 @@ class Api extends MX_Controller
     //Get Hospital ID from user id
     function getHospitalID($id)
     {
-        //return $this->db->get_where('users', array('id' => $id))->row()->hospital_ion_id;
+        if (empty($id)) {
+            return null;
+        }
         $current_user_id = $id;
-        $group_id = $this->db->get_where('users_groups', array('user_id' => $current_user_id))->row()->group_id;
-        $group_name = $this->db->get_where('groups', array('id' => $group_id))->row()->name;
-        $group_name = strtolower($group_name);
-        $hospital_id = $this->db->get_where($group_name, array('ion_user_id' => $current_user_id))->row()->hospital_id;
-        return $hospital_id;
+        $user_group = $this->db->get_where('users_groups', array('user_id' => $current_user_id))->row();
+        if (empty($user_group)) {
+            return null;
+        }
+        $group_row = $this->db->get_where('groups', array('id' => $user_group->group_id))->row();
+        if (empty($group_row)) {
+            return null;
+        }
+        $group_name = strtolower($group_row->name);
+
+        if ($group_name === 'superadmin') {
+            return 'superadmin';
+        }
+
+        if ($group_name === 'admin') {
+            $hosp = $this->db->get_where('hospital', array('ion_user_id' => $current_user_id))->row();
+            return !empty($hosp) ? $hosp->id : null;
+        }
+
+        if ($this->db->table_exists($group_name)) {
+            $member = $this->db->get_where($group_name, array('ion_user_id' => $current_user_id))->row();
+            return !empty($member) ? $member->hospital_id : null;
+        }
+
+        return null;
     }
 
     // public function addNewPrescription() {
@@ -2354,27 +2379,50 @@ class Api extends MX_Controller
 
     public function getPatientList()
     {
-        $patient_ion_id = $this->input->get('id');
+        if (!$this->ion_auth->logged_in()) {
+            $patient_ion_id = $this->input->get('id');
+            if (empty($patient_ion_id)) {
+                echo json_encode(array('status' => 'error', 'message' => 'Authentication required', 'data' => []));
+                return;
+            }
+        } else {
+            $patient_ion_id = $this->ion_auth->get_user_id();
+        }
 
         $this->hospitalID = $this->getHospitalID($patient_ion_id);
+        if (empty($this->hospitalID)) {
+            echo json_encode([]);
+            return;
+        }
 
         $this->db->where('hospital_id', $this->hospitalID);
         $patients = $this->db->get('patient')->result();
 
         echo json_encode($patients);
-        //echo $this->hospitalID;
     }
 
     public function getDoctorList()
     {
-        $patient_ion_id = $this->input->get('id');;
+        $patient_ion_id = $this->input->get('id');
+        if ($this->ion_auth->logged_in()) {
+            $patient_ion_id = $this->ion_auth->get_user_id();
+        }
+
         $this->hospitalID = $this->getHospitalID($patient_ion_id);
+        if (empty($this->hospitalID)) {
+            $this->hospitalID = $this->session->userdata('hospital_id');
+        }
+
+        if (empty($this->hospitalID)) {
+            echo json_encode([]);
+            return;
+        }
 
         $this->db->where('hospital_id', $this->hospitalID);
+        $this->db->where('active', 1);
         $doctors = $this->db->get('doctor')->result();
 
         echo json_encode($doctors);
-        //echo $this->hospitalID;
     }
 
     public function getDoctorTimeSlop()

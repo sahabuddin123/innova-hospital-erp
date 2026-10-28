@@ -35,7 +35,8 @@ class Meeting_model extends CI_model {
             $this->db->where('patient_ion_id', $this->ion_auth->get_user_id());
         }
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $this->db->where("(id LIKE '%" . $search . "%' OR patientname LIKE '%" . $search . "%' OR doctorname LIKE '%" . $search . "%')", NULL, FALSE);
+        $s = $this->db->escape_like_str($search);
+        $this->db->where("(id LIKE '%" . $s . "%' OR patientname LIKE '%" . $s . "%' OR doctorname LIKE '%" . $s . "%')", NULL, FALSE);
         $this->db->order_by('id', 'desc');
         $query = $this->db->get('meeting');
         return $query->result();
@@ -61,7 +62,8 @@ class Meeting_model extends CI_model {
             $this->db->where('patient_ion_id', $this->ion_auth->get_user_id());
         }
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $this->db->where("(id LIKE '%" . $search . "%' OR patientname LIKE '%" . $search . "%' OR doctorname LIKE '%" . $search . "%')", NULL, FALSE);
+        $s = $this->db->escape_like_str($search);
+        $this->db->where("(id LIKE '%" . $s . "%' OR patientname LIKE '%" . $s . "%' OR doctorname LIKE '%" . $s . "%')", NULL, FALSE);
         $this->db->order_by('id', 'desc');
         $this->db->limit($limit, $start);
         $query = $this->db->get('meeting');
@@ -151,12 +153,13 @@ class Meeting_model extends CI_model {
 
     function getRequestMeetingBySearchByDoctor($doctor, $search) {
         $this->db->order_by('id', 'desc');
+        $s = $this->db->escape_like_str($search);
         $query = $this->db->select('*')
                 ->from('meeting')
                 ->where('status', 'Requested')
                 ->where('hospital_id', $this->session->userdata('hospital_id'))
                 ->where('doctor', $doctor)
-                ->where("(id LIKE '%" . $search . "%' OR patientname LIKE '%" . $search . "%' OR doctorname LIKE '%" . $search . "%')", NULL, FALSE)
+                ->where("(id LIKE '%" . $s . "%' OR patientname LIKE '%" . $s . "%' OR doctorname LIKE '%" . $s . "%')", NULL, FALSE)
                 ->get();
         return $query->result();
     }

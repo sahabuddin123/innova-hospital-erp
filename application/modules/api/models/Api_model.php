@@ -866,8 +866,8 @@ class Api_model extends CI_model
     {
         if (!empty($searchTerm)) {
             $this->db->select('*');
-            $this->db->where('hospital_id', $hospitalID);
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(name LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%')", NULL, FALSE);
             $fetched_records = $this->db->get('patient');
             $users = $fetched_records->result_array();
         } else {
@@ -1164,8 +1164,8 @@ class Api_model extends CI_model
     {
         if (!empty($searchTerm)) {
             $this->db->select('*');
-            $this->db->where('hospital_id', $hospital_id);
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%' OR phone like '%" . $searchTerm . "%'");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(name LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%' OR phone LIKE '%" . $s . "%')", NULL, FALSE);
             $fetched_records = $this->db->get('patient');
             $users = $fetched_records->result_array();
         } else {
@@ -1203,8 +1203,8 @@ class Api_model extends CI_model
     {
         if (!empty($searchTerm)) {
             $this->db->select('*');
-            $this->db->where('hospital_id', $hospital_id);
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%' OR code like '%" . $searchTerm . "%'");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(name LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%' OR code LIKE '%" . $s . "%')", NULL, FALSE);
             $fetched_records = $this->db->get('diagnosis');
             $users = $fetched_records->result_array();
         } else {
@@ -1226,8 +1226,8 @@ class Api_model extends CI_model
     {
         if (!empty($searchTerm)) {
             $this->db->select('*');
-            $this->db->where('hospital_id', $hospital_id);
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%' OR code like '%" . $searchTerm . "%'");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(name LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%' OR code LIKE '%" . $s . "%')", NULL, FALSE);
             $fetched_records = $this->db->get('treatment');
             $users = $fetched_records->result_array();
         } else {
@@ -1249,8 +1249,8 @@ class Api_model extends CI_model
     {
         if (!empty($searchTerm)) {
             $this->db->select('*');
-           $this->db->where('hospital_id', $hospital_id);
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(name LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%')", NULL, FALSE);
             $fetched_records = $this->db->get('symptom');
             $users = $fetched_records->result_array();
         } else {
@@ -1272,8 +1272,8 @@ class Api_model extends CI_model
     {
         if (!empty($searchTerm)) {
             $this->db->select('*');
-            $this->db->where('hospital_id', $hospital_id);
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%' ");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(name LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%')", NULL, FALSE);
             $fetched_records = $this->db->get('advice');
             $users = $fetched_records->result_array();
         } else {
@@ -1296,8 +1296,8 @@ class Api_model extends CI_model
         if (!empty($searchTerm)) {
             $this->db->select('*');
             $this->db->where('hospital_id', $hospital_id);
-            $this->db->where('status', 'Active');
-            $this->db->where("category like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%'");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(category LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%')", NULL, FALSE);
             $this->db->where('type', 'diagnostic');
             $fetched_records = $this->db->get('payment_category');
             $users = $fetched_records->result_array();

@@ -854,8 +854,8 @@ class Bed_model extends CI_model
     {
         if (!empty($searchTerm)) {
             $this->db->select('*');
-            $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-            $this->db->where("name like '%" . $searchTerm . "%' OR id like '%" . $searchTerm . "%' OR phone like '%" . $searchTerm . "%'");
+            $s = $this->db->escape_like_str($searchTerm);
+            $this->db->where("(name LIKE '%" . $s . "%' OR id LIKE '%" . $s . "%' OR phone LIKE '%" . $s . "%')", NULL, FALSE);
             $fetched_records = $this->db->get('patient');
             $users = $fetched_records->result_array();
         } else {

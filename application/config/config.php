@@ -395,7 +395,7 @@ if (!is_dir($session_save_dir)) {
 $config['sess_save_path'] = $session_save_dir;
 $config['sess_match_ip'] = false;
 $config['sess_time_to_update'] = 300;
-$config['sess_regenerate_destroy'] = false;
+$config['sess_regenerate_destroy'] = true;
 
 /*
 |--------------------------------------------------------------------------

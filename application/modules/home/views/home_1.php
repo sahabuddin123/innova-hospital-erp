@@ -528,40 +528,47 @@
                                                                     <?php
                                                                     $this->load->model('logs/logs_model');
                                                                     $latest_transaction_logs = $this->logs_model->getTransactionLogsByLimit(5, 0, 'id', 'desc');
-                                                                    foreach ($latest_transaction_logs as $log) {
-                                                                        $action = '';
-                                                                        switch ($log->action) {
-                                                                            case 'Added':
-                                                                                $action = '<span class="badge badge-success">' . lang('added') . '</span>';
-                                                                                break;
-                                                                            case 'Added/Deposited':
-                                                                                $action = '<span class="badge badge-success">' . lang('added') . ' ' . lang('deposited') . '</span>';
-                                                                                break;
-                                                                            case 'Updated':
-                                                                                $action = '<span class="badge badge-success">' . lang('updated') . '</span>';
-                                                                                break;
-                                                                            case 'deleted_deposit':
-                                                                                $action = '<span class="badge badge-danger">' . lang('deleted') . ' ' . 'Deposit' . '</span>';
-                                                                                break;
-                                                                            case 'deleted':
-                                                                                $action = '<span class="badge badge-danger">' . lang('deleted') . '</span>';
-                                                                                break;
-                                                                            default:
-                                                                                $action = '<span class="badge badge-info">' . lang('updated') . ' ' . lang('deposited') . '</span>';
-                                                                        }
-                                                                        $user_name = $this->db->get_where('users', array('id' => $log->user))->row()->username;
-                                                                    ?>
+                                                                    if (!empty($latest_transaction_logs)) {
+                                                                        foreach ($latest_transaction_logs as $log) {
+                                                                            $action = '';
+                                                                            switch ($log->action) {
+                                                                                case 'Added':
+                                                                                    $action = '<span class="badge badge-success">' . lang('added') . '</span>';
+                                                                                    break;
+                                                                                case 'Added/Deposited':
+                                                                                    $action = '<span class="badge badge-success">' . lang('added') . ' ' . lang('deposited') . '</span>';
+                                                                                    break;
+                                                                                case 'Updated':
+                                                                                    $action = '<span class="badge badge-success">' . lang('updated') . '</span>';
+                                                                                    break;
+                                                                                case 'deleted_deposit':
+                                                                                    $action = '<span class="badge badge-danger">' . lang('deleted') . ' ' . 'Deposit' . '</span>';
+                                                                                    break;
+                                                                                case 'deleted':
+                                                                                    $action = '<span class="badge badge-danger">' . lang('deleted') . '</span>';
+                                                                                    break;
+                                                                                default:
+                                                                                    $action = '<span class="badge badge-info">' . lang('updated') . ' ' . lang('deposited') . '</span>';
+                                                                            }
+                                                                            $u_row = $this->db->get_where('users', array('id' => $log->user))->row();
+                                                                            $user_name = !empty($u_row) ? $u_row->username : '';
+                                                                        ?>
+                                                                            <tr>
+                                                                                <td class="border-0">
+                                                                                    <strong><?php echo date('M d, Y', strtotime($log->date_time)); ?></strong> <br>
+                                                                                    <span class="text-muted text-sm"><?php echo date('H:i', strtotime($log->date_time)); ?></span>
+                                                                                </td>
+                                                                                <td class="text-right border-0"><a target="_blank" href="<?php echo site_url('finance/invoice?id=' . $log->invoice_id); ?>"><?php echo $log->invoice_id; ?></a></td>
+                                                                                <td class="text-right border-0"><?php echo $log->patientname; ?></td>
+                                                                                <td class="text-right border-0"><?php echo $log->deposit_type; ?></td>
+                                                                                <td class="text-right border-0"><?php echo number_format($log->amount, 2); ?></td>
+                                                                                <td class="text-right border-0"><?php echo $user_name; ?></td>
+                                                                                <td class="text-right border-0"><?php echo $action; ?></td>
+                                                                            </tr>
+                                                                        <?php }
+                                                                    } else { ?>
                                                                         <tr>
-                                                                            <td class="border-0">
-                                                                                <strong><?php echo date('M d, Y', strtotime($log->date_time)); ?></strong> <br>
-                                                                                <span class="text-muted text-sm"><?php echo date('H:i', strtotime($log->date_time)); ?></span>
-                                                                            </td>
-                                                                            <td class="text-right border-0"><a target="_blank" href="<?php echo site_url('finance/invoice?id=' . $log->invoice_id); ?>"><?php echo $log->invoice_id; ?></a></td>
-                                                                            <td class="text-right border-0"><?php echo $log->patientname; ?></td>
-                                                                            <td class="text-right border-0"><?php echo $log->deposit_type; ?></td>
-                                                                            <td class="text-right border-0"><?php echo number_format($log->amount, 2); ?></td>
-                                                                            <td class="text-right border-0"><?php echo $user_name; ?></td>
-                                                                            <td class="text-right border-0"><?php echo $action; ?></td>
+                                                                            <td colspan="7" class="text-center text-muted py-3"><?php echo lang('no_transaction_logs_found') ? lang('no_transaction_logs_found') : 'No transaction logs available'; ?></td>
                                                                         </tr>
                                                                     <?php } ?>
                                                                 </tbody>
