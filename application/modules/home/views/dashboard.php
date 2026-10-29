@@ -560,14 +560,16 @@
     <aside class="main-sidebar sidebar-dark-primary elevation-1 sidebar-tight">
       <!-- Brand Logo -->
       <a href="home" class="brand-link sidebar-brand-compact bg-gradient-to-r from-indigo-900 to-purple-900 text-left">
-        <?php if (!$this->ion_auth->in_group(array('superadmin'))) { ?>
+        <?php
+        $sidebar_brand_logo = file_exists('uploads/lifecare_logo_circle.png') ? 'uploads/lifecare_logo_circle.png' : (!empty($settings->logo_title) ? $settings->logo_title : 'uploads/logo.png');
+        if (!$this->ion_auth->in_group(array('superadmin'))) { ?>
           <div class="d-flex align-items-center justify-content-start py-0 w-100">
-            <img height="40" src="<?php echo $settings->logo_title; ?>" alt="HMS" class="brand-image rounded-circle border border-white shadow-sm">
+            <img height="40" src="<?php echo $sidebar_brand_logo; ?>?v=<?php echo time(); ?>" alt="HMS" class="brand-image rounded-circle border border-white shadow-sm">
             <span class="brand-text text-white font-weight-bold text-uppercase sidebar-brand-title text-left"><?php echo $settings->title; ?></span>
           </div>
         <?php } else { ?>
           <div class="d-flex align-items-center justify-content-start py-0 w-100">
-            <img height="40" src="<?php echo $settings->logo_title; ?>" alt="HMS" class="brand-image rounded-circle border border-white shadow-sm">
+            <img height="40" src="<?php echo $sidebar_brand_logo; ?>?v=<?php echo time(); ?>" alt="HMS" class="brand-image rounded-circle border border-white shadow-sm">
             <span class="brand-text text-white font-weight-bold sidebar-brand-title-super text-left"><?php echo $settings->title; ?></span>
           </div>
         <?php } ?>

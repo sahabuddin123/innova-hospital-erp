@@ -290,7 +290,9 @@ if (empty($cashier_name)) {
 }
 
 // Logo & Hospital Details
-if (!empty($settings->invoice_logo) && file_exists($settings->invoice_logo)) {
+if (file_exists('uploads/lifecare_logo_circle.png')) {
+    $hospital_logo = 'uploads/lifecare_logo_circle.png';
+} elseif (!empty($settings->invoice_logo) && file_exists($settings->invoice_logo)) {
     $hospital_logo = $settings->invoice_logo;
 } elseif (file_exists('uploads/logo-nonetext.png')) {
     $hospital_logo = 'uploads/logo-nonetext.png';

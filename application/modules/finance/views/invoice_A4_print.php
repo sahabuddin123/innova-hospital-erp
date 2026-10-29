@@ -370,7 +370,9 @@ if (empty($cashier_name)) {
 }
 
 // Official Hospital Identity
-if (!empty($settings->invoice_logo) && file_exists($settings->invoice_logo)) {
+if (file_exists('uploads/lifecare_logo_circle.png')) {
+    $hospital_logo = 'uploads/lifecare_logo_circle.png';
+} elseif (!empty($settings->invoice_logo) && file_exists($settings->invoice_logo)) {
     $hospital_logo = $settings->invoice_logo;
 } elseif (file_exists('uploads/logo-nonetext.png')) {
     $hospital_logo = 'uploads/logo-nonetext.png';
@@ -498,7 +500,7 @@ if (!function_exists('invoiceAmountInWords')) {
                 <div class="invoice-header-brand-group">
                     <div class="invoice-brand-top">
                         <?php if (!empty($hospital_logo) && file_exists($hospital_logo)) { ?>
-                            <img src="<?php echo $hospital_logo; ?>" alt="<?php echo html_escape($hospital_title); ?>" class="hospital-logo">
+                            <img src="<?php echo $hospital_logo; ?>?v=<?php echo time(); ?>" alt="<?php echo html_escape($hospital_title); ?>" class="hospital-logo">
                         <?php } ?>
                         <div class="hospital-brand-titles">
                             <h1 class="hospital-brand-title"><?php echo html_escape($hospital_title); ?></h1>
