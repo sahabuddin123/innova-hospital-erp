@@ -21,7 +21,7 @@ $invoice_details = $this->db->get_where('payment', array('id' => $lab->invoice_i
                                     <i class="fas fa-print mr-1"></i>
                                     Print Report
                                 </button>
-                                <?php if ($redirect != 'download1') { ?>
+                                <?php if (empty($redirect) || $redirect != 'download1') { ?>
                                     <a href="<?php echo site_url('lab/testPdf?id=' . $lab->id); ?>" class="btn btn-outline-success btn-sm">
                                         <i class="fas fa-download mr-1"></i>
                                         Download PDF

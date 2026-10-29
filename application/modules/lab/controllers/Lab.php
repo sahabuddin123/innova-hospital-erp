@@ -351,10 +351,10 @@ class Lab extends MX_Controller
         $id = $this->input->get('id');
         $data['settings'] = $this->settings_model->getSettings();
         $data['lab'] = $this->lab_model->getLabById($id);
-        //$data['lab'] = $this->lab_model->getLabById($id);
-        if ($data['lab']->hospital_id != $this->session->userdata('hospital_id')) {
-            $this->load->view('home/permission');
+        if (empty($data['lab']) || $data['lab']->hospital_id != $this->session->userdata('hospital_id')) {
+            redirect('home/permission');
         }
+        $data['redirect'] = $this->input->get('redirect') ? $this->input->get('redirect') : '';
 
         $this->load->view('home/dashboard');
         $this->load->view('newLabReport', $data);
