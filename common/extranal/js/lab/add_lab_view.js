@@ -60,17 +60,25 @@ $(document).ready(function () {
     $(document.body).on('change', '#template1', function () {
         "use strict";
         var iid = $("select.template option:selected").val();
+        if (!iid) {
+            return;
+        }
+        var lab_id = $('input[name="id"]').val() || '';
         $.ajax({
-            url: 'lab/getTemplateByIdByJason?id=' + iid,
+            url: 'lab/getTemplateByIdByJason?id=' + iid + '&lab_id=' + lab_id,
             method: 'GET',
             data: '',
             dataType: 'json',
             success: function (response) {
-                if (response.template.template != null) {
-                    tinymce.get('editor').insertContent(response.template.template);
+                if (response && response.template && response.template.template != null) {
+                    if (typeof tinymce !== 'undefined' && tinymce.get('editor')) {
+                        tinymce.get('editor').setContent(response.template.template);
+                    } else {
+                        $('#editor').val(response.template.template);
+                    }
                 }  
             }
-        })
+        });
     });
 });
 

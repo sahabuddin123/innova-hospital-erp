@@ -92,8 +92,12 @@
                                             <label class="text-uppercase font-weight-bold text-muted"><?php echo lang('template'); ?></label>
                                             <select class="form-control form-control-lg shadow-sm js-example-basic-multiple template" id="template1" name="template">
                                                 <option value=""><?php echo lang('select'); ?></option>
-                                                <?php foreach ($templates as $template) { ?>
-                                                    <option value="<?php echo $template->id; ?>"><?php echo $template->name . " (" . $this->db->get_where('users', array("id" => $template->user))->row()->username . ")"; ?></option>
+                                                <?php foreach ($templates as $template) { 
+                                                    $isSelected = (!empty($selected_template_id) && $selected_template_id == $template->id) ? 'selected="selected"' : '';
+                                                    $t_user = !empty($template->user) ? $this->db->get_where('users', array("id" => $template->user))->row() : null;
+                                                    $t_username = !empty($t_user->username) ? " (" . $t_user->username . ")" : "";
+                                                ?>
+                                                    <option value="<?php echo $template->id; ?>" <?php echo $isSelected; ?>><?php echo htmlspecialchars($template->name . $t_username); ?></option>
                                                 <?php } ?>
                                             </select>
                                         </div>

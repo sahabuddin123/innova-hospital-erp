@@ -1264,6 +1264,22 @@ class Lab_model extends CI_model
         return $query->row();
     }
 
+    function getTemplateByCategoryId($category_id)
+    {
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+        $this->db->where('category_id', $category_id);
+        $query = $this->db->get('template');
+        return $query->row();
+    }
+
+    function getTemplateByName($name)
+    {
+        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+        $this->db->where('name', $name);
+        $query = $this->db->get('template');
+        return $query->row();
+    }
+
     function deletetemplate($id)
     {
         $this->db->where('id', $id);

@@ -985,10 +985,21 @@ class Lab extends MX_Controller
 
             $category_name = "";
             if ($template->category_id > 0) {
-                $category_name = $this->finance_model->getCategoryById($template->category_id);
-                $category_name = $category_name->category;
+                $p_cat = $this->finance_model->getPaymentCategoryById($template->category_id);
+                if (!empty($p_cat) && !empty($p_cat->category)) {
+                    $category_name = $p_cat->category;
+                } else {
+                    $cat = $this->finance_model->getCategoryById($template->category_id);
+                    if (!empty($cat) && !empty($cat->category)) {
+                        $category_name = $cat->category;
+                    }
+                }
             }
 
+            $displayName = htmlspecialchars($template->name);
+            if (!empty($category_name)) {
+                $displayName .= '<br><span class="badge badge-info" style="font-size: 11px;"><i class="fas fa-vial mr-1"></i> ' . htmlspecialchars($category_name) . '</span>';
+            }
 
             $dropdownOptions = '';
             $dropdownOptions = '
@@ -1003,8 +1014,8 @@ class Lab extends MX_Controller
             </div>';
 
             $info[] = array(
-                $template->name,
-                $user,
+                $displayName,
+                !empty($user) ? $user : 'System',
                 // $dropdownOptions
                 $option1 . ' ' . $option2
             );
@@ -1337,34 +1348,17 @@ class Lab extends MX_Controller
         $id = $this->input->get('id');
 
         if (!empty($id)) {
-            $lab_details = $this->lab_model->getLabById($id);
-            if ($lab_details->hospital_id != $this->session->userdata('hospital_id')) {
-                redirect('home/permission');
-            }
-        }
-
-        $data['settings'] = $this->settings_model->getSettings();
-        $data['labs'] = $this->lab_model->getLab();
-
-        if (!empty($id)) {
-            $data['lab_single'] = $this->lab_model->getLabById($id);
-            $data['lab'] = $this->lab_model->getLabById($id);
-            $data['patients'] = $this->patient_model->getPatientById($data['lab_single']->patient);
-            $data['doctors'] = $this->doctor_model->getDoctorById($data['lab_single']->doctor);
-        }
-
-        $data['templates'] = $this->lab_model->getTemplate();
-        $data['settings'] = $this->settings_model->getSettings();
-        $data['categories'] = $this->lab_model->getLabCategory();
-        $data['categories'] = $this->finance_model->getCategory();
-        $data['payment_categories'] = $this->finance_model->getPaymentCategory();
-        $data['macros'] = $this->macro_model->getMacro();
-
-        if (!empty($id)) {
+            $data = $this->prepareLabReportFormData($id, $this->input->get('template_id'));
             $this->load->view('home/dashboard');
             $this->load->view('add_lab_view', $data);
             $this->load->view('home/footer');
         } else {
+            $data['settings'] = $this->settings_model->getSettings();
+            $data['labs'] = $this->lab_model->getLab();
+            $data['templates'] = $this->lab_model->getTemplate();
+            $data['categories'] = $this->lab_model->getLabCategory();
+            $data['payment_categories'] = $this->finance_model->getPaymentCategory();
+            $data['macros'] = $this->macro_model->getMacro();
             $this->load->view('home/dashboard');
             $this->load->view('lab', $data);
             $this->load->view('home/footer');
@@ -1444,30 +1438,145 @@ class Lab extends MX_Controller
         $id = $this->input->get('id');
 
         if (!empty($id)) {
-            $lab_details = $this->lab_model->getLabById($id);
-            if ($lab_details->hospital_id != $this->session->userdata('hospital_id')) {
-                redirect('home/permission');
+            $data = $this->prepareLabReportFormData($id, $this->input->get('template_id'));
+            $this->load->view('home/dashboard');
+            $this->load->view('add_lab_view', $data);
+            $this->load->view('home/footer');
+        } else {
+            $data['settings'] = $this->settings_model->getSettings();
+            $data['labs'] = $this->lab_model->getLab();
+            $data['templates'] = $this->lab_model->getTemplate();
+            $data['categories'] = $this->lab_model->getLabCategory();
+            $data['payment_categories'] = $this->finance_model->getPaymentCategory();
+            $data['patients'] = $this->patient_model->getPatient();
+            $data['doctors'] = $this->doctor_model->getDoctor();
+            $this->load->view('home/dashboard');
+            $this->load->view('lab', $data);
+            $this->load->view('home/footer');
+        }
+    }
+
+    public function replaceTemplatePlaceholders($templateHtml, $lab = null)
+    {
+        if (empty($templateHtml)) {
+            return '';
+        }
+
+        $settings = $this->settings_model->getSettings();
+        $patient = null;
+        $doctor = null;
+        $test = null;
+
+        if (!empty($lab)) {
+            if (!empty($lab->patient)) {
+                $patient = $this->patient_model->getPatientById($lab->patient);
             }
+            if (!empty($lab->doctor)) {
+                $doctor = $this->doctor_model->getDoctorById($lab->doctor);
+            }
+            if (!empty($lab->category_id)) {
+                $test = $this->finance_model->getPaymentCategoryById($lab->category_id);
+            }
+        }
+
+        $patient_age = '';
+        if (!empty($patient)) {
+            if (!empty($patient->age)) {
+                $age_parts = explode('-', $patient->age);
+                $patient_age = $age_parts[0] . ' Y';
+            } elseif (!empty($patient->birthdate)) {
+                $diff = date_diff(date_create($patient->birthdate), date_create(date("Y-m-d")));
+                $patient_age = $diff->format('%y Y');
+            }
+        }
+
+        $report_date = !empty($lab->date) ? (is_numeric($lab->date) ? date('d-M-Y', $lab->date) : $lab->date) : date('d-M-Y');
+        $report_id = !empty($lab->id) ? 'LAB-' . str_pad($lab->id, 5, '0', STR_PAD_LEFT) : '';
+
+        $doctor_info = '';
+        if (!empty($doctor)) {
+            $doctor_info = $doctor->name;
+            if (!empty($doctor->degrees)) {
+                $doctor_info .= ' (' . $doctor->degrees . ')';
+            }
+        }
+
+        $placeholders = array(
+            '{{hospital_name}}'        => !empty($settings->title) ? htmlspecialchars($settings->title) : 'Lifecare Diagnostic Center',
+            '{{hospital_address}}'     => !empty($settings->address) ? htmlspecialchars($settings->address) : '',
+            '{{hospital_phone}}'       => !empty($settings->phone) ? htmlspecialchars($settings->phone) : '',
+            '{{hospital_email}}'       => !empty($settings->email) ? htmlspecialchars($settings->email) : '',
+            '{{report_id}}'            => $report_id,
+            '{{report_number}}'        => $report_id,
+            '{{lab_id}}'               => !empty($lab->id) ? $lab->id : '',
+            '{{invoice_id}}'           => !empty($lab->invoice_id) ? $lab->invoice_id : '',
+            '{{patient_name}}'         => !empty($patient->name) ? htmlspecialchars($patient->name) : (!empty($lab->patient_name) ? htmlspecialchars($lab->patient_name) : ''),
+            '{{patient_id}}'           => !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : ''),
+            '{{patient_age}}'          => $patient_age,
+            '{{patient_gender}}'       => !empty($patient->sex) ? ucfirst($patient->sex) : '',
+            '{{patient_sex}}'          => !empty($patient->sex) ? ucfirst($patient->sex) : '',
+            '{{patient_phone}}'        => !empty($patient->phone) ? htmlspecialchars($patient->phone) : (!empty($lab->patient_phone) ? htmlspecialchars($lab->patient_phone) : ''),
+            '{{patient_address}}'      => !empty($patient->address) ? htmlspecialchars($patient->address) : '',
+            '{{patient_bloodgroup}}'   => !empty($patient->bloodgroup) ? htmlspecialchars($patient->bloodgroup) : '',
+            '{{doctor_name}}'          => !empty($doctor->name) ? htmlspecialchars($doctor->name) : (!empty($lab->doctor_name) ? htmlspecialchars($lab->doctor_name) : 'Self / Consultant'),
+            '{{referring_doctor}}'     => !empty($doctor_info) ? htmlspecialchars($doctor_info) : (!empty($lab->doctor_name) ? htmlspecialchars($lab->doctor_name) : 'Self / Consultant'),
+            '{{doctor_qualification}}' => !empty($doctor->degrees) ? htmlspecialchars($doctor->degrees) : '',
+            '{{test_name}}'            => !empty($test->category) ? htmlspecialchars($test->category) : (!empty($lab->category_name) ? htmlspecialchars($lab->category_name) : ''),
+            '{{report_date}}'          => $report_date,
+            '{{sample_date}}'          => $report_date,
+            '{{delivery_date}}'        => !empty($lab->delivery_status_date) ? $lab->delivery_status_date : $report_date,
+        );
+
+        return str_replace(array_keys($placeholders), array_values($placeholders), $templateHtml);
+    }
+
+    private function prepareLabReportFormData($id = null, $template_id = null)
+    {
+        $data = array();
+
+        if (!empty($id)) {
+            $lab = $this->lab_model->getLabById($id);
+            if (!empty($lab)) {
+                if ($lab->hospital_id != $this->session->userdata('hospital_id')) {
+                    redirect('home/permission');
+                }
+                $data['lab'] = $lab;
+                $data['lab_single'] = $lab;
+                if (!empty($lab->patient)) {
+                    $data['patients'] = $this->patient_model->getPatientById($lab->patient);
+                }
+                if (!empty($lab->doctor)) {
+                    $data['doctors'] = $this->doctor_model->getDoctorById($lab->doctor);
+                }
+            }
+        }
+
+        $matched_template = null;
+        if (!empty($template_id)) {
+            $matched_template = $this->lab_model->getTemplateById($template_id);
+        }
+        if (empty($matched_template) && !empty($data['lab']) && !empty($data['lab']->category_id)) {
+            $matched_template = $this->lab_model->getTemplateByCategoryId($data['lab']->category_id);
+        }
+        if (empty($matched_template) && !empty($data['lab']) && !empty($data['lab']->category_name)) {
+            $matched_template = $this->lab_model->getTemplateByName($data['lab']->category_name);
+        }
+
+        if (!empty($matched_template)) {
+            $data['selected_template_id'] = $matched_template->id;
+            $data['report_template'] = $this->replaceTemplatePlaceholders($matched_template->template, isset($data['lab']) ? $data['lab'] : null);
+        } else {
+            $data['selected_template_id'] = '';
+            $data['report_template'] = '';
         }
 
         $data['templates'] = $this->lab_model->getTemplate();
         $data['settings'] = $this->settings_model->getSettings();
         $data['categories'] = $this->lab_model->getLabCategory();
-        $data['patients'] = $this->patient_model->getPatient();
-        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['payment_categories'] = $this->finance_model->getPaymentCategory();
+        $data['macros'] = $this->macro_model->getMacro();
 
-        $data['settings'] = $this->settings_model->getSettings();
-        $data['labs'] = $this->lab_model->getLab();
-
-        if (!empty($id)) {
-            $this->load->view('home/dashboard');
-            $this->load->view('add_lab_view', $data);
-            $this->load->view('home/footer');
-        } else {
-            $this->load->view('home/dashboard');
-            $this->load->view('lab', $data);
-            $this->load->view('home/footer');
-        }
+        return $data;
     }
 
     public function lab1()
@@ -1499,21 +1608,10 @@ class Lab extends MX_Controller
 
     public function addLabView()
     {
-        $data = array();
-
         $id = $this->input->get('id');
+        $template_id = $this->input->get('template_id');
+        $data = $this->prepareLabReportFormData($id, $template_id);
 
-        if (!empty($id)) {
-            $data['lab'] = $this->lab_model->getLabById($id);
-            $data['patients'] = $this->patient_model->getPatientById($data['lab_single']->patient);
-            $data['doctors'] = $this->doctor_model->getDoctorById($data['lab_single']->doctor);
-        }
-
-        $data['templates'] = $this->lab_model->getTemplate();
-        $data['settings'] = $this->settings_model->getSettings();
-        $data['categories'] = $this->lab_model->getLabCategory();
-        // $data['patients'] = $this->patient_model->getPatient();
-        // $data['doctors'] = $this->doctor_model->getDoctor();
         $this->load->view('home/dashboard');
         $this->load->view('add_lab_view', $data);
         $this->load->view('home/footer');
@@ -1784,16 +1882,14 @@ class Lab extends MX_Controller
     function editLab()
     {
         if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Laboratorist', 'Nurse', 'Patient'))) {
-            $data = array();
-            $data['settings'] = $this->settings_model->getSettings();
-            $data['categories'] = $this->lab_model->getLabCategory();
-            $data['patients'] = $this->patient_model->getPatient();
-            $data['doctors'] = $this->doctor_model->getDoctor();
             $id = $this->input->get('id');
-            $data['lab'] = $this->lab_model->getLabById($id);
+            $template_id = $this->input->get('template_id');
+            $data = $this->prepareLabReportFormData($id, $template_id);
             $this->load->view('home/dashboard');
             $this->load->view('add_lab_view', $data);
-            $this->load->view('home/footer'); // just the footer file
+            $this->load->view('home/footer');
+        } else {
+            redirect('home/permission');
         }
     }
 
@@ -1864,9 +1960,13 @@ class Lab extends MX_Controller
         $id = $this->input->get('id');
         if (!empty($id)) {
             $data['template'] = $this->lab_model->getTemplateById($id);
+            if (!empty($data['template']) && $data['template']->hospital_id != $this->session->userdata('hospital_id')) {
+                redirect('home/permission');
+            }
         }
 
         $data['categories'] = $this->finance_model->getCategory();
+        $data['payment_categories'] = $this->finance_model->getPaymentCategory();
         $data['settings'] = $this->settings_model->getSettings();
         $this->load->view('home/dashboard');
         $this->load->view('add_template', $data);
@@ -1876,12 +1976,25 @@ class Lab extends MX_Controller
     function getTemplateByIdByJason()
     {
         $id = $this->input->get('id');
-        $data['template'] = $this->lab_model->getTemplateById($id);
+        $lab_id = $this->input->get('lab_id');
+        $template = $this->lab_model->getTemplateById($id);
+        if (!empty($template)) {
+            $lab = null;
+            if (!empty($lab_id)) {
+                $lab = $this->lab_model->getLabById($lab_id);
+            }
+            $template->template = $this->replaceTemplatePlaceholders($template->template, $lab);
+        }
+        $data['template'] = $template;
         echo json_encode($data);
     }
 
     public function addTemplate()
     {
+        if (!$this->ion_auth->in_group(array('admin', 'Laboratorist', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
         $id = $this->input->post('id');
         $name = $this->input->post('name');
         $template = $this->input->post('template');
@@ -1890,14 +2003,26 @@ class Lab extends MX_Controller
 
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
-        $this->form_validation->set_rules('report', 'Report', 'trim|min_length[1]|max_length[10000]|xss_clean');
-
-        $this->form_validation->set_rules('user', 'User', 'trim|min_length[1]|max_length[100]|xss_clean');
+        $this->form_validation->set_rules('name', 'Template Name', 'trim|required|min_length[1]|max_length[255]');
+        $this->form_validation->set_rules('template', 'Template Body', 'trim|required');
 
         if ($this->form_validation->run() == FALSE) {
-            redirect('lab/addTemplate');
+            show_swal(validation_errors(), 'error', lang('error'));
+            redirect('lab/addTemplateView' . (!empty($id) ? '?id=' . $id : ''));
         } else {
-            $data = array();
+            if (empty($id) && !empty($category_id)) {
+                $existing = $this->db->get_where('template', array(
+                    'category_id' => $category_id,
+                    'hospital_id' => $this->session->userdata('hospital_id'),
+                    'name' => $name
+                ))->row();
+                if (!empty($existing)) {
+                    show_swal('A template with this name already exists for this test.', 'warning', 'Duplicate Template');
+                    redirect('lab/template');
+                    return;
+                }
+            }
+
             if (empty($id)) {
                 $data = array(
                     'name' => $name,
@@ -1906,11 +2031,13 @@ class Lab extends MX_Controller
                     'category_id' => $category_id
                 );
                 $this->lab_model->insertTemplate($data);
-                $inserted_id = $this->db->insert_id();
                 show_swal(lang('added'), 'success', lang('added'));
-                //redirect("lab/addTemplateView?id=" . "$inserted_id");
                 redirect("lab/template");
             } else {
+                $existing = $this->lab_model->getTemplateById($id);
+                if (empty($existing) || $existing->hospital_id != $this->session->userdata('hospital_id')) {
+                    redirect('home/permission');
+                }
                 $data = array(
                     'name' => $name,
                     'template' => $template,
@@ -1919,7 +2046,6 @@ class Lab extends MX_Controller
                 );
                 $this->lab_model->updateTemplate($id, $data);
                 show_swal(lang('updated'), 'success', lang('updated'));
-                //redirect("lab/addTemplateView?id=" . "$id");
                 redirect("lab/template");
             }
         }
@@ -1932,19 +2058,33 @@ class Lab extends MX_Controller
             $data['settings'] = $this->settings_model->getSettings();
             $id = $this->input->get('id');
             $data['template'] = $this->lab_model->getTemplateById($id);
+            if (!empty($data['template']) && $data['template']->hospital_id != $this->session->userdata('hospital_id')) {
+                redirect('home/permission');
+            }
             $data['categories'] = $this->finance_model->getCategory();
+            $data['payment_categories'] = $this->finance_model->getPaymentCategory();
             $this->load->view('home/dashboard');
             $this->load->view('add_template', $data);
-            $this->load->view('home/footer'); // just the footer file
+            $this->load->view('home/footer');
+        } else {
+            redirect('home/permission');
         }
     }
 
     function deleteTemplate()
     {
-        $id = $this->input->get('id');
-        $this->lab_model->deleteTemplate($id);
-        show_swal(lang('deleted'), 'warning', lang('deleted'));
-        redirect('lab/template');
+        if ($this->ion_auth->in_group(array('admin', 'Laboratorist'))) {
+            $id = $this->input->get('id');
+            $template = $this->lab_model->getTemplateById($id);
+            if (empty($template) || $template->hospital_id != $this->session->userdata('hospital_id')) {
+                redirect('home/permission');
+            }
+            $this->lab_model->deleteTemplate($id);
+            show_swal(lang('deleted'), 'warning', lang('deleted'));
+            redirect('lab/template');
+        } else {
+            redirect('home/permission');
+        }
     }
 
     public function labCategory()
