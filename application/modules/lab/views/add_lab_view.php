@@ -143,10 +143,9 @@
                                             <textarea class="form-control form-control-lg shadow-sm" id="editor" name="report" rows="10"><?php
                                                                                                                                             if (!empty($setval)) {
                                                                                                                                                 echo set_value('report');
-                                                                                                                                            }
-                                                                                                                                            if (!empty($lab->report)) {
+                                                                                                                                            } elseif (!empty($lab->report)) {
                                                                                                                                                 echo $lab->report;
-                                                                                                                                            } else {
+                                                                                                                                            } elseif (!empty($report_template)) {
                                                                                                                                                 echo $report_template;
                                                                                                                                             }
                                                                                                                                             ?></textarea>
