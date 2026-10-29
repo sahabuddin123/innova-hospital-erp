@@ -57,6 +57,20 @@ $doctor_details = [
     'qualifications' => ''
 ];
 
+$format_doctor_name = function($raw_name) {
+    if (empty($raw_name)) return '';
+    $clean = trim(preg_replace('/^(dr\.?|doctor)\s*[:\.\-]?\s*/i', '', $raw_name));
+    $is_non_dr = preg_match('/^(self|none|general)(\s*[\/\-]\s*(self|none|general))?$/i', $clean) || 
+                 preg_match('/\b(self|health\s*complex|upazil+a|hospital|clinic|center|centre|diagnostic|college|institute|uhc)\b/i', $clean);
+    if ($is_non_dr) {
+        return $clean;
+    }
+    if (!preg_match('/^(dr|doctor|prof|prof\.)\b/i', $raw_name)) {
+        return 'Dr. ' . $clean;
+    }
+    return $raw_name;
+};
+
 if (!empty($doctor_obj)) {
     if (!empty($doctor_obj->name_en) && preg_match('/[A-Za-z]/', $doctor_obj->name_en)) {
         $doctor_details['name'] = trim($doctor_obj->name_en);
@@ -65,8 +79,9 @@ if (!empty($doctor_obj)) {
     } elseif (!empty($payment->doctor_name) && preg_match('/^[A-Za-z0-9\s\.\(\)\,\-]+$/', trim($payment->doctor_name))) {
         $doctor_details['name'] = trim($payment->doctor_name);
     }
-    if (!empty($doctor_details['name']) && !preg_match('/^(Dr|Dr\.)/i', $doctor_details['name'])) {
-        $doctor_details['name'] = 'Dr. ' . $doctor_details['name'];
+    // Normalize doctor name: Do NOT prefix "Dr." for Self, Upazila Health Complex, or institutions
+    if (!empty($doctor_details['name'])) {
+        $doctor_details['name'] = $format_doctor_name($doctor_details['name']);
     }
     if (!empty($doctor_obj->department_name) && preg_match('/[A-Za-z]/', $doctor_obj->department_name)) {
         $doctor_details['department'] = trim($doctor_obj->department_name);
@@ -88,10 +103,7 @@ if (!empty($doctor_obj)) {
     }
 } elseif (!empty($payment->doctor_name)) {
     if (preg_match('/^[A-Za-z0-9\s\.\(\)\,\-]+$/', trim($payment->doctor_name))) {
-        $doctor_details['name'] = trim($payment->doctor_name);
-        if (!preg_match('/^(Dr|Dr\.)/i', $doctor_details['name'])) {
-            $doctor_details['name'] = 'Dr. ' . $doctor_details['name'];
-        }
+        $doctor_details['name'] = $format_doctor_name(trim($payment->doctor_name));
     }
 }
 
@@ -104,6 +116,12 @@ if (!empty($payment->referrer_name)) {
     if (!empty($ref_obj->name)) {
         $referrer_display = trim($ref_obj->name);
     }
+}
+if (!empty($referrer_display)) {
+    $referrer_display = $format_doctor_name($referrer_display);
+}
+if (empty($doctor_details['name']) && !empty($referrer_display)) {
+    $doctor_details['name'] = $referrer_display;
 }
 
 // Items Resolution & Automatic Delivery Date
@@ -684,6 +702,9 @@ body {
                         &nbsp;<span class="doc-badge"><?php echo html_escape($doctor_details['qualifications']); ?></span>
                     <?php } elseif (!empty($doctor_details['department'])) { ?>
                         &nbsp;<span class="doc-badge"><?php echo html_escape($doctor_details['department']); ?></span>
+                    <?php } ?>
+                    <?php if (!empty($referrer_display) && strcasecmp(trim($referrer_display), trim($doctor_details['name'])) !== 0) { ?>
+                        &nbsp;<span style="color:#6c757d;">/ Ref: <strong><?php echo html_escape($referrer_display); ?></strong></span>
                     <?php } ?>
                 <?php } else { ?>
                     <span>Self / General</span>
