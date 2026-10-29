@@ -83,7 +83,7 @@
 <!--main content end-->
 <!--footer start-->
 <div class="modal fade" id="myModal" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h4 class="modal-title font-weight-bold"> <?php echo lang('add_deposit'); ?></h4>
@@ -112,13 +112,32 @@
                         <div class="form-group col-md-4">
                             <label for="exampleInputEmail1"> <?php echo lang('due'); ?>
                                 <?php echo lang('amount'); ?></label>
-                            <input type="text" class="form-control form-control-lg" id="due_amount" name="due" value='' placeholder=""
-                                readonly>
+                            <input type="text" class="form-control form-control-lg font-weight-bold" id="due_amount" name="due" value='' placeholder=""
+                                readonly style="background-color: #f8f9fa;">
+                            <small class="form-text text-muted mt-1" id="remaining_due_wrapper" style="display:none;">
+                                Remaining: <strong class="text-danger">৳<span id="remaining_due_display">0.00</span></strong>
+                            </small>
                         </div>
-                        <div class="form-group col-md-6">
-                            <label for="exampleInputEmail1"> <?php echo lang('deposit_amount'); ?></label>
-                            <input type="text" class="form-control form-control-lg" name="deposited_amount" id="deposited_amount"
-                                value='' placeholder="" required>
+                        <div class="form-group col-md-4">
+                            <label for="deposited_amount"> <?php echo lang('deposit_amount'); ?></label>
+                            <input type="number" step="any" min="0" class="form-control form-control-lg font-weight-bold" name="deposited_amount" id="deposited_amount"
+                                value='' placeholder="0.00" onfocus="this.select()" onclick="this.select()">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="additional_discount" class="font-weight-bold text-dark mb-0">
+                                    <i class="fas fa-tag text-warning mr-1"></i><?php echo lang('discount'); ?> <?php echo lang('amount'); ?>
+                                </label>
+                                <span class="badge badge-warning text-dark font-weight-bold px-2 py-1" style="font-size:11px;" title="Previous discount given on this invoice">
+                                    Prev: ৳<span id="prev_discount_badge">0.00</span>
+                                </span>
+                            </div>
+                            <input type="number" step="any" min="0" class="form-control form-control-lg font-weight-bold text-success" name="additional_discount" id="additional_discount"
+                                value='0' placeholder="0.00" onfocus="this.select()" onclick="this.select()">
+                            <input type="hidden" id="prev_discount_input" name="prev_discount" value="0">
+                            <small class="form-text text-muted mt-1" id="total_discount_wrapper">
+                                Total Discount: <strong class="text-success">৳<span id="total_discount_display">0.00</span></strong>
+                            </small>
                         </div>
 
 
@@ -281,15 +300,12 @@
     var language = "<?php echo $this->language; ?>";
 </script>
 <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
-<script src="common/extranal/js/finance/due_collection.js"></script>
+<script src="common/extranal/js/finance/due_collection.js?v=<?php echo time(); ?>"></script>
 <?php if (!empty($gateway->publish)) {
     $gateway_stripe = $gateway->publish;
 } else {
     $gateway_stripe = '';
 } ?>
-
-
-
 
 <script type="text/javascript">
     var publish = "<?php echo $gateway_stripe; ?>";
@@ -300,7 +316,117 @@
     var payment_gateway = "<?php echo $settings->payment_gateway; ?>";
 </script>
 
-<script src="common/extranal/js/finance/patient_deposit.js"></script>
+<script src="common/extranal/js/finance/patient_deposit.js?v=<?php echo time(); ?>"></script>
+
+<script type="text/javascript">
+    // Direct safety handlers for Deposit Modal & Discount live calculation
+    $(document).ready(function() {
+        function liveRecalculateDueDeposit() {
+            var originalDue = parseFloat($("#due_amount").data("original-due")) || 0;
+            var prevDiscount = parseFloat($("#prev_discount_input").val()) || parseFloat($("#due_amount").data("prev-discount")) || 0;
+            var addDiscount = parseFloat($("#additional_discount").val()) || 0;
+            var deposit = parseFloat($("#deposited_amount").val()) || 0;
+
+            if (addDiscount < 0) {
+                addDiscount = 0;
+                $("#additional_discount").val(0);
+            }
+            if (deposit < 0) {
+                deposit = 0;
+                $("#deposited_amount").val(0);
+            }
+
+            var totalDiscount = prevDiscount + addDiscount;
+            $("#total_discount_display").text(totalDiscount.toFixed(2));
+
+            var remainingDue = originalDue - addDiscount - deposit;
+            if (remainingDue < 0) {
+                remainingDue = 0;
+            }
+            $("#remaining_due_display").text(remainingDue.toFixed(2));
+
+            if (addDiscount > 0 || deposit > 0) {
+                $("#remaining_due_wrapper").show();
+            } else {
+                $("#remaining_due_wrapper").hide();
+            }
+        }
+
+        $(document).off("input keyup change", "#additional_discount, #deposited_amount").on("input keyup change", "#additional_discount, #deposited_amount", function() {
+            liveRecalculateDueDeposit();
+        });
+
+        $(document).off("focus click", "#additional_discount, #deposited_amount").on("focus click", "#additional_discount, #deposited_amount", function() {
+            var self = this;
+            setTimeout(function() {
+                self.select();
+            }, 50);
+        });
+
+        $(document).off("click", ".depositButton").on("click", ".depositButton", function(e) {
+            e.preventDefault();
+            $("#loader").show();
+            var iid = $(this).attr("data-id");
+            var from = $(this).attr("data-from");
+            $("#due_amount").val("");
+            $("#payment_id").val("");
+            $("#patient_id").val("");
+            $("#name").val("");
+            $("#invoice_no").val("");
+            $("#date").val("");
+            $("#deposited_amount").val("");
+            $("#additional_discount").val("0");
+            $("#prev_discount_badge").text("0.00");
+            $("#prev_discount_input").val("0.00");
+            $("#total_discount_display").text("0.00");
+            $("#remaining_due_display").text("0.00");
+            $("#remaining_due_wrapper").hide();
+            if ($("#deposit-form").length) {
+                $("#deposit-form").trigger("reset");
+            }
+            $("#myModal").modal("show");
+            $.ajax({
+                url: "finance/getDepositByInvoiceIdForDeposit?id=" + iid,
+                method: "GET",
+                data: "",
+                dataType: "json",
+                success: function(response) {
+                    var d = new Date();
+                    var strDate = d.getDate() + "-" + (d.getMonth() + 1) + "-" + d.getFullYear();
+                    var due = (response.response !== undefined && response.response !== null) ? parseFloat(response.response) : 0;
+                    var prev_discount = (response.previous_discount !== undefined && response.previous_discount !== null) ? parseFloat(response.previous_discount) : 0;
+
+                    $("#due_amount").val(due.toFixed(2));
+                    $("#due_amount").data("original-due", due);
+                    $("#due_amount").data("prev-discount", prev_discount);
+                    $("#prev_discount_input").val(prev_discount.toFixed(2));
+                    $("#prev_discount_badge").text(prev_discount.toFixed(2));
+                    $("#total_discount_display").text(prev_discount.toFixed(2));
+
+                    if (from == 'appointment') {
+                        $("#deposited_amount").val(due.toFixed(2));
+                        $('#deposited_amount').attr('readonly', true);
+                        $('#additional_discount').attr('readonly', true);
+                    } else {
+                        $('#deposited_amount').attr('readonly', false);
+                        $('#additional_discount').attr('readonly', false);
+                    }
+                    $("#payment_id").val(iid);
+                    $("#patient_id").val(response.patient ? response.patient.id : "");
+                    $("#name").val(response.patient ? response.patient.name : "");
+                    $("#invoice_no").val(iid);
+                    $("#date").val(strDate);
+                },
+                error: function(xhr, status, error) {
+                    console.error("Failed to load invoice deposit details:", error);
+                },
+                complete: function() {
+                    $("#loader").hide();
+                }
+            });
+        });
+    });
+</script>
 
 <script>
     $(document).ready(function() {

@@ -569,9 +569,10 @@ class Doctor extends MX_Controller
 
             // Consultation Fee: Standard BDT 700
             $fee_cell = '<div class="text-center">';
-            $fee_cell .= '<span class="badge badge-success px-3 py-2 font-weight-bold" style="font-size:12px; border-radius:4px;"><i class="fas fa-money-bill-wave mr-1"></i> BDT ' . number_format($doctor->consultation_fee, 0) . '</span>';
-            if (!empty($doctor->followup_fee) && $doctor->followup_fee > 0) {
-                $fee_cell .= '<div class="text-muted small mt-1">Follow-up: BDT ' . number_format($doctor->followup_fee, 0) . '</div>';
+            $consult_fee = isset($doctor->consultation_fee) ? (float)$doctor->consultation_fee : 700.0;
+            $fee_cell .= '<span class="badge badge-success px-3 py-2 font-weight-bold" style="font-size:12px; border-radius:4px;"><i class="fas fa-money-bill-wave mr-1"></i> BDT ' . number_format($consult_fee, 0) . '</span>';
+            if (!empty($doctor->followup_fee) && (float)$doctor->followup_fee > 0) {
+                $fee_cell .= '<div class="text-muted small mt-1">Follow-up: BDT ' . number_format((float)$doctor->followup_fee, 0) . '</div>';
             }
             $fee_cell .= '</div>';
 
@@ -594,7 +595,8 @@ class Doctor extends MX_Controller
 
             // Status & Quick Action
             $status_cell = '<div class="text-center">';
-            if ($doctor->active == 1) {
+            $is_active = isset($doctor->active) ? ((int)$doctor->active === 1) : true;
+            if ($is_active) {
                 $status_cell .= '<span class="badge badge-success px-2 py-1 mb-1 font-weight-bold"><i class="fas fa-check-circle mr-1"></i> Active</span><br>';
                 $status_cell .= '<button type="button" class="btn btn-outline-danger btn-xs toggle-status-btn mt-1" data-id="' . $doctor->id . '" title="Click to deactivate"><i class="fas fa-ban mr-1"></i> Deactivate</button>';
             } else {
@@ -633,6 +635,10 @@ class Doctor extends MX_Controller
             "data" => $info
         );
 
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode($output);
     }
 

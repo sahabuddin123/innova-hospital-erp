@@ -269,7 +269,7 @@ if (!empty($lang) && file_exists(FCPATH . $fc_locale)) {
     });
 </script>
 
-<script src="common/extranal/js/footer.js?v=pos-2026-v12"></script>
+<script src="common/extranal/js/footer.js?v=<?php echo time(); ?>"></script>
 
 
 

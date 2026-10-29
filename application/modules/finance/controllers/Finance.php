@@ -1957,6 +1957,7 @@ class Finance extends MX_Controller
         $date = time();
         $redirect = $this->input->post('redirect');
         $deposited_amount = $this->input->post('deposited_amount');
+        $additional_discount = floatval($this->input->post('additional_discount'));
 
         $deposit_type = $this->input->post('deposit_type');
 
@@ -1965,6 +1966,11 @@ class Finance extends MX_Controller
         }
 
         $user = $this->ion_auth->get_user_id();
+
+        if ($additional_discount > 0 && ($deposited_amount === '' || $deposited_amount === null)) {
+            $deposited_amount = '0';
+            $_POST['deposited_amount'] = '0';
+        }
 
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
@@ -2003,9 +2009,60 @@ class Finance extends MX_Controller
                 $data['date'] = $date;
             }
 
-
-
             if (empty($id)) {
+                // Apply Additional Discount if provided
+                if ($additional_discount > 0 && !empty($payment_id)) {
+                    $payment_rec = $this->finance_model->getPaymentById($payment_id);
+                    if (!empty($payment_rec)) {
+                        $prev_flat_discount = !empty($payment_rec->flat_discount) ? floatval($payment_rec->flat_discount) : (!empty($payment_rec->discount) ? floatval($payment_rec->discount) : 0.0);
+                        $new_flat_discount = $prev_flat_discount + $additional_discount;
+                        $sub_total = floatval($payment_rec->amount);
+                        $vat = !empty($payment_rec->vat) ? floatval($payment_rec->vat) : 0.0;
+                        $flat_vat = !empty($payment_rec->flat_vat) ? floatval($payment_rec->flat_vat) : $vat;
+
+                        if ($new_flat_discount > $sub_total) {
+                            $new_flat_discount = $sub_total;
+                        }
+
+                        $new_gross_total = max(0.00, round($sub_total - $new_flat_discount + $flat_vat, 2));
+
+                        $update_payment_data = array(
+                            'discount' => $new_flat_discount,
+                            'flat_discount' => $new_flat_discount,
+                            'gross_total' => $new_gross_total,
+                        );
+
+                        if (!empty($payment_rec->referrer)) {
+                            $gross_ref_comm = floatval($payment_rec->referral_amount) + $prev_flat_discount;
+                            $new_referral_amount = max(0.00, round($gross_ref_comm - $new_flat_discount, 2));
+                            $doctor_amount = floatval($payment_rec->doctor_amount);
+                            $new_hospital_amount = max(0.00, round($new_gross_total - $doctor_amount - $new_referral_amount, 2));
+                            $update_payment_data['referral_amount'] = $new_referral_amount;
+                            $update_payment_data['hospital_amount'] = $new_hospital_amount;
+                        } else {
+                            $doctor_amount = floatval($payment_rec->doctor_amount);
+                            $update_payment_data['hospital_amount'] = max(0.00, round($new_gross_total - $doctor_amount, 2));
+                        }
+
+                        $this->finance_model->updatePayment($payment_id, $update_payment_data);
+
+                        if (!empty($payment_rec->referrer)) {
+                            $this->referral_model->recalculateCommissionAfterDepositChange($payment_id, $this->session->userdata('hospital_id'));
+                        }
+
+                        $discount_log = array(
+                            'date_time' => date('d-m-Y H:i'),
+                            'patientname' => !empty($patient_details) ? $patient_details->name : '',
+                            'invoice_id' => $payment_id,
+                            'action' => 'Discount added',
+                            'deposit_type' => 'Discount',
+                            'amount' => $additional_discount,
+                            'user' => $user
+                        );
+                        $this->logs_model->insertTransactionLogs($discount_log);
+                    }
+                }
+
                 $data_logs = array(
                     'date_time' => date('d-m-Y H:i'),
                     'patientname' => $patient_details->name,
@@ -2014,8 +2071,6 @@ class Finance extends MX_Controller
                     'deposit_type' => $deposit_type,
                     'amount' => $deposited_amount,
                     'user' => $this->ion_auth->get_user_id()
-
-
                 );
 
                 if ($deposit_type == 'Card') {
@@ -2122,10 +2177,14 @@ class Finance extends MX_Controller
                         }
                     }
                 } else {
-                    $this->logs_model->insertTransactionLogs($data_logs);
-                    $this->finance_model->insertDeposit($data);
-                    $this->referral_model->processPaymentCommission($payment_id, $deposited_amount, null, $this->session->userdata('hospital_id'));
-                    show_swal(lang('amount_deposited_successfully'), 'success', lang('added'));
+                    if (floatval($deposited_amount) > 0) {
+                        $this->logs_model->insertTransactionLogs($data_logs);
+                        $this->finance_model->insertDeposit($data);
+                        $this->referral_model->processPaymentCommission($payment_id, $deposited_amount, null, $this->session->userdata('hospital_id'));
+                        show_swal(lang('amount_deposited_successfully'), 'success', lang('added'));
+                    } elseif ($additional_discount > 0) {
+                        show_swal(lang('discount') . ' ' . lang('added'), 'success', lang('added'));
+                    }
                 }
             } else {
                 $data_logs = array(
@@ -2542,8 +2601,8 @@ class Finance extends MX_Controller
         $limit = $requestData['length'];
         $search = $this->input->post('search')['value'];
         $settings = $this->settings_model->getSettings();
-        $start_date = $_GET['start_date'];
-        $end_date = $_GET['end_date'];
+        $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : null;
         $order = $this->input->post("order");
         $columns_valid = array(
             "0" => "id",
@@ -2741,15 +2800,13 @@ class Finance extends MX_Controller
             $info[] = array(
                 '',
                 '',
-                '',
                 '<strong>' . lang('total') . ':</strong>',
-                $settings->currency . '' . number_format(array_sum($amount), 2),
-                $settings->currency . '' . number_format(array_sum($vat_amount), 2),
-                $settings->currency . '' . number_format(array_sum($discount_amount), 2),
-                '<strong>' . $settings->currency . '' . number_format(array_sum($gross), 2) . '</strong>',
-                '<span class="text-success">' . $settings->currency . '' . number_format(array_sum($deposited_money), 2) . '</span>',
-                '<span class="text-danger">' . $settings->currency . '' . number_format(array_sum($due_money), 2) . '</span>',
-                '',
+                ($settings->currency ?? '') . number_format((float) (array_sum($amount) ?? 0), 2),
+                ($settings->currency ?? '') . number_format((float) (array_sum($vat_amount) ?? 0), 2),
+                ($settings->currency ?? '') . number_format((float) (array_sum($discount_amount) ?? 0), 2),
+                '<strong>' . ($settings->currency ?? '') . number_format((float) (array_sum($gross) ?? 0), 2) . '</strong>',
+                '<span class="text-success">' . ($settings->currency ?? '') . number_format((float) (array_sum($deposited_money) ?? 0), 2) . '</span>',
+                '<span class="text-danger">' . ($settings->currency ?? '') . number_format((float) (array_sum($due_money) ?? 0), 2) . '</span>',
                 '',
                 ''
             );
@@ -2757,15 +2814,13 @@ class Finance extends MX_Controller
             $info[] = array(
                 '',
                 '',
-                '',
                 '<strong>' . lang('total') . ':</strong>',
-                $settings->currency . ' 0.00',
-                $settings->currency . ' 0.00',
-                $settings->currency . ' 0.00',
-                '<strong>' . $settings->currency . ' 0.00</strong>',
-                '<span class="text-success">' . $settings->currency . ' 0.00</span>',
-                '<span class="text-danger">' . $settings->currency . ' 0.00</span>',
-                '',
+                ($settings->currency ?? '') . ' 0.00',
+                ($settings->currency ?? '') . ' 0.00',
+                ($settings->currency ?? '') . ' 0.00',
+                '<strong>' . ($settings->currency ?? '') . ' 0.00</strong>',
+                '<span class="text-success">' . ($settings->currency ?? '') . ' 0.00</span>',
+                '<span class="text-danger">' . ($settings->currency ?? '') . ' 0.00</span>',
                 '',
                 ''
             );
@@ -4150,13 +4205,44 @@ class Finance extends MX_Controller
         $id = $this->input->get('id');
         $deposit = $this->finance_model->getDepositByInvoiceId($id);
         $payment = $this->finance_model->getPaymentById($id);
-        $data['patient'] = $this->patient_model->getPatientById($payment->patient);
+        if (empty($payment)) {
+            $this->db->where('id', $id);
+            $payment = $this->db->get('payment')->row();
+        }
+
+        if (empty($payment)) {
+            if (ob_get_length()) {
+                ob_clean();
+            }
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(array(
+                'patient' => null,
+                'response' => 0,
+                'previous_discount' => 0,
+                'gross_total' => 0,
+                'amount' => 0,
+                'total_deposit' => 0
+            ));
+            return;
+        }
+
+        $data['patient'] = !empty($payment->patient) ? $this->patient_model->getPatientById($payment->patient) : null;
         if (!empty($deposit)) {
             $total_deposit = $this->finance_model->getDepositAmountByPaymentId($payment->id);
-            $data['response'] = $payment->gross_total - $total_deposit;
+            $data['response'] = max(0, $payment->gross_total - $total_deposit);
         } else {
+            $total_deposit = 0;
             $data['response'] = $payment->gross_total;
         }
+        $data['previous_discount'] = !empty($payment->flat_discount) ? floatval($payment->flat_discount) : (!empty($payment->discount) ? floatval($payment->discount) : 0.0);
+        $data['gross_total'] = floatval($payment->gross_total);
+        $data['amount'] = floatval($payment->amount);
+        $data['total_deposit'] = floatval($total_deposit);
+
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode($data);
     }
     public function dueCollection()
@@ -4179,8 +4265,8 @@ class Finance extends MX_Controller
         $limit = $requestData['length'];
         $search = $this->input->post('search')['value'];
         $settings = $this->settings_model->getSettings();
-        $start_date = $_GET['start_date'];
-        $end_date = $_GET['end_date'];
+        $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : null;
         $order = $this->input->post("order");
         $columns_valid = array(
             "0" => "id",
@@ -4361,12 +4447,11 @@ class Finance extends MX_Controller
             '',
             '',
             '<strong>TOTAL:</strong>',
-            '<strong>' . $settings->currency . ' ' . array_sum($amount) . '</strong>',
-            '<strong>' . $settings->currency . ' ' . array_sum($discount_amount) . '</strong>',
-            '<strong>' . $settings->currency . ' ' . array_sum($gross) . '</strong>',
-            '<strong>' . $settings->currency . ' ' . array_sum($deposited_money) . '</strong>',
-            '<strong>' . $settings->currency . ' ' . array_sum($due_money) . '</strong>',
-            ' ',
+            '<strong>' . $settings->currency . ' ' . number_format((float) (array_sum($amount) ?? 0), 2) . '</strong>',
+            '<strong>' . $settings->currency . ' ' . number_format((float) (array_sum($discount_amount) ?? 0), 2) . '</strong>',
+            '<strong>' . $settings->currency . ' ' . number_format((float) (array_sum($gross) ?? 0), 2) . '</strong>',
+            '<strong>' . $settings->currency . ' ' . number_format((float) (array_sum($deposited_money) ?? 0), 2) . '</strong>',
+            '<strong>' . $settings->currency . ' ' . number_format((float) (array_sum($due_money) ?? 0), 2) . '</strong>',
             ' '
         );
 

@@ -46,6 +46,9 @@ $(".multi-select").multiSelect({
       that.$selectableUl.find('.ms-elem-selectable').show();
       that.$selectableUl.find('.ms-optgroup-container').show();
       that.$selectableUl.find('.ms-optgroup-label').show();
+      setTimeout(function () {
+        $search.focus().select();
+      }, 60);
     }
     if (this.qs1 && typeof this.qs1.cache === 'function') {
       this.qs1.cache();

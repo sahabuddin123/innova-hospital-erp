@@ -816,9 +816,24 @@ if (!function_exists('invoiceAmountInWords')) {
                         <label for="exampleInputEmail1"><?php echo lang('balance_due'); ?></label>
                         <input type="text" class="form-control" name="due" value='<?php echo number_format($balance_due, 2, '.', ''); ?>' placeholder="" readonly>
                     </div>
+                    <?php $inv_prev_discount = floatval(!empty($payment->flat_discount) ? $payment->flat_discount : (!empty($payment->discount) ? $payment->discount : 0)); ?>
                     <div class="form-group">
-                        <label for="exampleInputEmail1"><?php echo lang('deposit_amount'); ?> <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="deposited_amount" placeholder="" required>
+                        <label for="exampleInputEmail1"><?php echo lang('deposit_amount'); ?></label>
+                        <input type="number" step="any" min="0" class="form-control" name="deposited_amount" id="deposited_amount_inv" placeholder="0.00" onfocus="this.select()" onclick="this.select()">
+                    </div>
+                    <div class="form-group">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label for="additional_discount_inv" class="font-weight-bold text-dark mb-0">
+                                <i class="fas fa-tag text-warning mr-1"></i><?php echo lang('discount'); ?> <?php echo lang('amount'); ?>
+                            </label>
+                            <span class="badge badge-warning text-dark font-weight-bold px-2 py-1" style="font-size:11px;">
+                                Prev: ৳<?php echo number_format($inv_prev_discount, 2); ?>
+                            </span>
+                        </div>
+                        <input type="number" step="any" min="0" class="form-control font-weight-bold text-success" name="additional_discount" id="additional_discount_inv" value="0" placeholder="0.00" onfocus="this.select()" onclick="this.select()">
+                        <small class="form-text text-muted mt-1">
+                            Total Discount: <strong class="text-success">৳<span id="total_discount_display_inv"><?php echo number_format($inv_prev_discount, 2); ?></span></strong>
+                        </small>
                     </div>
                     <div class="form-group">
                         <label for="exampleInputEmail1"><?php echo lang('deposit_type'); ?></label>
@@ -829,6 +844,7 @@ if (!function_exists('invoiceAmountInWords')) {
                     </div>
                     <input type="hidden" name="id" value='<?php echo $payment->id; ?>'>
                     <input type="hidden" name="patient" value='<?php echo $payment->patient; ?>'>
+                    <input type="hidden" name="payment_id" value='<?php echo $payment->id; ?>'>
                     <input type="hidden" name="payment_from" value='<?php echo $payment->payment_from; ?>'>
                     <div class="form-group text-right mb-0">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal"><?php echo lang('cancel'); ?></button>
@@ -846,6 +862,31 @@ $(document).ready(function () {
     $(".depositButton").click(function (e) {
         e.preventDefault();
         $('#myModal').modal('show');
+    });
+
+    $('#deposited_amount_inv, #additional_discount_inv').on('focus click', function() {
+        var self = this;
+        setTimeout(function() {
+            self.select();
+        }, 50);
+    });
+
+    var prevDisc = <?php echo json_encode($inv_prev_discount); ?>;
+    $('#additional_discount_inv').on('input keyup change', function() {
+        var addDisc = parseFloat($(this).val()) || 0;
+        if (addDisc < 0) { addDisc = 0; $(this).val(0); }
+        var totDisc = prevDisc + addDisc;
+        $('#total_discount_display_inv').text(totDisc.toFixed(2));
+    });
+
+    $('#deposit-form').on('submit', function(e) {
+        var dep = parseFloat($('#deposited_amount_inv').val()) || 0;
+        var addDisc = parseFloat($('#additional_discount_inv').val()) || 0;
+        if (dep <= 0 && addDisc <= 0) {
+            alert('Please enter a Deposit Amount or Discount Amount.');
+            e.preventDefault();
+            return false;
+        }
     });
 });
 </script>

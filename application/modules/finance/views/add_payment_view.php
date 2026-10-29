@@ -6,7 +6,7 @@ $can_create_doctor = $this->ion_auth->in_group(array('admin', 'superadmin', 'Acc
 $can_create_referrer = $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Receptionist'));
 ?>
 <link href="common/css/bootstrap-reset.css" rel="stylesheet">
-<link href="common/extranal/css/finance/add_payment_view.css?v=pos-2026-v12" rel="stylesheet">
+<link href="common/extranal/css/finance/add_payment_view.css?v=<?php echo time(); ?>" rel="stylesheet">
 
 <div class="content-wrapper page-add-payment">
     <!-- Top Command Header Bar -->
@@ -440,40 +440,40 @@ $can_create_referrer = $this->ion_auth->in_group(array('admin', 'superadmin', 'A
                 <div class="col-12 col-lg-4 col-xl-4 mb-3">
                     <!-- Top Action Buttons (Above Payment & Checkout Card) -->
                     <div class="pos-top-actions mb-3">
-                        <!-- Save and Print (Primary Action) -->
-                        <div class="cashsubmit2 mb-2">
-                            <button type="submit" name="form_submit" value="saveandprint" id="submit2" class="btn btn-pos-save-print btn-block">
-                                <i class="fas fa-print mr-2"></i><?php echo lang('save_and_print'); ?> <small class="ml-1 opacity-75 font-weight-normal">[Ctrl+Enter]</small>
-                            </button>
-                        </div>
-                        <div class="cardsubmit3 d-none mb-2">
-                            <button type="submit" name="form_submit" value="saveandprint" id="submit-btn2" class="btn btn-pos-save-print btn-block" <?php if ($settings->payment_gateway == 'Stripe') { ?>onClick="stripePay(event);" <?php } ?>>
-                                <i class="fas fa-print mr-2"></i><?php echo lang('save_and_print'); ?> <small class="ml-1 opacity-75 font-weight-normal">[Ctrl+Enter]</small>
-                            </button>
-                        </div>
-
-                        <div class="row no-gutters">
-                            <!-- Save Only -->
-                            <div class="col-6 pr-1">
-                                <div class="cashsubmit mb-2">
-                                    <button type="submit" name="form_submit" value="save" id="submit1" class="btn btn-pos-save btn-block">
-                                        <i class="fas fa-check mr-1 text-success"></i><?php echo lang('save'); ?>
+                        <div class="d-flex align-items-stretch" style="gap: 8px;">
+                            <!-- 1. Save and Print (Primary Action) -->
+                            <div style="flex: 1.3; min-width: 0;">
+                                <div class="cashsubmit2 h-100">
+                                    <button type="submit" name="form_submit" value="saveandprint" id="submit2" class="btn btn-pos-save-print btn-block h-100" title="<?php echo lang('save_and_print'); ?> [Ctrl+Enter]">
+                                        <i class="fas fa-print mr-1"></i><span><?php echo lang('save_and_print'); ?></span>
                                     </button>
                                 </div>
-                                <div class="cardsubmit d-none mb-2">
-                                    <button type="submit" name="form_submit" value="save" id="submit-btn" class="btn btn-pos-save btn-block" <?php if ($settings->payment_gateway == 'Stripe') { ?>onClick="stripePay(event);" <?php } ?>>
-                                        <i class="fas fa-check mr-1 text-success"></i><?php echo lang('save'); ?>
+                                <div class="cardsubmit3 d-none h-100">
+                                    <button type="submit" name="form_submit" value="saveandprint" id="submit-btn2" class="btn btn-pos-save-print btn-block h-100" <?php if ($settings->payment_gateway == 'Stripe') { ?>onClick="stripePay(event);" <?php } ?>>
+                                        <i class="fas fa-print mr-1"></i><span><?php echo lang('save_and_print'); ?></span>
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- Save as Draft -->
-                            <div class="col-6 pl-1">
-                                <div class="mb-2">
-                                    <button type="submit" name="form_submit" value="save_as_draft" id="save_as_draft" class="btn btn-pos-draft btn-block">
-                                        <i class="fas fa-file-alt mr-1"></i><?php echo lang('save_as_draft'); ?>
+                            <!-- 2. Save Only -->
+                            <div style="flex: 0.85; min-width: 0;">
+                                <div class="cashsubmit h-100">
+                                    <button type="submit" name="form_submit" value="save" id="submit1" class="btn btn-pos-save btn-block h-100" title="<?php echo lang('save'); ?>">
+                                        <i class="fas fa-check mr-1 text-success"></i><span><?php echo lang('save'); ?></span>
                                     </button>
                                 </div>
+                                <div class="cardsubmit d-none h-100">
+                                    <button type="submit" name="form_submit" value="save" id="submit-btn" class="btn btn-pos-save btn-block h-100" <?php if ($settings->payment_gateway == 'Stripe') { ?>onClick="stripePay(event);" <?php } ?>>
+                                        <i class="fas fa-check mr-1 text-success"></i><span><?php echo lang('save'); ?></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 3. Save as Draft -->
+                            <div style="flex: 1.15; min-width: 0;">
+                                <button type="submit" name="form_submit" value="save_as_draft" id="save_as_draft" class="btn btn-pos-draft btn-block h-100" title="<?php echo lang('save_as_draft'); ?>">
+                                    <i class="fas fa-file-alt mr-1"></i><span><?php echo lang('save_as_draft'); ?></span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1034,14 +1034,22 @@ $(document).ready(function() {
     });
 
     // Automatic Search Reset & Smart Optgroup Filtering Helper
-    function resetPOSSearch() {
-        var $search = $(".ms-container .search-input");
+    function resetPOSSearch(keepFocus) {
+        var $search = $(".ms-container .ms-selectable .search-input");
+        if (!$search.length) {
+            $search = $(".ms-container .search-input");
+        }
         if ($search.length) {
             $search.val("");
             $(".ms-search-clear").hide();
             $(".ms-selectable .ms-elem-selectable").show();
             $(".ms-selectable .ms-optgroup-container").show();
             $(".ms-selectable .ms-optgroup-label").show();
+            if (keepFocus !== false) {
+                setTimeout(function() {
+                    $search.focus().select();
+                }, 60);
+            }
         }
     }
 
@@ -1092,16 +1100,38 @@ $(document).ready(function() {
         });
     }
 
-    // CRITICAL USER FEATURE: Automatically Clear and Reset Search when an item is selected
+    // CRITICAL USER FEATURE: Automatically Clear and Keep Search Field Focused & Selected when an item is selected
     $(document).on("click", ".ms-selectable .ms-elem-selectable", function() {
         setTimeout(function() {
-            resetPOSSearch();
-        }, 50);
+            resetPOSSearch(true);
+            var $search = $(".ms-container .ms-selectable .search-input");
+            if (!$search.length) {
+                $search = $(".ms-container .search-input");
+            }
+            if ($search.length) {
+                $search.focus().select();
+            }
+        }, 80);
     });
 
     $("#my_multi_select3").on("change", function() {
         setTimeout(function() {
-            resetPOSSearch();
+            resetPOSSearch(true);
+            var $search = $(".ms-container .ms-selectable .search-input");
+            if (!$search.length) {
+                $search = $(".ms-container .search-input");
+            }
+            if ($search.length) {
+                $search.focus().select();
+            }
+        }, 80);
+    });
+
+    // Auto-select text when user clicks or focuses directly on search field
+    $(document).on("focus click", ".ms-container .search-input", function() {
+        var self = this;
+        setTimeout(function() {
+            self.select();
         }, 50);
     });
 
@@ -1109,18 +1139,32 @@ $(document).ready(function() {
     $(document).on("click", ".ms-search-clear", function(e) {
         e.preventDefault();
         e.stopPropagation();
-        resetPOSSearch();
+        resetPOSSearch(true);
         var $search = $(".ms-container .search-input");
         if ($search.length) {
-            $search.focus();
+            $search.focus().select();
         }
     });
 
-    // Live search input listener
+    // Live search input listener & Enter-to-select
+    $(document).on("keydown", ".ms-container .search-input", function(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            var $firstVisible = $(".ms-selectable .ms-elem-selectable:visible").first();
+            if ($firstVisible.length) {
+                $firstVisible.trigger("click");
+            }
+            return false;
+        }
+    });
+
     $(document).on("keyup input", ".ms-container .search-input", function(e) {
         if (e.key === "Escape") {
-            resetPOSSearch();
+            resetPOSSearch(true);
             return;
+        }
+        if (e.key === "Enter") {
+            return; // Handled in keydown
         }
         applyPOSSearchFilter($(this).val());
     });
