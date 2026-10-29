@@ -375,25 +375,50 @@ class Finance extends MX_Controller
         $this->form_validation->set_rules('discount', 'Discount', 'trim|min_length[1]|max_length[100]|xss_clean');
 
         if ($this->form_validation->run() == FALSE) {
+            if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                header('Content-Type: application/json');
+                echo json_encode(array('status' => 'error', 'message' => validation_errors() ?: 'Validation failed'));
+                return;
+            }
             redirect('finance/addPaymentView');
         } else {
             if ($patient == 'add_new') {
                 if (empty($p_name)) {
+                    if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                        header('Content-Type: application/json');
+                        echo json_encode(array('status' => 'error', 'message' => 'Patient Full Name is required'));
+                        return;
+                    }
                     show_swal('Patient Full Name is required', 'error', lang('error'));
                     redirect('finance/addPaymentView');
                 }
                 if (empty($p_phone)) {
+                    if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                        header('Content-Type: application/json');
+                        echo json_encode(array('status' => 'error', 'message' => 'Phone Number is required'));
+                        return;
+                    }
                     show_swal('Phone Number is required', 'error', lang('error'));
                     redirect('finance/addPaymentView');
                 }
                 $clean_phone = preg_replace('/[\s\-]/', '', (string)$p_phone);
                 if (!preg_match('/^(?:\+?880|880|0)?1[3-9]\d{8}$/', $clean_phone)) {
+                    if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                        header('Content-Type: application/json');
+                        echo json_encode(array('status' => 'error', 'message' => 'Please enter a valid Bangladesh mobile number (e.g. 01XXXXXXXXX)'));
+                        return;
+                    }
                     show_swal('Please enter a valid Bangladesh mobile number (e.g. 01XXXXXXXXX)', 'error', lang('error'));
                     redirect('finance/addPaymentView');
                 }
 
                 $limit = $this->patient_model->getLimit();
                 if ($limit <= 0) {
+                    if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                        header('Content-Type: application/json');
+                        echo json_encode(array('status' => 'error', 'message' => lang('patient_limit_exceed')));
+                        return;
+                    }
                     show_swal(lang('patient_limit_exceed'), 'error', lang('error'));
                     redirect('patient');
                 }
@@ -897,6 +922,18 @@ class Finance extends MX_Controller
                     }
 
                     show_swal(lang('payment_added_successfully'), 'success', lang('added'));
+                    if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                        header('Content-Type: application/json');
+                        echo json_encode(array(
+                            'status' => 'success',
+                            'message' => lang('payment_added_successfully'),
+                            'invoice_id' => $inserted_id,
+                            'redirect_url' => site_url("finance/invoice?id=" . $inserted_id),
+                            'print_url' => site_url("finance/printInvoice?id=" . $inserted_id),
+                            'offline_uuid' => $this->input->post('offline_uuid')
+                        ));
+                        return;
+                    }
                     if ($form_submit == 'save') {
                         redirect("finance/invoice?id=" . "$inserted_id");
                     } else {

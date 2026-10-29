@@ -1,0 +1,87 @@
+/* LifeCare PWA & Offline Sync Styles */
+.pwa-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    transition: all 0.3s ease;
+    user-select: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.pwa-status-pill.online {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+.pwa-status-pill.offline {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+    animation: pwa-offline-pulse 1.8s infinite;
+}
+.pwa-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    display: inline-block;
+}
+.pwa-status-pill.online .pwa-status-dot {
+    background: #2e7d32;
+    box-shadow: 0 0 6px rgba(46, 125, 50, 0.6);
+}
+.pwa-status-pill.offline .pwa-status-dot {
+    background: #c62828;
+    box-shadow: 0 0 8px rgba(198, 40, 40, 0.8);
+}
+@keyframes pwa-offline-pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.98); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+#pwa_install_btn {
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 12px;
+    background: #ffffff;
+    color: #007bff;
+    border: 1px solid #007bff;
+    transition: all 0.2s ease;
+}
+#pwa_install_btn:hover {
+    background: #007bff;
+    color: #ffffff;
+}
+
+#pwa_sync_badge {
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    animation: pwa-sync-bounce 2s infinite ease-in-out;
+}
+@keyframes pwa-sync-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+
+/* Offline Receipt Modal Print Styling */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #offline_print_area, #offline_print_area * {
+        visibility: visible;
+    }
+    #offline_print_area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+}

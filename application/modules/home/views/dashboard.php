@@ -20,6 +20,15 @@
   <base href="<?php echo base_url(); ?>"> 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- PWA Manifest & App Metas -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LifeCare">
+  <link rel="apple-touch-icon" href="uploads/pwa-icon-192.png">
+  <link rel="shortcut icon" href="uploads/pwa-icon-192.png">
   <?php
   $class_name = $this->router->fetch_class();
   $class_name_lang = lang($class_name);
@@ -202,6 +211,25 @@
             </a>
           </li>
         <?php } ?>
+
+        <!-- PWA Status & Offline Sync Pill -->
+        <li class="nav-item d-flex align-items-center mr-2" id="pwa_status_container">
+          <div id="pwa_network_pill" class="pwa-status-pill online" title="Network Connection Status">
+            <span class="pwa-status-dot"></span>
+            <span class="pwa-status-text d-none d-md-inline">Online</span>
+          </div>
+          <button type="button" id="pwa_sync_badge" class="btn btn-xs btn-warning ml-2 shadow-sm" style="display:none;" title="Click to Sync Offline Invoices Now">
+            <i class="fas fa-cloud-upload-alt mr-1"></i>
+            <span id="pwa_pending_count">0</span> Unsynced
+          </button>
+        </li>
+
+        <!-- PWA Install App Button -->
+        <li class="nav-item d-flex align-items-center mr-2">
+          <button type="button" id="pwa_install_btn" class="btn btn-xs btn-outline-primary d-none shadow-sm" title="Install LifeCare as Desktop/Mobile App">
+            <i class="fas fa-download mr-1"></i> Install App
+          </button>
+        </li>
 
         <!-- Search Section -->
         <li class="nav-item search-item">

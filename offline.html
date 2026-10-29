@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Mode | LifeCare Diagnostic Center</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f4f6f9;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .offline-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            max-width: 480px;
+            width: 100%;
+            padding: 40px 30px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+        .logo-wrap {
+            margin-bottom: 24px;
+        }
+        .logo-wrap img {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .badge {
+            display: inline-block;
+            background: #fff3cd;
+            color: #856404;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            border: 1px solid #ffeeba;
+        }
+        h1 {
+            font-size: 24px;
+            color: #1a202c;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        p {
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .feature-box {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+            border: 1px dashed #cbd5e1;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 8px;
+        }
+        .feature-item:last-child { margin-bottom: 0; }
+        .feature-item span {
+            margin-right: 10px;
+            color: #10b981;
+            font-weight: bold;
+        }
+        .btn-retry {
+            display: inline-block;
+            background: #007bff;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 12px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+        .btn-retry:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-card">
+        <div class="logo-wrap">
+            <img src="uploads/pwa-icon-192.png" alt="LifeCare Logo">
+        </div>
+        <div class="badge">⚡ Offline Mode Active</div>
+        <h1>No Internet Connection</h1>
+        <p>You are currently offline, but LifeCare system is ready. When your internet connection is restored, all data will sync automatically with the cloud server.</p>
+        
+        <div class="feature-box">
+            <div class="feature-item"><span>✓</span> POS Billing is locally operational</div>
+            <div class="feature-item"><span>✓</span> Receipts can be generated and printed</div>
+            <div class="feature-item"><span>✓</span> Invoices will auto-sync once back online</div>
+        </div>
+
+        <button class="btn-retry" onclick="window.location.reload();">Retry Connection</button>
+    </div>
+</body>
+</html>
