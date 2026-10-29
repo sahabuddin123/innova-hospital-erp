@@ -1,20 +1,116 @@
 /**
- * LifeCare Diagnostic Center - PWA & Offline POS Sync Engine
- * Handles Service Worker, PWA installation, Network Status,
- * IndexedDB storage for offline diagnostic billing, and automatic background sync.
+ * LifeCare Diagnostic Center - Advanced PWA & Offline POS Suite
+ * Features:
+ * 1. Service Worker & PWA Install Prompt
+ * 2. App Shortcuts & Lifecycle
+ * 3. Network Status Live Indicator (Online / Offline)
+ * 4. Web Audio POS Beep & Sync Chime Synthesizer (Zero-dependency)
+ * 5. Web Push & Desktop Notifications
+ * 6. IndexedDB Engine for Offline POS & Pending Invoices
+ * 7. Smart Offline Diagnostic Catalog Preloading (Tests, Doctors, Referrers)
+ * 8. Dynamic Offline Cash Receipt Modal & Printing
+ * 9. Offline Vault & Sync Manager (History & Re-print)
+ * 10. Webcam / Device Camera Barcode & QR Scanner
+ * 11. 1-Click Kiosk / Fullscreen POS Mode
+ * 12. Automatic & Manual Background Sync Engine
  */
 "use strict";
 
 (function (window, document, $) {
     var DB_NAME = 'lifecare_pwa_db';
-    var DB_VERSION = 1;
-    var STORE_NAME = 'pending_invoices';
+    var DB_VERSION = 2;
+    var STORE_INVOICES = 'pending_invoices';
+    var STORE_CATALOG = 'catalog_cache';
     var dbInstance = null;
     var deferredInstallPrompt = null;
     var isSyncing = false;
+    var scannerMediaStream = null;
+    var scannerInterval = null;
 
     // ============================================================
-    // 1. IndexedDB Helper Module
+    // 1. Web Audio Synthesizer (Zero external sound files needed)
+    // ============================================================
+    var SoundFX = {
+        ctx: null,
+        init: function () {
+            if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+                var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+            }
+        },
+        playTone: function (freq, type, duration, delay) {
+            try {
+                this.init();
+                if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+                var osc = this.ctx.createOscillator();
+                var gain = this.ctx.createGain();
+                var startTime = this.ctx.currentTime + (delay || 0);
+                osc.type = type || 'sine';
+                osc.frequency.setValueAtTime(freq, startTime);
+                gain.gain.setValueAtTime(0.12, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            } catch (e) {
+                // Audio autoplay restrictions or unsupported
+            }
+        },
+        // POS Scanner Beep
+        posBeep: function () {
+            this.playTone(880, 'square', 0.08, 0);
+        },
+        // Pleasant Success Chime (C5, E5, G5)
+        successChime: function () {
+            this.playTone(523.25, 'sine', 0.15, 0);
+            this.playTone(659.25, 'sine', 0.18, 0.08);
+            this.playTone(783.99, 'sine', 0.25, 0.16);
+        },
+        // Offline Alert Tone
+        offlineAlert: function () {
+            this.playTone(440, 'triangle', 0.12, 0);
+            this.playTone(349.23, 'triangle', 0.18, 0.12);
+        }
+    };
+
+    // ============================================================
+    // 2. Desktop Notifications API
+    // ============================================================
+    var DesktopNotify = {
+        requestPermission: function () {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        },
+        send: function (title, body, tag) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification(title, {
+                        body: body,
+                        icon: $('base').attr('href') ? $('base').attr('href') + 'uploads/pwa-icon-192.png' : 'uploads/pwa-icon-192.png',
+                        tag: tag || 'lifecare-notification'
+                    });
+                } catch (e) {
+                    // Fallback to serviceWorker registration notification if available
+                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                        navigator.serviceWorker.ready.then(function (reg) {
+                            reg.showNotification(title, {
+                                body: body,
+                                icon: 'uploads/pwa-icon-192.png'
+                            });
+                        });
+                    }
+                }
+            }
+        }
+    };
+
+    // ============================================================
+    // 3. IndexedDB Manager (Invoices & Catalog)
     // ============================================================
     var OfflineDB = {
         open: function () {
@@ -23,15 +119,18 @@
                     return resolve(dbInstance);
                 }
                 if (!window.indexedDB) {
-                    return reject(new Error('IndexedDB not supported in this browser.'));
+                    return reject(new Error('IndexedDB is not supported.'));
                 }
                 var request = window.indexedDB.open(DB_NAME, DB_VERSION);
                 request.onupgradeneeded = function (event) {
                     var db = event.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        var store = db.createObjectStore(STORE_NAME, { keyPath: 'uuid' });
-                        store.createIndex('status', 'status', { unique: false });
-                        store.createIndex('created_at', 'created_at', { unique: false });
+                    if (!db.objectStoreNames.contains(STORE_INVOICES)) {
+                        var invStore = db.createObjectStore(STORE_INVOICES, { keyPath: 'uuid' });
+                        invStore.createIndex('status', 'status', { unique: false });
+                        invStore.createIndex('created_at', 'created_at', { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains(STORE_CATALOG)) {
+                        db.createObjectStore(STORE_CATALOG, { keyPath: 'key' });
                     }
                 };
                 request.onsuccess = function (event) {
@@ -39,7 +138,7 @@
                     resolve(dbInstance);
                 };
                 request.onerror = function (event) {
-                    console.error('[PWA DB] Error opening database:', event.target.error);
+                    console.error('[PWA DB] Open failed:', event.target.error);
                     reject(event.target.error);
                 };
             });
@@ -48,8 +147,8 @@
         saveInvoice: function (invoiceData) {
             return OfflineDB.open().then(function (db) {
                 return new Promise(function (resolve, reject) {
-                    var tx = db.transaction([STORE_NAME], 'readwrite');
-                    var store = tx.objectStore(STORE_NAME);
+                    var tx = db.transaction([STORE_INVOICES], 'readwrite');
+                    var store = tx.objectStore(STORE_INVOICES);
                     var req = store.put(invoiceData);
                     req.onsuccess = function () { resolve(invoiceData); };
                     req.onerror = function (e) { reject(e.target.error); };
@@ -57,19 +156,25 @@
             });
         },
 
-        getAllPending: function () {
+        getAllInvoices: function () {
             return OfflineDB.open().then(function (db) {
                 return new Promise(function (resolve, reject) {
-                    var tx = db.transaction([STORE_NAME], 'readonly');
-                    var store = tx.objectStore(STORE_NAME);
+                    var tx = db.transaction([STORE_INVOICES], 'readonly');
+                    var store = tx.objectStore(STORE_INVOICES);
                     var req = store.getAll();
-                    req.onsuccess = function (e) {
-                        var all = e.target.result || [];
-                        var pending = all.filter(function (item) {
-                            return item.status === 'pending';
-                        });
-                        resolve(pending);
-                    };
+                    req.onsuccess = function (e) { resolve(e.target.result || []); };
+                    req.onerror = function (e) { reject(e.target.error); };
+                });
+            });
+        },
+
+        getInvoice: function (uuid) {
+            return OfflineDB.open().then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    var tx = db.transaction([STORE_INVOICES], 'readonly');
+                    var store = tx.objectStore(STORE_INVOICES);
+                    var req = store.get(uuid);
+                    req.onsuccess = function (e) { resolve(e.target.result); };
                     req.onerror = function (e) { reject(e.target.error); };
                 });
             });
@@ -78,8 +183,8 @@
         markSynced: function (uuid, serverInvoiceId) {
             return OfflineDB.open().then(function (db) {
                 return new Promise(function (resolve, reject) {
-                    var tx = db.transaction([STORE_NAME], 'readwrite');
-                    var store = tx.objectStore(STORE_NAME);
+                    var tx = db.transaction([STORE_INVOICES], 'readwrite');
+                    var store = tx.objectStore(STORE_INVOICES);
                     var getReq = store.get(uuid);
                     getReq.onsuccess = function (e) {
                         var record = e.target.result;
@@ -102,10 +207,44 @@
         deleteInvoice: function (uuid) {
             return OfflineDB.open().then(function (db) {
                 return new Promise(function (resolve, reject) {
-                    var tx = db.transaction([STORE_NAME], 'readwrite');
-                    var store = tx.objectStore(STORE_NAME);
+                    var tx = db.transaction([STORE_INVOICES], 'readwrite');
+                    var store = tx.objectStore(STORE_INVOICES);
                     var req = store.delete(uuid);
                     req.onsuccess = function () { resolve(); };
+                    req.onerror = function (e) { reject(e.target.error); };
+                });
+            });
+        },
+
+        clearSyncedInvoices: function () {
+            return OfflineDB.getAllInvoices().then(function (all) {
+                var synced = all.filter(function (i) { return i.status === 'synced'; });
+                return Promise.all(synced.map(function (i) { return OfflineDB.deleteInvoice(i.uuid); }));
+            });
+        },
+
+        // Catalog Preloading Storage
+        saveCatalog: function (key, data) {
+            return OfflineDB.open().then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    var tx = db.transaction([STORE_CATALOG], 'readwrite');
+                    var store = tx.objectStore(STORE_CATALOG);
+                    var req = store.put({ key: key, data: data, updated_at: Date.now() });
+                    req.onsuccess = function () { resolve(); };
+                    req.onerror = function (e) { reject(e.target.error); };
+                });
+            });
+        },
+
+        getCatalog: function (key) {
+            return OfflineDB.open().then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    var tx = db.transaction([STORE_CATALOG], 'readonly');
+                    var store = tx.objectStore(STORE_CATALOG);
+                    var req = store.get(key);
+                    req.onsuccess = function (e) {
+                        resolve(e.target.result ? e.target.result.data : null);
+                    };
                     req.onerror = function (e) { reject(e.target.error); };
                 });
             });
@@ -113,7 +252,50 @@
     };
 
     // ============================================================
-    // 2. Service Worker Registration & PWA Install Engine
+    // 4. Smart Offline Diagnostic Catalog Preloader
+    // ============================================================
+    function preloadDiagnosticCatalog() {
+        if ($('select.multi-select option').length > 0) {
+            var tests = [];
+            $('select.multi-select option').each(function () {
+                var $opt = $(this);
+                tests.push({
+                    id: $opt.val(),
+                    idd: $opt.data('idd') || $opt.val(),
+                    name: $opt.text(),
+                    price: parseFloat($opt.data('id')) || 0,
+                    d_comm: parseFloat($opt.data('d_commission')) || 0,
+                    r_comm: parseFloat($opt.data('r_commission')) || 0
+                });
+            });
+            OfflineDB.saveCatalog('diagnostic_tests', tests);
+        }
+
+        if ($('#add_doctor option').length > 1) {
+            var doctors = [];
+            $('#add_doctor option').each(function () {
+                var val = $(this).val();
+                if (val && val !== 'add_new') {
+                    doctors.push({ id: val, name: $(this).text() });
+                }
+            });
+            OfflineDB.saveCatalog('doctors_list', doctors);
+        }
+
+        if ($('#add_referrer option').length > 1) {
+            var referrers = [];
+            $('#add_referrer option').each(function () {
+                var val = $(this).val();
+                if (val && val !== 'add_new') {
+                    referrers.push({ id: val, name: $(this).text() });
+                }
+            });
+            OfflineDB.saveCatalog('referrers_list', referrers);
+        }
+    }
+
+    // ============================================================
+    // 5. Service Worker Registration & PWA Install Engine
     // ============================================================
     function initServiceWorker() {
         if ('serviceWorker' in navigator) {
@@ -121,9 +303,8 @@
                 var swPath = $('base').attr('href') ? $('base').attr('href') + 'sw.js' : 'sw.js';
                 navigator.serviceWorker.register(swPath, { scope: './' })
                     .then(function (reg) {
-                        console.log('[PWA SW] Registered successfully with scope:', reg.scope);
+                        console.log('[PWA SW] Registered with scope:', reg.scope);
 
-                        // Listen for background sync triggers sent by SW
                         navigator.serviceWorker.addEventListener('message', function (event) {
                             if (event.data && event.data.type === 'TRIGGER_BACKGROUND_SYNC') {
                                 syncOfflineInvoices();
@@ -139,7 +320,6 @@
 
     function initInstallPrompt() {
         window.addEventListener('beforeinstallprompt', function (e) {
-            // Prevent Chrome from showing the mini-infobar automatically
             e.preventDefault();
             deferredInstallPrompt = e;
             $('#pwa_install_btn').removeClass('d-none');
@@ -150,7 +330,6 @@
             deferredInstallPrompt.prompt();
             deferredInstallPrompt.userChoice.then(function (choiceResult) {
                 if (choiceResult.outcome === 'accepted') {
-                    console.log('[PWA] User accepted the install prompt');
                     $('#pwa_install_btn').addClass('d-none');
                 }
                 deferredInstallPrompt = null;
@@ -158,8 +337,9 @@
         });
 
         window.addEventListener('appinstalled', function () {
-            console.log('[PWA] LifeCare App installed successfully');
             $('#pwa_install_btn').addClass('d-none');
+            DesktopNotify.requestPermission();
+            SoundFX.successChime();
             if (typeof toastr !== 'undefined') {
                 toastr.success('LifeCare App installed successfully on your device!', 'App Installed');
             }
@@ -167,7 +347,7 @@
     }
 
     // ============================================================
-    // 3. Network Status & Navbar Indicator
+    // 6. Network Status & Navbar Indicator
     // ============================================================
     function updateNetworkStatusUI() {
         var isOnline = navigator.onLine;
@@ -184,8 +364,9 @@
     }
 
     function updatePendingCountBadge() {
-        OfflineDB.getAllPending().then(function (pendingList) {
-            var count = pendingList.length;
+        OfflineDB.getAllInvoices().then(function (all) {
+            var pending = all.filter(function (i) { return i.status === 'pending'; });
+            var count = pending.length;
             var $badge = $('#pwa_sync_badge');
             var $countSpan = $('#pwa_pending_count');
 
@@ -203,6 +384,7 @@
     function initNetworkListeners() {
         window.addEventListener('online', function () {
             updateNetworkStatusUI();
+            SoundFX.posBeep();
             if (typeof toastr !== 'undefined') {
                 toastr.success('Internet connection restored! Checking for offline bills to sync...', 'Online');
             }
@@ -211,32 +393,36 @@
 
         window.addEventListener('offline', function () {
             updateNetworkStatusUI();
+            SoundFX.offlineAlert();
             if (typeof toastr !== 'undefined') {
                 toastr.warning('You are currently offline. Invoices will be saved locally and auto-synced once back online.', 'Offline Mode');
             }
         });
 
-        // Click badge to manually trigger sync
+        // Click badge opens the Offline Vault modal directly
         $(document).on('click', '#pwa_sync_badge', function (e) {
             e.preventDefault();
-            syncOfflineInvoices(true);
+            openOfflineVaultModal();
+        });
+
+        $(document).on('click', '#pwa_vault_btn', function (e) {
+            e.preventDefault();
+            openOfflineVaultModal();
         });
     }
 
     // ============================================================
-    // 4. Offline POS Invoice Interception & Local Storing
+    // 7. Offline POS Invoice Interception & Local Storing
     // ============================================================
     function capturePOSInvoiceData(formElem) {
         var $form = $(formElem);
         var formDataArray = $form.serializeArray();
 
-        // Generate offline UUID & Token
         var now = new Date();
         var dateFormatted = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US', { hour12: true });
         var tokenRand = Math.floor(Math.random() * 8999 + 1000);
-        var offlineUuid = 'OFF-' + now.getFullYear() + (now.getMonth() + 1) + now.getDate() + '-' + tokenRand;
+        var offlineUuid = 'OFF-' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '-' + tokenRand;
 
-        // Gather human-friendly summary for receipt display
         var patientName = $('#p_name').val() || $('#pos_select option:selected').text().split('(')[0].trim() || 'Walk-in Patient';
         var patientPhone = $('#p_phone').val() || '';
         var patientAge = $('#p_age').val() || '';
@@ -249,7 +435,6 @@
             doctorName = doctorName.replace(/^Dr\.\s*/i, '');
         }
 
-        // Selected Tests
         var items = [];
         $('select.multi-select option:selected').each(function () {
             var id1 = $(this).data('idd') || $(this).val();
@@ -300,11 +485,10 @@
             existingModal.remove();
         }
 
-        // Build item rows HTML
         var itemRowsHtml = '';
         invoice.items.forEach(function (item, idx) {
             itemRowsHtml += '<tr>' +
-                '<td>' + (idx + 1) + '</td>' +
+                '<td class="text-center">' + (idx + 1) + '</td>' +
                 '<td class="font-weight-bold text-left">' + item.name + '</td>' +
                 '<td class="text-center">' + item.qty + '</td>' +
                 '<td class="text-right">' + item.price.toFixed(2) + '</td>' +
@@ -312,7 +496,6 @@
             '</tr>';
         });
 
-        // Determine if due should be displayed (if full paid or 0 due, hide due section)
         var dueHtml = '';
         if (invoice.due_amount > 0) {
             dueHtml = '<tr class="text-danger font-weight-bold">' +
@@ -326,7 +509,7 @@
                 '<div class="modal-content">' +
                     '<div class="modal-header bg-warning text-dark py-2">' +
                         '<h5 class="modal-title font-weight-bold">' +
-                            '<i class="fas fa-wifi text-danger mr-2"></i> Offline Receipt Generated (Pending Sync)' +
+                            '<i class="fas fa-wifi text-danger mr-2"></i> Offline Receipt Generated (Pending Server Sync)' +
                         '</h5>' +
                         '<button type="button" class="close" data-dismiss="modal" aria-label="Close">' +
                             '<span aria-hidden="true">&times;</span>' +
@@ -391,10 +574,10 @@
                             '</table>' +
                         '</div>' +
 
-                        '<!-- Notice & QR/Barcode Placeholder -->' +
+                        '<!-- Notice -->' +
                         '<div class="alert alert-light border small text-center text-muted mb-0 py-2">' +
                             '<i class="fas fa-info-circle mr-1 text-info"></i> ' +
-                            'Offline billing complete. This bill is preserved in local storage and will sync automatically once internet connects.' +
+                            'Offline billing complete. This bill is safely preserved and will auto-sync to central server once internet connects.' +
                         '</div>' +
                     '</div>' +
                     '<div class="modal-footer d-flex justify-content-between">' +
@@ -431,7 +614,6 @@
             }, 300);
         });
 
-        // When modal closes, reset the POS page cleanly for the next patient
         $('#offlineReceiptModal').on('hidden.bs.modal', function () {
             resetPOSForm();
         });
@@ -439,11 +621,9 @@
 
     function resetPOSForm() {
         if ($('#editPaymentForm').length) {
-            // Deselect all selected tests in multi-select
             if ($('select.multi-select').length && typeof $('select.multi-select').multiSelect === 'function') {
                 $('select.multi-select').multiSelect('deselect_all');
             }
-            // Clear input fields
             $('#p_name').val('');
             $('#p_phone').val('');
             $('#p_age').val('');
@@ -456,11 +636,9 @@
             if ($('#pos_select').length && $('#pos_select').hasClass('select2-hidden-accessible')) {
                 $('#pos_select').val(null).trigger('change');
             }
-            // Trigger calculation to refresh totals
             if (typeof updatePOSState === 'function') {
                 updatePOSState();
             }
-            // Clear local storage cart
             try {
                 localStorage.removeItem('lifecare_pos_cart');
             } catch (e) {}
@@ -476,7 +654,6 @@
             }
         });
 
-        // Catch save buttons when offline
         $(document).on('click', '#submit2, #submit, #submit-btn2', function (e) {
             if (!navigator.onLine) {
                 e.preventDefault();
@@ -487,14 +664,11 @@
     }
 
     function processOfflineFormSubmit(formElem) {
-        var $form = $(formElem);
-
-        // Validation 1: Patient Selection or Inline Name
         var patientVal = $('#pos_select').val();
         var pName = $('#p_name').val();
-        var pPhone = $('#p_phone').val();
 
         if (!patientVal && !pName) {
+            SoundFX.offlineAlert();
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'warning',
@@ -507,9 +681,9 @@
             return false;
         }
 
-        // Validation 2: At least 1 test selected
         var selectedTests = $('select.multi-select option:selected').length;
         if (selectedTests === 0) {
+            SoundFX.offlineAlert();
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'warning',
@@ -522,13 +696,13 @@
             return false;
         }
 
-        // Capture data & save in IndexedDB
         var invoiceData = capturePOSInvoiceData(formElem);
         OfflineDB.saveInvoice(invoiceData).then(function () {
+            SoundFX.posBeep();
             updatePendingCountBadge();
             showOfflineReceiptModal(invoiceData);
             if (typeof toastr !== 'undefined') {
-                toastr.success('Offline Invoice ' + invoiceData.uuid + ' saved locally!', 'Offline POS');
+                toastr.success('Offline Invoice ' + invoiceData.uuid + ' saved in local storage!', 'Offline POS');
             }
         }).catch(function (err) {
             console.error('[PWA] Error saving offline invoice:', err);
@@ -537,26 +711,485 @@
     }
 
     // ============================================================
-    // 5. Automatic & Manual Background Sync Engine
+    // 8. Offline Vault & Sync Manager Modal
     // ============================================================
-    function syncOfflineInvoices(manualTrigger) {
+    function openOfflineVaultModal() {
+        var existing = $('#offlineVaultModal');
+        if (existing.length) existing.remove();
+
+        OfflineDB.getAllInvoices().then(function (allInvoices) {
+            var pending = allInvoices.filter(function (i) { return i.status === 'pending'; });
+            var synced = allInvoices.filter(function (i) { return i.status === 'synced'; });
+
+            var pendingRows = '';
+            if (pending.length === 0) {
+                pendingRows = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fas fa-check-circle text-success mr-1"></i> No pending offline bills. All invoices are synced!</td></tr>';
+            } else {
+                pending.forEach(function (inv, idx) {
+                    pendingRows += '<tr>' +
+                        '<td>' + (idx + 1) + '</td>' +
+                        '<td><span class="badge badge-warning">' + inv.uuid + '</span></td>' +
+                        '<td>' + inv.display_time + '</td>' +
+                        '<td><strong>' + inv.patient_name + '</strong><br><small class="text-muted">' + (inv.patient_phone || '') + '</small></td>' +
+                        '<td>' + inv.items.length + ' test(s)</td>' +
+                        '<td><strong>' + inv.gross_total.toFixed(2) + ' TK</strong><br><small class="text-success">Paid: ' + inv.amount_received.toFixed(2) + '</small></td>' +
+                        '<td class="text-right">' +
+                            '<button type="button" class="btn btn-xs btn-primary btn-reprint-offline mr-1" data-uuid="' + inv.uuid + '" title="Re-print Receipt">' +
+                                '<i class="fas fa-print"></i>' +
+                            '</button>' +
+                            '<button type="button" class="btn btn-xs btn-success btn-sync-single mr-1" data-uuid="' + inv.uuid + '" title="Sync This Bill Now">' +
+                                '<i class="fas fa-sync-alt"></i>' +
+                            '</button>' +
+                            '<button type="button" class="btn btn-xs btn-danger btn-delete-offline" data-uuid="' + inv.uuid + '" title="Delete">' +
+                                '<i class="fas fa-trash"></i>' +
+                            '</button>' +
+                        '</td>' +
+                    '</tr>';
+                });
+            }
+
+            var syncedRows = '';
+            if (synced.length === 0) {
+                syncedRows = '<tr><td colspan="6" class="text-center py-4 text-muted">No previously synced offline records found.</td></tr>';
+            } else {
+                synced.forEach(function (inv, idx) {
+                    syncedRows += '<tr>' +
+                        '<td>' + (idx + 1) + '</td>' +
+                        '<td><span class="badge badge-light border">' + inv.uuid + '</span></td>' +
+                        '<td><a href="finance/invoice?id=' + inv.server_invoice_id + '" target="_blank" class="badge badge-success font-weight-bold">Invoice #' + inv.server_invoice_id + ' <i class="fas fa-external-link-alt ml-1"></i></a></td>' +
+                        '<td>' + inv.patient_name + '</td>' +
+                        '<td>' + inv.gross_total.toFixed(2) + ' TK</td>' +
+                        '<td class="text-right">' +
+                            '<button type="button" class="btn btn-xs btn-secondary btn-reprint-offline mr-1" data-uuid="' + inv.uuid + '" title="View/Print Offline Token">' +
+                                '<i class="fas fa-print"></i>' +
+                            '</button>' +
+                            '<button type="button" class="btn btn-xs btn-outline-danger btn-delete-offline" data-uuid="' + inv.uuid + '" title="Delete from history">' +
+                                '<i class="fas fa-times"></i>' +
+                            '</button>' +
+                        '</td>' +
+                    '</tr>';
+                });
+            }
+
+            var modalHtml = '<div class="modal fade" id="offlineVaultModal" tabindex="-1" role="dialog" aria-hidden="true">' +
+                '<div class="modal-dialog modal-dialog-centered modal-xl" role="document">' +
+                    '<div class="modal-content shadow-lg">' +
+                        '<div class="modal-header bg-dark text-white py-2">' +
+                            '<h5 class="modal-title font-weight-bold">' +
+                                '<i class="fas fa-archive text-warning mr-2"></i> LifeCare Offline Vault & Sync Manager' +
+                            '</h5>' +
+                            '<button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">' +
+                                '<span aria-hidden="true">&times;</span>' +
+                            '</button>' +
+                        '</div>' +
+                        '<div class="modal-body p-4">' +
+                            '<!-- Summary Stat Cards -->' +
+                            '<div class="row mb-3">' +
+                                '<div class="col-4">' +
+                                    '<div class="vault-stat-card border-warning">' +
+                                        '<div class="vault-stat-number text-warning">' + pending.length + '</div>' +
+                                        '<div class="text-muted small font-weight-bold">Pending Sync</div>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="col-4">' +
+                                    '<div class="vault-stat-card border-success">' +
+                                        '<div class="vault-stat-number text-success">' + synced.length + '</div>' +
+                                        '<div class="text-muted small font-weight-bold">Synced to Server</div>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="col-4">' +
+                                    '<div class="vault-stat-card border-primary">' +
+                                        '<div class="vault-stat-number text-primary">' + allInvoices.length + '</div>' +
+                                        '<div class="text-muted small font-weight-bold">Total Offline Bills</div>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+
+                            '<!-- Tabs -->' +
+                            '<ul class="nav nav-pills mb-3" id="vaultTabs" role="tablist">' +
+                                '<li class="nav-item">' +
+                                    '<a class="nav-link active font-weight-bold" id="pending-tab" data-toggle="pill" href="#pending-content" role="tab">' +
+                                        '<i class="fas fa-clock mr-1 text-warning"></i> Pending Bills (' + pending.length + ')' +
+                                    '</a>' +
+                                '</li>' +
+                                '<li class="nav-item">' +
+                                    '<a class="nav-link font-weight-bold" id="synced-tab" data-toggle="pill" href="#synced-content" role="tab">' +
+                                        '<i class="fas fa-check-double mr-1 text-success"></i> Synced History (' + synced.length + ')' +
+                                    '</a>' +
+                                '</li>' +
+                            '</ul>' +
+
+                            '<div class="tab-content" id="vaultTabContent">' +
+                                '<!-- Tab 1: Pending -->' +
+                                '<div class="tab-pane fade show active" id="pending-content" role="tabpanel">' +
+                                    '<div class="d-flex justify-content-between align-items-center mb-2">' +
+                                        '<div class="small text-muted font-weight-bold">These invoices are preserved in local storage and will sync automatically once online.</div>' +
+                                        '<div>' +
+                                            '<button type="button" class="btn btn-sm btn-success" id="btn_vault_sync_all" ' + (pending.length === 0 ? 'disabled' : '') + '>' +
+                                                '<i class="fas fa-cloud-upload-alt mr-1"></i> Sync All Pending Bills' +
+                                            '</button>' +
+                                        '</div>' +
+                                    '</div>' +
+                                    '<div class="table-responsive">' +
+                                        '<table class="table table-sm table-hover table-bordered small">' +
+                                            '<thead class="thead-light">' +
+                                                '<tr>' +
+                                                    '<th>#</th>' +
+                                                    '<th>Token UUID</th>' +
+                                                    '<th>Generated Time</th>' +
+                                                    '<th>Patient</th>' +
+                                                    '<th>Tests</th>' +
+                                                    '<th>Amount</th>' +
+                                                    '<th class="text-right">Actions</th>' +
+                                                '</tr>' +
+                                            '</thead>' +
+                                            '<tbody>' + pendingRows + '</tbody>' +
+                                        '</table>' +
+                                    '</div>' +
+                                '</div>' +
+
+                                '<!-- Tab 2: Synced History -->' +
+                                '<div class="tab-pane fade" id="synced-content" role="tabpanel">' +
+                                    '<div class="d-flex justify-content-between align-items-center mb-2">' +
+                                        '<div class="small text-muted">Offline bills that have been uploaded to the central server.</div>' +
+                                        (synced.length > 0 ? '<button type="button" class="btn btn-xs btn-outline-danger" id="btn_clear_synced_history"><i class="fas fa-broom mr-1"></i> Clear Synced History</button>' : '') +
+                                    '</div>' +
+                                    '<div class="table-responsive">' +
+                                        '<table class="table table-sm table-hover table-bordered small">' +
+                                            '<thead class="thead-light">' +
+                                                '<tr>' +
+                                                    '<th>#</th>' +
+                                                    '<th>Token UUID</th>' +
+                                                    '<th>Central Server Invoice</th>' +
+                                                    '<th>Patient</th>' +
+                                                    '<th>Amount</th>' +
+                                                    '<th class="text-right">Actions</th>' +
+                                                '</tr>' +
+                                            '</thead>' +
+                                            '<tbody>' + syncedRows + '</tbody>' +
+                                        '</table>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="modal-footer py-2">' +
+                            '<button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+            $('body').append(modalHtml);
+            $('#offlineVaultModal').modal('show');
+
+            // Wire action buttons
+            $('.btn-reprint-offline').on('click', function () {
+                var uuid = $(this).data('uuid');
+                OfflineDB.getInvoice(uuid).then(function (inv) {
+                    if (inv) {
+                        $('#offlineVaultModal').modal('hide');
+                        showOfflineReceiptModal(inv);
+                    }
+                });
+            });
+
+            $('.btn-sync-single').on('click', function () {
+                var uuid = $(this).data('uuid');
+                $(this).html('<i class="fas fa-spinner fa-spin"></i>');
+                syncSingleOfflineInvoice(uuid, function () {
+                    $('#offlineVaultModal').modal('hide');
+                    openOfflineVaultModal();
+                });
+            });
+
+            $('.btn-delete-offline').on('click', function () {
+                var uuid = $(this).data('uuid');
+                if (confirm('Are you sure you want to remove offline token ' + uuid + '?')) {
+                    OfflineDB.deleteInvoice(uuid).then(function () {
+                        updatePendingCountBadge();
+                        $('#offlineVaultModal').modal('hide');
+                        openOfflineVaultModal();
+                    });
+                }
+            });
+
+            $('#btn_vault_sync_all').on('click', function () {
+                $(this).html('<i class="fas fa-spinner fa-spin mr-1"></i> Syncing...');
+                syncOfflineInvoices(true, function () {
+                    $('#offlineVaultModal').modal('hide');
+                    openOfflineVaultModal();
+                });
+            });
+
+            $('#btn_clear_synced_history').on('click', function () {
+                if (confirm('Clear all synced offline records from this browser?')) {
+                    OfflineDB.clearSyncedInvoices().then(function () {
+                        $('#offlineVaultModal').modal('hide');
+                        openOfflineVaultModal();
+                    });
+                }
+            });
+        });
+    }
+
+    // ============================================================
+    // 9. Camera Barcode / QR Scanner Engine
+    // ============================================================
+    function openCameraScannerModal() {
+        var existing = $('#cameraScannerModal');
+        if (existing.length) existing.remove();
+
+        var modalHtml = '<div class="modal fade" id="cameraScannerModal" tabindex="-1" role="dialog" aria-hidden="true">' +
+            '<div class="modal-dialog modal-dialog-centered" role="document">' +
+                '<div class="modal-content bg-dark text-white">' +
+                    '<div class="modal-header border-secondary py-2">' +
+                        '<h5 class="modal-title font-weight-bold text-light">' +
+                            '<i class="fas fa-qrcode text-primary mr-2"></i> Camera Barcode / QR Scanner' +
+                        '</h5>' +
+                        '<button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">' +
+                            '<span aria-hidden="true">&times;</span>' +
+                        '</button>' +
+                    '</div>' +
+                    '<div class="modal-body p-3 text-center">' +
+                        '<div class="scanner-viewport-wrap mb-3">' +
+                            '<video id="scanner_video_feed" class="scanner-video" autoplay playsinline muted></video>' +
+                            '<div class="scanner-overlay-box">' +
+                                '<div class="scanner-laser"></div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<p class="small text-muted mb-2"><i class="fas fa-info-circle mr-1"></i> Point your camera at a patient bill barcode, token, or QR code</p>' +
+                        '<div class="input-group input-group-sm mb-1">' +
+                            '<input type="text" id="manual_scan_input" class="form-control" placeholder="Or enter token / invoice # manually...">' +
+                            '<div class="input-group-append">' +
+                                '<button class="btn btn-primary" type="button" id="btn_manual_scan_go">Lookup</button>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div id="scanner_status_msg" class="small text-warning mt-2" style="display:none;"></div>' +
+                    '</div>' +
+                    '<div class="modal-footer border-secondary py-2">' +
+                        '<button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close Scanner</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+        $('body').append(modalHtml);
+        $('#cameraScannerModal').modal('show');
+
+        var videoElem = document.getElementById('scanner_video_feed');
+
+        // Start Webcam Stream
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+            }).then(function (stream) {
+                scannerMediaStream = stream;
+                videoElem.srcObject = stream;
+                videoElem.play();
+                startBarcodeDetection(videoElem);
+            }).catch(function (err) {
+                console.warn('[Scanner] Camera access error:', err);
+                $('#scanner_status_msg').text('Camera access denied or unavailable. You can enter barcode number manually above.').show();
+            });
+        } else {
+            $('#scanner_status_msg').text('Webcam API not supported in this browser. Use manual entry above.').show();
+        }
+
+        function handleDetectedCode(codeStr) {
+            if (!codeStr) return;
+            SoundFX.posBeep();
+            stopCameraStream();
+            $('#cameraScannerModal').modal('hide');
+
+            var trimmed = codeStr.trim();
+            // Case 1: Offline Token (OFF-YYYYMMDD-XXXX)
+            if (trimmed.startsWith('OFF-')) {
+                OfflineDB.getInvoice(trimmed).then(function (inv) {
+                    if (inv) {
+                        showOfflineReceiptModal(inv);
+                    } else {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.info('Token ' + trimmed + ' not found in local vault. Checking server...', 'Lookup');
+                        }
+                    }
+                });
+            } else if (/^\d+$/.test(trimmed)) {
+                // Case 2: Numeric Server Invoice ID -> open invoice
+                window.location.href = $('base').attr('href') ? $('base').attr('href') + 'finance/invoice?id=' + trimmed : 'finance/invoice?id=' + trimmed;
+            } else {
+                if (typeof toastr !== 'undefined') {
+                    toastr.info('Scanned Code: ' + trimmed, 'Barcode Scanned');
+                }
+            }
+        }
+
+        function startBarcodeDetection(vElem) {
+            // Check for native BarcodeDetector API
+            if ('BarcodeDetector' in window) {
+                var detector = new BarcodeDetector({ formats: ['code_128', 'qr_code', 'ean_13', 'ean_8', 'code_39'] });
+                scannerInterval = setInterval(function () {
+                    if (vElem.readyState === vElem.HAVE_ENOUGH_DATA) {
+                        detector.detect(vElem).then(function (barcodes) {
+                            if (barcodes.length > 0) {
+                                clearInterval(scannerInterval);
+                                handleDetectedCode(barcodes[0].rawValue);
+                            }
+                        }).catch(function () {});
+                    }
+                }, 250);
+            }
+        }
+
+        function stopCameraStream() {
+            if (scannerInterval) {
+                clearInterval(scannerInterval);
+                scannerInterval = null;
+            }
+            if (scannerMediaStream) {
+                scannerMediaStream.getTracks().forEach(function (track) { track.stop(); });
+                scannerMediaStream = null;
+            }
+        }
+
+        $('#cameraScannerModal').on('hidden.bs.modal', function () {
+            stopCameraStream();
+        });
+
+        $('#btn_manual_scan_go').on('click', function () {
+            var val = $('#manual_scan_input').val();
+            if (val) handleDetectedCode(val);
+        });
+
+        $('#manual_scan_input').on('keypress', function (e) {
+            if (e.which === 13) {
+                var val = $(this).val();
+                if (val) handleDetectedCode(val);
+            }
+        });
+    }
+
+    function initCameraScanner() {
+        $(document).on('click', '#pwa_camera_scanner_btn', function (e) {
+            e.preventDefault();
+            openCameraScannerModal();
+        });
+    }
+
+    // ============================================================
+    // 10. 1-Click Kiosk / Fullscreen POS Mode
+    // ============================================================
+    function initFullscreenKiosk() {
+        $(document).on('click', '#pwa_fullscreen_btn', function (e) {
+            e.preventDefault();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(function (err) {
+                    console.warn('[PWA Fullscreen] Error attempting to enable full-screen mode:', err);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+
+        document.addEventListener('fullscreenchange', function () {
+            var $btn = $('#pwa_fullscreen_btn');
+            if (document.fullscreenElement) {
+                $btn.html('<i class="fas fa-compress"></i>').attr('title', 'Exit Fullscreen Kiosk Mode');
+            } else {
+                $btn.html('<i class="fas fa-expand"></i>').attr('title', 'Toggle Fullscreen POS Mode');
+            }
+        });
+    }
+
+    // ============================================================
+    // 11. Background Sync Engine (Single & Batch)
+    // ============================================================
+    function syncSingleOfflineInvoice(uuid, callback) {
+        if (!navigator.onLine) {
+            if (typeof toastr !== 'undefined') {
+                toastr.warning('Cannot sync while offline.', 'Offline');
+            }
+            if (callback) callback(false);
+            return;
+        }
+
+        OfflineDB.getInvoice(uuid).then(function (inv) {
+            if (!inv) {
+                if (callback) callback(false);
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('is_offline_sync', '1');
+            formData.append('offline_uuid', inv.uuid);
+
+            if (Array.isArray(inv.formData)) {
+                inv.formData.forEach(function (field) {
+                    formData.append(field.name, field.value);
+                });
+            }
+            if (!inv.formData.some(function (f) { return f.name === 'patient'; })) {
+                formData.append('patient', 'add_new');
+            }
+
+            var postUrl = $('base').attr('href') ? $('base').attr('href') + 'finance/addPayment' : 'finance/addPayment';
+
+            fetch(postUrl, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (res) {
+                if (res && res.status === 'success') {
+                    SoundFX.successChime();
+                    OfflineDB.markSynced(inv.uuid, res.invoice_id).then(function () {
+                        updatePendingCountBadge();
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success('Token ' + inv.uuid + ' synced -> Central Invoice #' + res.invoice_id, 'Synced');
+                        }
+                        if (callback) callback(true);
+                    });
+                } else {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error((res && res.message) ? res.message : 'Sync failed', 'Error');
+                    }
+                    if (callback) callback(false);
+                }
+            })
+            .catch(function (err) {
+                console.error('[PWA Sync] Error:', err);
+                if (typeof toastr !== 'undefined') {
+                    toastr.error('Network error during sync', 'Sync Error');
+                }
+                if (callback) callback(false);
+            });
+        });
+    }
+
+    function syncOfflineInvoices(manualTrigger, callback) {
         if (!navigator.onLine) {
             if (manualTrigger && typeof toastr !== 'undefined') {
-                toastr.warning('Cannot sync while offline. Please check your internet connection.', 'Still Offline');
+                toastr.warning('Cannot sync while offline. Please check internet connection.', 'Offline');
             }
+            if (callback) callback(false);
             return;
         }
 
         if (isSyncing) return;
         isSyncing = true;
 
-        OfflineDB.getAllPending().then(function (pendingList) {
+        OfflineDB.getAllInvoices().then(function (all) {
+            var pendingList = all.filter(function (i) { return i.status === 'pending'; });
+
             if (pendingList.length === 0) {
                 isSyncing = false;
                 updatePendingCountBadge();
                 if (manualTrigger && typeof toastr !== 'undefined') {
                     toastr.info('All invoices are already up to date. No pending syncs.', 'All Synced');
                 }
+                if (callback) callback(true);
                 return;
             }
 
@@ -576,23 +1209,30 @@
                     updatePendingCountBadge();
 
                     if (successCount > 0) {
+                        SoundFX.successChime();
+                        DesktopNotify.send(
+                            'LifeCare Sync Complete',
+                            successCount + ' offline bill(s) successfully synced with central server.',
+                            'pwa-sync-complete'
+                        );
+
                         if (typeof Swal !== 'undefined') {
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Sync Completed',
-                                text: successCount + ' offline bill(s) successfully synced with the central server!'
+                                text: successCount + ' offline bill(s) successfully synced with central server!'
                             });
                         } else if (typeof toastr !== 'undefined') {
                             toastr.success(successCount + ' bills synced with server!', 'Sync Complete');
                         }
                     }
+                    if (callback) callback(true);
                     return;
                 }
 
                 var inv = pendingList[syncIndex];
                 syncIndex++;
 
-                // Build FormData payload
                 var formData = new FormData();
                 formData.append('is_offline_sync', '1');
                 formData.append('offline_uuid', inv.uuid);
@@ -602,8 +1242,6 @@
                         formData.append(field.name, field.value);
                     });
                 }
-
-                // If patient was newly entered offline, pass new patient flag
                 if (!inv.formData.some(function (f) { return f.name === 'patient'; })) {
                     formData.append('patient', 'add_new');
                 }
@@ -613,20 +1251,13 @@
                 fetch(postUrl, {
                     method: 'POST',
                     body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })
-                .then(function (response) {
-                    return response.json();
-                })
+                .then(function (response) { return response.json(); })
                 .then(function (res) {
                     if (res && res.status === 'success') {
                         successCount++;
                         OfflineDB.markSynced(inv.uuid, res.invoice_id).then(function () {
-                            if (typeof toastr !== 'undefined') {
-                                toastr.success('Token ' + inv.uuid + ' synced -> Central Invoice #' + res.invoice_id, 'Synced');
-                            }
                             processNext();
                         });
                     } else {
@@ -635,7 +1266,7 @@
                     }
                 })
                 .catch(function (err) {
-                    console.error('[PWA Sync] Error syncing invoice ' + inv.uuid + ':', err);
+                    console.error('[PWA Sync] Network error syncing invoice ' + inv.uuid + ':', err);
                     processNext();
                 });
             }
@@ -644,21 +1275,27 @@
         }).catch(function (err) {
             console.error('[PWA] Error reading pending list for sync:', err);
             isSyncing = false;
+            if (callback) callback(false);
         });
     }
 
     // ============================================================
-    // 6. Global Initialization
+    // 12. Global Initialization
     // ============================================================
     $(document).ready(function () {
         initServiceWorker();
         initInstallPrompt();
         initNetworkListeners();
         initPOSInterception();
+        initCameraScanner();
+        initFullscreenKiosk();
         updateNetworkStatusUI();
         updatePendingCountBadge();
 
-        // Check for sync 3 seconds after page load if online
+        // Preload tests and doctors catalog on page load
+        setTimeout(preloadDiagnosticCatalog, 2000);
+
+        // Auto sync check on startup
         setTimeout(function () {
             if (navigator.onLine) {
                 syncOfflineInvoices();

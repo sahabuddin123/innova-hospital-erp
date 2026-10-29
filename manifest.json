@@ -21,5 +21,35 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Diagnostic Invoice",
+      "short_name": "New Bill",
+      "description": "Create Diagnostic Bill / POS Invoice",
+      "url": "./finance/addPaymentView",
+      "icons": [{ "src": "uploads/pwa-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Due Collection",
+      "short_name": "Due Collect",
+      "description": "Collect Patient Due Payments",
+      "url": "./finance/dueCollection",
+      "icons": [{ "src": "uploads/pwa-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Lab Reports",
+      "short_name": "Lab",
+      "description": "View Diagnostic Lab Reports",
+      "url": "./lab",
+      "icons": [{ "src": "uploads/pwa-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Add Patient",
+      "short_name": "New Patient",
+      "description": "Register New Patient Record",
+      "url": "./patient/addNewView",
+      "icons": [{ "src": "uploads/pwa-icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

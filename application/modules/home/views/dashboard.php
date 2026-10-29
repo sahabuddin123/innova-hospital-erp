@@ -218,14 +218,23 @@
             <span class="pwa-status-dot"></span>
             <span class="pwa-status-text d-none d-md-inline">Online</span>
           </div>
-          <button type="button" id="pwa_sync_badge" class="btn btn-xs btn-warning ml-2 shadow-sm" style="display:none;" title="Click to Sync Offline Invoices Now">
+          <button type="button" id="pwa_sync_badge" class="btn btn-xs btn-warning ml-2 shadow-sm" style="display:none;" title="Click to Open Offline Vault & Sync Now">
             <i class="fas fa-cloud-upload-alt mr-1"></i>
             <span id="pwa_pending_count">0</span> Unsynced
           </button>
         </li>
 
-        <!-- PWA Install App Button -->
+        <!-- PWA Quick Actions: Vault, Camera Scanner, Fullscreen Kiosk, Install -->
         <li class="nav-item d-flex align-items-center mr-2">
+          <button type="button" id="pwa_vault_btn" class="btn btn-xs btn-outline-secondary mr-1 shadow-sm" title="Offline Vault & Sync History">
+            <i class="fas fa-archive mr-1"></i> <span class="d-none d-lg-inline">Vault</span>
+          </button>
+          <button type="button" id="pwa_camera_scanner_btn" class="btn btn-xs btn-outline-secondary mr-1 shadow-sm" title="Scan Barcode / QR with Camera">
+            <i class="fas fa-camera mr-1"></i> <span class="d-none d-lg-inline">Scan</span>
+          </button>
+          <button type="button" id="pwa_fullscreen_btn" class="btn btn-xs btn-outline-secondary mr-1 shadow-sm" title="Toggle Fullscreen POS Mode">
+            <i class="fas fa-expand"></i>
+          </button>
           <button type="button" id="pwa_install_btn" class="btn btn-xs btn-outline-primary d-none shadow-sm" title="Install LifeCare as Desktop/Mobile App">
             <i class="fas fa-download mr-1"></i> Install App
           </button>
