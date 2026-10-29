@@ -638,9 +638,11 @@ if (!function_exists('invoiceAmountInWords')) {
                             <span class="invoice-status-badge <?php echo $status_class; ?>">
                                 <i class="fas fa-circle mr-1" style="font-size: 7px;"></i> <?php echo $status_text; ?>
                             </span>
-                            <span class="due-amount-banner <?php echo ($balance_due > 0.009) ? 'banner-has-due' : 'banner-no-due'; ?>">
-                                Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?>
-                            </span>
+                            <?php if ($balance_due > 0.009) { ?>
+                                <span class="due-amount-banner banner-has-due">
+                                    Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?>
+                                </span>
+                            <?php } ?>
                         </div>
 
                         <!-- Amount in Words -->
@@ -652,14 +654,13 @@ if (!function_exists('invoiceAmountInWords')) {
                             ?>
                         </div>
 
-                        <div class="patient-instructions-box">
-                            <div><strong>Instructions:</strong> Please preserve this receipt. It is required during diagnostic report collection.</div>
-                            <?php if (!empty($invoice_rooms_line)) { ?>
+                        <?php if (!empty($invoice_rooms_line)) { ?>
+                            <div class="patient-instructions-box">
                                 <div class="invoice-room-numbers">
                                     <strong>Room No:</strong> <?php echo html_escape($invoice_rooms_line); ?>
                                 </div>
-                            <?php } ?>
-                        </div>
+                            </div>
+                        <?php } ?>
                     </div>
 
                     <!-- Left Signature Block -->

@@ -734,19 +734,20 @@ body {
             <div class="status-card">
                 <div>
                     <span class="badge-status"><?php echo $status_text; ?></span>
-                    <span class="badge-due">Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?></span>
+                    <?php if ($balance_due > 0.009) { ?>
+                        <span class="badge-due">Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?></span>
+                    <?php } ?>
                 </div>
                 <div class="in-words">
                     <strong>In Words:</strong> <?php echo html_escape($amount_in_words); ?>
                 </div>
-                <div class="instructions">
-                    <div><strong>Instructions:</strong> Please preserve this receipt. It is required during diagnostic report collection.</div>
-                    <?php if (!empty($invoice_rooms_line)) { ?>
-                        <div style="margin-top: 2px; font-weight: bold; color: #1e3a8a; font-size: 7.5pt;">
+                <?php if (!empty($invoice_rooms_line)) { ?>
+                    <div class="instructions">
+                        <div style="font-weight: bold; color: #1e3a8a; font-size: 7.5pt;">
                             <strong style="color: #0f172a;">Room No:</strong> <?php echo html_escape($invoice_rooms_line); ?>
                         </div>
-                    <?php } ?>
-                </div>
+                    </div>
+                <?php } ?>
             </div>
 
             <!-- Signatures -->
