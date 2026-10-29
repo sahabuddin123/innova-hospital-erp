@@ -526,7 +526,7 @@
 
 .invoice-items-table thead th {
     background: var(--inv-primary-navy);
-    color: #ffffff;
+    color: #ffffff !important;
     font-weight: 700;
     font-size: 9.5px;
     text-transform: uppercase;

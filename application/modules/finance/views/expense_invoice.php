@@ -109,8 +109,8 @@ if (!function_exists('invoiceAmountInWords')) {
 
 <style>
 @page {
-    size: 176mm 250mm;
-    margin: 5mm 6mm;
+    size: 148mm 210mm;
+    margin: 4mm 5mm;
 }
 @media print {
     html, body {
@@ -151,6 +151,7 @@ if (!function_exists('invoiceAmountInWords')) {
         background: #ffffff !important;
     }
     .invoice-paper,
+    .expense-a5-paper,
     .expense-b5-paper {
         width: 100% !important;
         max-width: 100% !important;
@@ -161,6 +162,12 @@ if (!function_exists('invoiceAmountInWords')) {
         margin: 0 !important;
         padding: 0 !important;
         display: block !important;
+    }
+    .invoice-items-table thead th {
+        background: #0e385d !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
     .invoice-items-table tr {
         page-break-inside: avoid !important;
@@ -199,7 +206,7 @@ if (!function_exists('invoiceAmountInWords')) {
     <div class="invoice-screen-wrapper">
         
         <!-- Screen Action Toolbar (no-print) -->
-        <div class="invoice-action-toolbar expense-toolbar-b5 no-print">
+        <div class="invoice-action-toolbar expense-toolbar-a5 no-print">
             <div class="invoice-toolbar-left">
                 <a href="finance/expense" class="invoice-btn-action invoice-btn-back">
                     <i class="fas fa-arrow-left"></i> <?php echo lang('all'); ?> <?php echo lang('expenses'); ?>
@@ -222,14 +229,14 @@ if (!function_exists('invoiceAmountInWords')) {
                 </a>
 
                 <a href="javascript:void(0);" onclick="window.print();" class="invoice-btn-action invoice-btn-print">
-                    <i class="fas fa-print"></i> <?php echo lang('print'); ?> (B5)
+                    <i class="fas fa-print"></i> <?php echo lang('print'); ?> (A5)
                 </a>
             </div>
         </div>
 
-        <!-- B5 Invoice Paper Container (176mm x 250mm) -->
-        <div class="invoice-container-wrapper expense-b5-container">
-            <div class="invoice-paper expense-b5-paper" id="printable-invoice">
+        <!-- A5 Invoice Paper Container (148mm x 210mm) -->
+        <div class="invoice-container-wrapper expense-a5-container">
+            <div class="invoice-paper expense-a5-paper" id="printable-invoice">
                 
                 <div>
                     <!-- 1. HEADER SECTION (Hospital Identity & Expense Invoice Metadata) -->
@@ -327,10 +334,10 @@ if (!function_exists('invoiceAmountInWords')) {
                         <table class="invoice-items-table">
                             <thead>
                                 <tr class="table-columns-header-row">
-                                    <th class="col-num" style="width: 8%; text-align: center;">SL</th>
-                                    <th class="col-desc" style="width: 38%; text-align: left;">DESCRIPTION</th>
-                                    <th class="col-note" style="width: 34%; text-align: left;">NOTE</th>
-                                    <th class="col-amount" style="width: 20%; text-align: right;">AMOUNT (BDT)</th>
+                                    <th class="col-num" style="width: 8%; text-align: center; color: #ffffff !important;">SL</th>
+                                    <th class="col-desc" style="width: 38%; text-align: left; color: #ffffff !important;">DESCRIPTION</th>
+                                    <th class="col-note" style="width: 34%; text-align: left; color: #ffffff !important;">NOTE</th>
+                                    <th class="col-amount" style="width: 20%; text-align: right; color: #ffffff !important;">AMOUNT (BDT)</th>
                                 </tr>
                             </thead>
                             <tbody>

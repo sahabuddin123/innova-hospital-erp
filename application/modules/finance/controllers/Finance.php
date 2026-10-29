@@ -1855,12 +1855,12 @@ class Finance extends MX_Controller
         require_once APPPATH . '../vendor/autoload.php';
 
         $mpdf = new \Mpdf\Mpdf([
-            'format' => 'B5',
+            'format' => 'A5',
             'orientation' => 'P',
-            'margin_left' => 6,
-            'margin_right' => 6,
-            'margin_top' => 6,
-            'margin_bottom' => 6,
+            'margin_left' => 5,
+            'margin_right' => 5,
+            'margin_top' => 5,
+            'margin_bottom' => 5,
             'autoScriptToLang' => true,
             'autoLangToFont' => true,
             'default_font' => 'freeserif'

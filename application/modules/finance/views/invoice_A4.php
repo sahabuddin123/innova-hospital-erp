@@ -528,12 +528,12 @@ if (!function_exists('invoiceAmountInWords')) {
                 </a>
 
                 <a href="javascript:void(0);" onclick="window.print();" class="invoice-btn-action invoice-btn-print">
-                    <i class="fas fa-print"></i> <?php echo lang('print'); ?> (B5)
+                    <i class="fas fa-print"></i> <?php echo lang('print'); ?> (A5)
                 </a>
             </div>
         </div>
 
-        <!-- B5 Invoice Paper Container (176mm x 250mm) -->
+        <!-- A5 Invoice Paper Container (148mm x 210mm) -->
         <div class="invoice-container-wrapper">
             <div class="invoice-paper <?php echo $is_cancelled ? 'is-cancelled' : ''; ?>" id="printable-invoice">
                 

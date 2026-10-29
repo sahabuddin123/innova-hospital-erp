@@ -1,63 +1,84 @@
 /**
  * Lifecare Hospital Management System - Expense Invoice Stylesheet
- * Engineered specifically for ISO B5 Paper Format (176mm x 250mm)
+ * Engineered specifically for ISO A5 Paper Format (148mm x 210mm)
  * Matches the existing Lifecare Money Receipt design, typography, and print format.
  */
 
+.expense-toolbar-a5,
 .expense-toolbar-b5 {
-    max-width: 176mm !important;
+    max-width: 148mm !important;
 }
 
+.expense-a5-container,
 .expense-b5-container {
     width: 100%;
-    max-width: 176mm;
+    max-width: 148mm;
     margin: 0 auto;
 }
 
+.expense-a5-paper,
 .expense-b5-paper {
     width: 100%;
-    max-width: 176mm;
-    min-height: 235mm;
+    max-width: 148mm;
+    min-height: 200mm;
     margin: 0 auto;
     background: #ffffff;
-    padding: 6mm 8mm;
+    padding: 5mm 6mm;
     box-sizing: border-box;
     box-shadow: 0 4px 20px rgba(15, 23, 42, 0.09);
     border-radius: 6px;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #334155;
-    font-size: 11px;
-    line-height: 1.4;
+    font-size: 10.5px;
+    line-height: 1.35;
     position: relative;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
 }
 
-/* Ensure B5 Table Column Proportions */
-.expense-b5-paper .invoice-items-table th.col-desc,
+/* Ensure A5 Table Column Header Colors & Row Proportions */
+.expense-a5-paper .invoice-items-table thead th,
+.expense-b5-paper .invoice-items-table thead th {
+    background: #0e385d !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+.expense-a5-paper .invoice-items-table thead th.col-num,
+.expense-a5-paper .invoice-items-table thead th.col-desc,
+.expense-a5-paper .invoice-items-table thead th.col-note,
+.expense-a5-paper .invoice-items-table thead th.col-amount,
+.expense-b5-paper .invoice-items-table thead th.col-num,
+.expense-b5-paper .invoice-items-table thead th.col-desc,
+.expense-b5-paper .invoice-items-table thead th.col-note,
+.expense-b5-paper .invoice-items-table thead th.col-amount {
+    color: #ffffff !important;
+}
+
+.expense-a5-paper .invoice-items-table td.col-desc,
 .expense-b5-paper .invoice-items-table td.col-desc {
     font-weight: 600;
     color: #0f172a;
 }
 
-.expense-b5-paper .invoice-items-table th.col-note,
+.expense-a5-paper .invoice-items-table td.col-note,
 .expense-b5-paper .invoice-items-table td.col-note {
     color: #475569;
-    font-size: 10.5px;
+    font-size: 10px;
 }
 
-.expense-b5-paper .invoice-items-table th.col-amount,
+.expense-a5-paper .invoice-items-table td.col-amount,
 .expense-b5-paper .invoice-items-table td.col-amount {
     font-weight: 700;
     color: #0f172a;
     text-align: right;
 }
 
-/* Print Overrides for ISO B5 */
+/* Print Overrides for ISO A5 */
 @page {
-    size: 176mm 250mm;
-    margin: 5mm 6mm;
+    size: 148mm 210mm;
+    margin: 4mm 5mm;
 }
 
 @media print {
@@ -96,6 +117,7 @@
 
     .invoice-screen-wrapper,
     .invoice-container-wrapper,
+    .expense-a5-container,
     .expense-b5-container {
         margin: 0 !important;
         padding: 0 !important;
@@ -105,6 +127,7 @@
     }
 
     .invoice-paper,
+    .expense-a5-paper,
     .expense-b5-paper {
         width: 100% !important;
         max-width: 100% !important;
