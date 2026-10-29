@@ -20,9 +20,30 @@ class Lab extends MX_Controller
         $this->load->model('accountant/accountant_model');
         $this->load->model('receptionist/receptionist_model');
         $this->load->model('macro/macro_model');
-        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist', 'Nurse', 'Laboratorist', 'Doctor', 'Patient'))) {
-            redirect('home/permission');
+        if ($this->router->fetch_method() != 'barcode') {
+            if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist', 'Nurse', 'Laboratorist', 'Doctor', 'Patient'))) {
+                redirect('home/permission');
+            }
         }
+    }
+
+    public function barcode()
+    {
+        $filepath = $this->input->get('filepath') ? $this->input->get('filepath') : '';
+        $text = $this->input->get('text') !== null ? (string)$this->input->get('text') : '0';
+        $size = $this->input->get('size') ? $this->input->get('size') : '20';
+        $orientation = $this->input->get('orientation') ? $this->input->get('orientation') : 'horizontal';
+        $code_type = $this->input->get('codetype') ? $this->input->get('codetype') : 'code128';
+        $print = ($this->input->get('print') === 'true' || $this->input->get('print') === '1');
+        $sizefactor = $this->input->get('sizefactor') ? (float)$this->input->get('sizefactor') : 1;
+
+        if (!function_exists('barcode')) {
+            require_once APPPATH . 'modules/lab/controllers/Barcode.php';
+        }
+        if (function_exists('barcode')) {
+            barcode($filepath, $text, $size, $orientation, $code_type, $print, $sizefactor);
+        }
+        exit;
     }
 
     public function load_view($view, $data = array())

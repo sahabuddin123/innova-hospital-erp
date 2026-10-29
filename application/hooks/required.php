@@ -51,6 +51,9 @@ function required()
 
 
     $RTR = &load_class('Router');
+    if ($RTR->class == "barcode" || ($RTR->class == "lab" && $RTR->method == "barcode")) {
+        return;
+    }
     if ($RTR->class != "frontend" && $RTR->class != "payu" && $RTR->class != "status" && $RTR->class != "cronjobs" && $RTR->class != "request" && $RTR->class != "auth" && $RTR->class != "site" && $RTR->class != "api") {
         if (!$CI->ion_auth->logged_in()) {
             redirect('auth/login');
