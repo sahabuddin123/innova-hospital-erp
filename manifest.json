@@ -45,6 +45,13 @@
       "icons": [{ "src": "uploads/pwa-icon-192.png", "sizes": "192x192" }]
     },
     {
+      "name": "Report Templates",
+      "short_name": "Templates",
+      "description": "Manage Diagnostic Lab Report Templates",
+      "url": "./lab/template",
+      "icons": [{ "src": "uploads/pwa-icon-192.png", "sizes": "192x192" }]
+    },
+    {
       "name": "Add Patient",
       "short_name": "New Patient",
       "description": "Register New Patient Record",

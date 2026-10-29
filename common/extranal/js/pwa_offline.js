@@ -292,6 +292,18 @@
             });
             OfflineDB.saveCatalog('referrers_list', referrers);
         }
+
+        // Preload Lab Report Templates if on report pages
+        if ($('#template1 option').length > 1) {
+            var labTemplates = [];
+            $('#template1 option').each(function () {
+                var val = $(this).val();
+                if (val) {
+                    labTemplates.push({ id: val, name: $(this).text() });
+                }
+            });
+            OfflineDB.saveCatalog('lab_templates_list', labTemplates);
+        }
     }
 
     // ============================================================
@@ -1280,7 +1292,82 @@
     }
 
     // ============================================================
-    // 12. Global Initialization
+    // 13. Lab Report Offline Auto-Draft Engine
+    // ============================================================
+    function initLabReportOfflineDraft() {
+        var $labIdInput = $('form#editLabForm input[name="id"]');
+        if ($labIdInput.length === 0) {
+            return;
+        }
+
+        var labId = $labIdInput.val() || 'new';
+        var draftKey = 'lifecare_lab_draft_' + labId;
+
+        // 1. Check for unsaved offline draft on load
+        try {
+            var savedDraft = localStorage.getItem(draftKey);
+            if (savedDraft) {
+                var draftObj = JSON.parse(savedDraft);
+                setTimeout(function () {
+                    var currentContent = '';
+                    if (typeof tinymce !== 'undefined' && tinymce.get('editor')) {
+                        currentContent = tinymce.get('editor').getContent();
+                    } else if ($('#editor').length > 0) {
+                        currentContent = $('#editor').val();
+                    }
+
+                    if ((!currentContent || currentContent.trim() === '') && draftObj.content) {
+                        if (typeof tinymce !== 'undefined' && tinymce.get('editor')) {
+                            tinymce.get('editor').setContent(draftObj.content);
+                        } else if ($('#editor').length > 0) {
+                            $('#editor').val(draftObj.content);
+                        }
+
+                        if (typeof SoundFX !== 'undefined' && SoundFX.successChime) {
+                            SoundFX.successChime();
+                        }
+
+                        if ($('#draft_restore_notice').length === 0) {
+                            var noticeHtml = '<div id="draft_restore_notice" class="alert alert-warning alert-dismissible fade show shadow-sm mb-3" role="alert">' +
+                                '<i class="fas fa-history mr-2"></i><strong>Offline Draft Restored:</strong> Your previously unsaved report draft from ' + (draftObj.time || '') + ' was automatically recovered.' +
+                                '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+                                '</div>';
+                            $('form#editLabForm').prepend(noticeHtml);
+                        }
+                    }
+                }, 1200);
+            }
+        } catch (e) {}
+
+        // 2. Periodic Auto-save (Every 10 seconds)
+        setInterval(function () {
+            try {
+                var content = '';
+                if (typeof tinymce !== 'undefined' && tinymce.get('editor')) {
+                    content = tinymce.get('editor').getContent();
+                } else if ($('#editor').length > 0) {
+                    content = $('#editor').val();
+                }
+
+                if (content && content.trim() !== '') {
+                    localStorage.setItem(draftKey, JSON.stringify({
+                        content: content,
+                        time: new Date().toLocaleTimeString()
+                    }));
+                }
+            } catch (e) {}
+        }, 10000);
+
+        // 3. Clear draft when form is submitted
+        $('form#editLabForm').on('submit', function () {
+            try {
+                localStorage.removeItem(draftKey);
+            } catch (e) {}
+        });
+    }
+
+    // ============================================================
+    // 14. Global Initialization
     // ============================================================
     $(document).ready(function () {
         initServiceWorker();
@@ -1289,10 +1376,11 @@
         initPOSInterception();
         initCameraScanner();
         initFullscreenKiosk();
+        initLabReportOfflineDraft();
         updateNetworkStatusUI();
         updatePendingCountBadge();
 
-        // Preload tests and doctors catalog on page load
+        // Preload tests, doctors and templates catalog on page load
         setTimeout(preloadDiagnosticCatalog, 2000);
 
         // Auto sync check on startup

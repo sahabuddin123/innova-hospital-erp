@@ -76,7 +76,23 @@ $(document).ready(function () {
                     } else {
                         $('#editor').val(response.template.template);
                     }
+                    try {
+                        localStorage.setItem('lifecare_cached_template_' + iid, response.template.template);
+                    } catch (e) {}
                 }  
+            },
+            error: function () {
+                // Offline fallback: load from cached template if available
+                try {
+                    var cachedHtml = localStorage.getItem('lifecare_cached_template_' + iid);
+                    if (cachedHtml) {
+                        if (typeof tinymce !== 'undefined' && tinymce.get('editor')) {
+                            tinymce.get('editor').setContent(cachedHtml);
+                        } else {
+                            $('#editor').val(cachedHtml);
+                        }
+                    }
+                } catch (e) {}
             }
         });
     });

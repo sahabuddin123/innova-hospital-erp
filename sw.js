@@ -1,5 +1,5 @@
 // LifeCare Diagnostic Center - Service Worker (PWA & Offline Engine)
-const CACHE_NAME = 'lifecare-pwa-v1.0';
+const CACHE_NAME = 'lifecare-pwa-v2.0';
 
 const PRECACHE_ASSETS = [
     './offline.html',
@@ -10,6 +10,13 @@ const PRECACHE_ASSETS = [
     './adminlte/dist/css/adminlte.min.css',
     './adminlte/plugins/fontawesome-free/css/all.min.css',
     './application/assets/css/enhanced-components-styles.css',
+    './common/assets/tinymce/tinymce.min.js',
+    './common/extranal/css/lab/add_template.css',
+    './common/extranal/css/lab/invoice.css',
+    './common/extranal/js/lab/add_lab_view.js',
+    './common/extranal/js/lab/add_template_view.js',
+    './common/extranal/js/lab/template.js',
+    './common/extranal/css/finance/expense_invoice.css',
     './common/extranal/js/pwa_offline.js'
 ];
 
