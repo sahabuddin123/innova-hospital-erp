@@ -2,7 +2,7 @@
 
 $(document).ready(function () {
   "use strict";
-  var category = $(".category").val();
+  var category = $(".category").val() || "all";
 
   var table = $("#editable-sample").DataTable({
     responsive: true,
@@ -54,7 +54,7 @@ $(document).ready(function () {
 });
 $(document).ready(function () {
   $(".category").on("change", function () {
-    var category = $(this).val();
+    var category = $(this).val() || "all";
     $("#editable-sample").DataTable().destroy().clear();
     var table = $("#editable-sample").DataTable({
       responsive: true,

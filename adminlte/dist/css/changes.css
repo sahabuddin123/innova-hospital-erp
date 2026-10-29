@@ -415,9 +415,6 @@ table.table-bordered.dataTable tbody td {
     font-size: 12px;
 }
 
-button i {
-    display: none !important;
-}
 
 .title-spacing {
     letter-spacing: -1px;

@@ -126,3 +126,21 @@
     margin: 2px;
     font-weight: 500;
 }
+
+/* Action Buttons & Icons */
+.doctor-table-wrapper .btn i,
+.table .btn i,
+.table button i {
+    display: inline-block !important;
+    vertical-align: middle;
+}
+
+.table .btn-group .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 2px 6px !important;
+}
+

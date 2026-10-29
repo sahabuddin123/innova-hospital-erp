@@ -4575,11 +4575,11 @@ class Finance extends MX_Controller
     function getCategoryList()
     {
         $requestData = $_REQUEST;
-        $start = $requestData['start'];
-        $limit = $requestData['length'];
-        $search = $this->input->post('search')['value'];
+        $start = isset($requestData['start']) ? intval($requestData['start']) : 0;
+        $limit = isset($requestData['length']) ? intval($requestData['length']) : 100;
+        $search = isset($requestData['search']['value']) ? $requestData['search']['value'] : (isset($_POST['search']['value']) ? $_POST['search']['value'] : '');
         $settings = $this->settings_model->getSettings();
-        $filter_category = $_GET['category'];
+        $filter_category = isset($_GET['category']) ? $_GET['category'] : (isset($requestData['category']) ? $requestData['category'] : 'all');
 
         $order = $this->input->post("order");
         $columns_valid = array(
@@ -4588,17 +4588,18 @@ class Finance extends MX_Controller
             "2" => "description",
             "3" => "payment_category_name",
             "4" => "type",
-
         );
         $values = $this->settings_model->getColumnOrder($order, $columns_valid);
         $dir = $values[0];
         $order = $values[1];
-        if (empty($filter_category) || $filter_category == 'all') {
+
+        $data = array();
+        if (empty($filter_category) || $filter_category == 'all' || $filter_category == 'undefined') {
             if ($limit == -1) {
                 if (!empty($search)) {
                     $data['payments_category'] = $this->finance_model->getPaymentCategoryBySearch($search, $order, $dir);
                 } else {
-                    $data['payments'] = $this->finance_model->getPaymentCategoryWithoutSearch($order, $dir);
+                    $data['payments_category'] = $this->finance_model->getPaymentCategoryWithoutSearch($order, $dir);
                 }
             } else {
                 if (!empty($search)) {
@@ -4608,7 +4609,6 @@ class Finance extends MX_Controller
                 }
             }
         } else {
-
             if ($limit == -1) {
                 if (!empty($search)) {
                     $data['payments_category'] = $this->finance_model->getPaymentCategoryBySearchByCategory($search, $order, $dir, $filter_category);
@@ -4624,102 +4624,57 @@ class Finance extends MX_Controller
             }
         }
 
+        $info = array();
+        $is_admin_or_acct = $this->ion_auth->in_group(array('admin', 'Accountant'));
 
+        if (!empty($data['payments_category']) && is_array($data['payments_category'])) {
+            foreach ($data['payments_category'] as $category) {
+                $options = '';
+                if ($is_admin_or_acct) {
+                    $options .= '<a class="btn btn-primary btn-sm editbutton mr-1 mt-1" title="' . lang('edit') . '" href="finance/editPaymentCategory?id=' . $category->id . '"><i class="fas fa-edit"></i> ' . lang('edit') . '</a>';
+                    $options .= '<a class="btn btn-danger btn-sm delete_button mr-1 mt-1" title="' . lang('delete') . '" href="finance/deletePaymentCategory?id=' . $category->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fas fa-trash-alt"></i> ' . lang('delete') . '</a>';
 
-        foreach ($data['payments_category'] as $category) {
-
-
-
-            if ($this->ion_auth->in_group(array('admin', 'Accountant'))) {
-                $options2 = ' <a class="btn btn-primary btn-sm editbutton mr-1 mt-1" title="' . lang('edit') . '" href="finance/editPaymentCategory?id=' . $category->id . '"><i class="fa fa-edit"> </i> ' . lang('edit') . '</a>';
-                $options3 = '<a class="btn btn-danger btn-sm delete_button mr-1 mt-1" title="' . lang('delete') . '" href="finance/deletePaymentCategory?id=' . $category->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash"></i> ' . lang('delete') . '</a>';
-
-                if (empty($category->report)) {
-                    $template1 = '<a type="button" class="btn btn-sm btn-success template mr-1 mt-1" title="' . lang('template') . '" data-toggle = "modal" data-id="' . $category->id . '"><i class="fa fa-money"> </i>' .  lang('template') . '</a>';
-                    $template2 = '';
-                } else {
-                    $template2 = '<a type="button" class="btn btn-sm btn-success template mr-1 mt-1" title="' .  lang('template') . '" data-toggle = "modal" data-id="' . $category->id . '"><i class="fa fa-money"> </i>' . lang('edit') . ' ' . lang('template') . '</a>';
-                    $template1 = '';
+                    if (empty($category->report)) {
+                        $options .= '<a type="button" class="btn btn-sm btn-success template mr-1 mt-1" title="' . lang('template') . '" data-toggle="modal" data-id="' . $category->id . '"><i class="fas fa-file-invoice"></i> ' . lang('template') . '</a>';
+                    } else {
+                        $options .= '<a type="button" class="btn btn-sm btn-success template mr-1 mt-1" title="' . lang('template') . '" data-toggle="modal" data-id="' . $category->id . '"><i class="fas fa-file-invoice"></i> ' . lang('edit') . ' ' . lang('template') . '</a>';
+                    }
                 }
-            } else {
-                $options2 = '';
-                $options3 = '';
-                $template1 = '';
-                $template2 = '';
-            }
-            $category_details = $this->finance_model->getCategoryById($category->payment_category);
-            if (empty($category_details)) {
-                $details = $category_details->category;
-            } else {
-                $details =  $category->payment_category_name;
-            }
-            if ($category->type == 'diagnostic') {
-                $type = lang('diagnostic_test');
-            } else {
-                $type = lang('others');
-            }
-            $payment_category_details = $this->finance_model->getCategoryById($category->payment_category);
-            if (empty($payment_category_details)) {
-                $category_word = $payment_category_details->payment_category_name;
-            } else {
-                $category_word = $payment_category_details->category;
-            }
 
+                $type = ($category->type == 'diagnostic') ? lang('diagnostic_test') : lang('others');
+                $currency = !empty($settings->currency) ? $settings->currency : '৳';
 
-            $dropdownOptions = '';
-            $dropdownOptions = '
-            <div class="btn-group">
-            <button type="button" class="btn btn-info btn-sm label-primary dropdown-toggle action_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="">
-            <i class="fas fa-bars"></i> ' . lang('actions') . ' <span class="caret"></span>
-        </button>
-                <ul class="dropdown-menu">
-                    ' . ($options2 ? '<li><a class="editbutton" title="' . lang('edit') . '" href="finance/editPaymentCategory?id=' . $category->id . '">  <i class="fa fa-edit"></i> ' . lang('edit') . '</a></li>' : '') . '
-                    ' . ($template1 ? '<li><a class="template" data-toggle = "modal" data-id="' . $category->id . '"> <i class="fa fa-file"></i> ' . lang('report') . ' ' . lang('template') . ' </a></li>' : '') . '
-                    ' . ($template2 ? '<li><a class="template" data-toggle = "modal" data-id="' . $category->id . '"> <i class="fa fa-file"></i> ' . lang('edit') . ' ' . lang('template') . ' </a></li>' : '') . '
-                    ' . ($options3 ? '<li><a href="finance/deletePaymentCategory?id=' . $category->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"> <i class="fa fa-trash"></i> ' . lang('delete') . ' </a></li>' : '') . '
-                </ul>
-            </div>';
-
-            $info[] = array(
-                $category->category,
-                $category->code,
-                $category->description,
-                // $category_word,
-                $settings->currency . ' ' . $category->c_price,
-                $category->d_commission . ' %',
-                $category->r_commission . ' %',
-                $type,
-                // $dropdownOptions
-                $options2 . ' ' . $options3 . ' ' . $template1 . ' ' . $template2,
-            );
+                $info[] = array(
+                    $category->category,
+                    $category->code,
+                    $category->description,
+                    $currency . ' ' . $category->c_price,
+                    $category->d_commission . ' %',
+                    $category->r_commission . ' %',
+                    $type,
+                    $options,
+                );
+            }
         }
 
-
-
-
-
-
-
-
-        if (!empty($data['payments_category'])) {
-            $output = array(
-                "draw" => intval($requestData['draw']),
-                "recordsTotal" => count($data['payments_category']),
-                "recordsFiltered" => count($data['payments_category']),
-                "data" => $info
-            );
+        $hospital_id = $this->session->userdata('hospital_id');
+        $totalRecords = $this->db->where('hospital_id', $hospital_id)->where('status', 'Active')->count_all_results('payment_category');
+        if (!empty($search)) {
+            $totalFiltered = count($info);
+        } elseif (!empty($filter_category) && $filter_category != 'all') {
+            $totalFiltered = $this->db->where('hospital_id', $hospital_id)->where('status', 'Active')->where('payment_category', $filter_category)->count_all_results('payment_category');
         } else {
-            $output = array(
-                // "draw" => 1,
-                "recordsTotal" => 0,
-                "recordsFiltered" => 0,
-                "data" => []
-            );
+            $totalFiltered = $totalRecords;
         }
 
+        $output = array(
+            "draw" => isset($requestData['draw']) ? intval($requestData['draw']) : 1,
+            "recordsTotal" => intval($totalRecords ?: count($info)),
+            "recordsFiltered" => intval($totalFiltered ?: count($info)),
+            "data" => $info
+        );
 
-
-
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode($output);
     }
 

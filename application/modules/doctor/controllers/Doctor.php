@@ -605,12 +605,12 @@ class Doctor extends MX_Controller
 
             // Actions
             $actions = '<div class="btn-group btn-group-sm" role="group">';
-            $actions .= '<button type="button" class="btn btn-info inffo mr-1" title="View Profile" data-id="' . $doctor->id . '"><i class="fa fa-eye"></i></button>';
-            $actions .= '<button type="button" class="btn btn-primary editbutton mr-1" title="Edit Doctor" data-id="' . $doctor->id . '"><i class="fa fa-edit"></i></button>';
-            $actions .= '<a href="schedule/timeSchedule?doctor=' . $doctor->id . '" class="btn btn-secondary mr-1" title="Weekly Time Schedule"><i class="fa fa-clock"></i></a>';
-            $actions .= '<a href="schedule/holidays?doctor=' . $doctor->id . '" class="btn btn-warning mr-1" title="Holidays & Leave"><i class="fa fa-calendar-times"></i></a>';
-            $actions .= '<a href="appointment/getAppointmentByDoctorId?id=' . $doctor->id . '" class="btn btn-success mr-1" title="Doctor Appointments"><i class="fa fa-calendar-check"></i></a>';
-            $actions .= '<a href="doctor/delete?id=' . $doctor->id . '" class="btn btn-danger" title="Delete" onclick="return confirm(\'Are you sure you want to delete this doctor?\');"><i class="fa fa-trash"></i></a>';
+            $actions .= '<a type="button" class="btn btn-info inffo mr-1" title="View Profile" data-id="' . $doctor->id . '"><i class="fas fa-eye"></i></a>';
+            $actions .= '<a type="button" class="btn btn-primary editbutton mr-1" title="Edit Doctor" data-id="' . $doctor->id . '"><i class="fas fa-edit"></i></a>';
+            $actions .= '<a href="schedule/timeSchedule?doctor=' . $doctor->id . '" class="btn btn-secondary mr-1" title="Weekly Time Schedule"><i class="fas fa-clock"></i></a>';
+            $actions .= '<a href="schedule/holidays?doctor=' . $doctor->id . '" class="btn btn-warning mr-1" title="Holidays & Leave"><i class="fas fa-calendar-times"></i></a>';
+            $actions .= '<a href="appointment/getAppointmentByDoctorId?id=' . $doctor->id . '" class="btn btn-success mr-1" title="Doctor Appointments"><i class="fas fa-calendar-check"></i></a>';
+            $actions .= '<a href="doctor/delete?id=' . $doctor->id . '" class="btn btn-danger" title="Delete" onclick="return confirm(\'Are you sure you want to delete this doctor?\');"><i class="fas fa-trash-alt"></i></a>';
             $actions .= '</div>';
 
             $info[] = array(
