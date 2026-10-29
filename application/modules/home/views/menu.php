@@ -647,9 +647,9 @@ $sidebar_hidden_modules = array(
                         <p><?php echo lang('new_items_lab_tests'); ?></p>
                     </a>
                 </li>
-                <!-- <li class="nav-item"><a class="nav-link text-white" href="finance/category"><i class="text-secondary nav-icon far fa-circle"></i>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/category"><i class="text-secondary nav-icon far fa-circle"></i>
                         <p><?php echo lang('payment_categories'); ?></p>
-                    </a></li> -->
+                    </a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="finance/expense"><i class="text-secondary nav-icon far fa-circle"></i>
                         <p><?php echo lang('expense'); ?></p>
                     </a></li>

@@ -1450,7 +1450,13 @@ class Finance extends MX_Controller
         $description = $this->input->post('description');
         $c_price = $this->input->post('c_price');
         $payment_category = $this->input->post('payment_category');
-        $payment_category_name =  $this->finance_model->getCategoryById($payment_category)->category;
+        $payment_category_name = '';
+        if (!empty($payment_category)) {
+            $cat_obj = $this->finance_model->getCategoryById($payment_category);
+            if (!empty($cat_obj)) {
+                $payment_category_name = $cat_obj->category;
+            }
+        }
         $code = $this->input->post('code');
         $d_commission = $this->input->post('d_commission');
         $r_commission = $this->input->post('r_commission');
@@ -1480,6 +1486,8 @@ class Finance extends MX_Controller
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
         // Validating Category Name Field
         $this->form_validation->set_rules('category', 'Category', 'trim|required|min_length[1]|max_length[100]|xss_clean');
+        // Validating Category Field
+        $this->form_validation->set_rules('payment_category', 'Category', 'trim|xss_clean');
         // Validating Description Field
         $this->form_validation->set_rules('description', 'Description', 'trim|min_length[1]|max_length[100]|xss_clean');
         // Validating Price Field

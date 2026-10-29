@@ -1379,8 +1379,14 @@ class Finance_model extends CI_model
     function getCategory()
     {
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
+        $this->db->order_by('category', 'asc');
         $query = $this->db->get('category');
-        return $query->result();
+        $res = $query->result();
+        if (empty($res)) {
+            $this->db->order_by('category', 'asc');
+            $res = $this->db->get('category')->result();
+        }
+        return $res;
     }
     function getDepositByInvoiceId($id)
     {

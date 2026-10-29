@@ -57,6 +57,31 @@
                                 </div>
 
                                 <div class="form-group mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="text-uppercase text-sm mb-0"><?php echo lang('category'); ?> / Investigation Department <span class="text-danger">*</span></label>
+                                        <a href="finance/addCategoryView" target="_blank" class="small text-primary font-weight-bold" title="Add a new department/category">+ <?php echo lang('add_new'); ?> <?php echo lang('category'); ?></a>
+                                    </div>
+                                    <select class="form-control form-control-lg" name="payment_category" id="payment_category" required="">
+                                        <option value=""><?php echo lang('select'); ?> <?php echo lang('category'); ?></option>
+                                        <?php if (!empty($paycategories)) {
+                                            foreach ($paycategories as $paycategory) { ?>
+                                                <option value="<?php echo $paycategory->id; ?>" <?php
+                                                    if (!empty($setval) && set_value('payment_category') == $paycategory->id) {
+                                                        echo 'selected';
+                                                    } elseif (!empty($category->payment_category) && $category->payment_category == $paycategory->id) {
+                                                        echo 'selected';
+                                                    } elseif (!empty($category->payment_category_name) && strcasecmp(trim($category->payment_category_name), trim($paycategory->category)) === 0) {
+                                                        echo 'selected';
+                                                    }
+                                                ?>>
+                                                    <?php echo $paycategory->category; ?>
+                                                </option>
+                                            <?php }
+                                        } ?>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-4">
                                     <label class="text-uppercase text-sm"><?php echo lang('item'); ?> <?php echo lang('code'); ?> <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control form-control-lg" name="code" value='<?php
                                                                                                                 if (!empty($setval)) {
@@ -147,12 +172,38 @@
                                 </div>
 
                                 <div class="form-group mb-4">
-                                    <label class="text-uppercase text-sm">Delivery Turnaround (Days) <span class="text-muted">(Normal: 0 = Same Day, Hormonal: 3 or 5 Days)</span></label>
-                                    <select class="form-control form-control-lg" name="delivery_days">
-                                        <option value="0" <?php echo (isset($category->delivery_days) && $category->delivery_days == 0) ? 'selected' : ''; ?>>0 Days (Same Day / Normal Test)</option>
-                                        <option value="3" <?php echo (isset($category->delivery_days) && $category->delivery_days == 3) ? 'selected' : ''; ?>>3 Days (Hormonal / Special Turnaround)</option>
-                                        <option value="5" <?php echo (isset($category->delivery_days) && $category->delivery_days == 5) ? 'selected' : ''; ?>>5 Days (Extended Turnaround)</option>
+                                    <label class="text-uppercase text-sm">Delivery Turnaround (Days) <span class="text-muted">(0 = Same Day, 1 = Next Day, etc.)</span></label>
+                                    <?php
+                                    $current_days = null;
+                                    if (isset($setval)) {
+                                        $current_days = set_value('delivery_days');
+                                    } elseif (isset($category->delivery_days)) {
+                                        $current_days = $category->delivery_days;
+                                    }
+                                    $standard_days = [0, 1, 2, 3, 4, 5, 7, 10, 15];
+                                    $is_custom = ($current_days !== null && $current_days !== '' && !in_array(intval($current_days), $standard_days));
+                                    ?>
+                                    <select class="form-control form-control-lg mb-2" id="delivery_days_preset" onchange="handleDeliveryDaysPreset(this.value)">
+                                        <option value="0" <?php echo ($current_days !== null && intval($current_days) == 0 && !$is_custom) ? 'selected' : ''; ?>>0 Days (Same Day / Normal Test)</option>
+                                        <option value="1" <?php echo ($current_days !== null && intval($current_days) == 1 && !$is_custom) ? 'selected' : ''; ?>>1 Day (Next Day Delivery)</option>
+                                        <option value="2" <?php echo ($current_days !== null && intval($current_days) == 2 && !$is_custom) ? 'selected' : ''; ?>>2 Days</option>
+                                        <option value="3" <?php echo ($current_days !== null && intval($current_days) == 3 && !$is_custom) ? 'selected' : ''; ?>>3 Days (Hormonal / Special Turnaround)</option>
+                                        <option value="4" <?php echo ($current_days !== null && intval($current_days) == 4 && !$is_custom) ? 'selected' : ''; ?>>4 Days</option>
+                                        <option value="5" <?php echo ($current_days !== null && intval($current_days) == 5 && !$is_custom) ? 'selected' : ''; ?>>5 Days (Extended Turnaround)</option>
+                                        <option value="7" <?php echo ($current_days !== null && intval($current_days) == 7 && !$is_custom) ? 'selected' : ''; ?>>7 Days (1 Week)</option>
+                                        <option value="10" <?php echo ($current_days !== null && intval($current_days) == 10 && !$is_custom) ? 'selected' : ''; ?>>10 Days</option>
+                                        <option value="15" <?php echo ($current_days !== null && intval($current_days) == 15 && !$is_custom) ? 'selected' : ''; ?>>15 Days (Biopsy / Culture / Special Investigation)</option>
+                                        <option value="custom" <?php echo $is_custom ? 'selected' : ''; ?>>Custom Days (Enter Manually)...</option>
                                     </select>
+                                    <div id="custom_days_wrapper" style="<?php echo $is_custom ? '' : 'display:none;'; ?>">
+                                        <div class="input-group">
+                                            <input type="number" min="0" max="365" class="form-control form-control-lg" id="delivery_days_input" name="delivery_days" value="<?php echo ($current_days !== null) ? html_escape($current_days) : '0'; ?>" placeholder="Enter number of days (e.g. 0, 1, 2, 7...)">
+                                            <div class="input-group-append">
+                                                <span class="input-group-text font-weight-bold">Days</span>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">Enter any custom number of delivery turnaround days.</small>
+                                    </div>
                                 </div>
 
                                 <div class="form-group mb-4">
@@ -186,3 +237,16 @@
 <!--footer start-->
 <script src="common/js/codearistos.min.js"></script>
 <script src="common/extranal/js/finance/payment_category.js"></script>
+<script>
+function handleDeliveryDaysPreset(val) {
+    var wrapper = document.getElementById('custom_days_wrapper');
+    var input = document.getElementById('delivery_days_input');
+    if (val === 'custom') {
+        wrapper.style.display = 'block';
+        input.focus();
+    } else {
+        wrapper.style.display = 'none';
+        input.value = val;
+    }
+}
+</script>
