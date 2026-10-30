@@ -194,3 +194,37 @@ $(document).ready(function () {
     });
 
 });
+
+// Xprinter XP-350BM Silent Barcode Printing via Hidden Iframe
+window.silentPrintBarcode = function (labId) {
+    "use strict";
+    var frameId = 'silent_print_frame_' + Date.now();
+    var iframe = document.createElement('iframe');
+    iframe.id = frameId;
+    iframe.name = frameId;
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '10px';
+    iframe.style.height = '10px';
+    iframe.style.opacity = '0.01';
+    iframe.style.border = '0';
+    iframe.src = 'lab/printLabel?id=' + encodeURIComponent(labId) + '&silent=1&format=tube';
+
+    document.body.appendChild(iframe);
+
+    // Provide user feedback
+    if (typeof $.notify === 'function') {
+        $.notify('বারকোড প্রিন্টারে পাঠানো হচ্ছে (Xprinter XP-350BM)...', { className: 'info', autoHideDelay: 2500 });
+    } else if (typeof toastr !== 'undefined') {
+        toastr.info('বারকোড প্রিন্টারে পাঠানো হচ্ছে (Xprinter XP-350BM)...', 'Silent Print');
+    }
+
+    // Auto cleanup after print job
+    setTimeout(function () {
+        var el = document.getElementById(frameId);
+        if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+    }, 12000);
+};

@@ -307,42 +307,84 @@ class Lab extends MX_Controller
     {
         $id = $this->input->get('id');
         $data['lab'] = $this->lab_model->getLabById($id);
+        if (empty($data['lab'])) {
+            redirect('lab');
+            return;
+        }
+
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['patient'] = $this->patient_model->getPatientById($data['lab']->patient);
+        $data['doctor'] = !empty($data['lab']->doctor) ? $this->doctor_model->getDoctorById($data['lab']->doctor) : null;
+
         $data['labels'] = array();
         $label = $this->lab_model->getAllLabels($data['lab']->invoice_id, $data['lab']->category_id);
 
-        if ($label->category_id) {
-            $category_id = $this->db->get_where('payment_category', array('id' =>  $label->category_id))->row();
-            $category_id = $category_id->payment_category;
+        $category_id = null;
+        if (!empty($label) && !empty($label->category_id)) {
+            $cat_row = $this->db->get_where('payment_category', array('id' => $label->category_id))->row();
+            if ($cat_row) {
+                $category_id = $cat_row->payment_category;
+            }
         }
 
         $alllabs = $this->db->get_where('lab', array('invoice_id' => $data['lab']->invoice_id))->result();
-        foreach ($alllabs as $lab) {
-            if ($lab->category_id) {
-                $category_id2 = $this->db->get_where('payment_category', array('id' =>  $lab->category_id))->row();
-                $category_id2 = $category_id2->payment_category;
-                if ($category_id == $category_id2) {
-                    array_push($data['labels'], $lab);
+        foreach ($alllabs as $lab_item) {
+            if (!empty($lab_item->category_id)) {
+                $cat_row2 = $this->db->get_where('payment_category', array('id' => $lab_item->category_id))->row();
+                if ($cat_row2 && ($category_id === null || $cat_row2->payment_category == $category_id)) {
+                    $data['labels'][] = $lab_item;
+                }
+            }
+        }
+        if (empty($data['labels'])) {
+            $data['labels'] = array($data['lab']);
+        }
+
+        $imaging_keywords = array('x-ray', 'xray', 'usg', 'ultrasound', 'ultrasonography', 'ecg', 'echo', 'echocardiogram', 'radiology');
+        $is_imaging = false;
+        $specimen_type = 'BLOOD';
+        $test_names = array();
+
+        foreach ($data['labels'] as $lbl) {
+            $pcat = $this->db->get_where('payment_category', array('id' => $lbl->category_id))->row();
+            if ($pcat) {
+                $test_names[] = $pcat->category;
+                $cat_str = strtolower($pcat->category . ' ' . $pcat->payment_category_name . ' ' . $pcat->description);
+                if (in_array((int)$pcat->payment_category, array(16, 17, 18, 22))) {
+                    $is_imaging = true;
+                }
+                foreach ($imaging_keywords as $kw) {
+                    if (strpos($cat_str, $kw) !== false) {
+                        $is_imaging = true;
+                    }
+                }
+                if (strpos($cat_str, 'urine') !== false) {
+                    $specimen_type = 'URINE';
+                }
+                if (strpos($cat_str, 'stool') !== false) {
+                    $specimen_type = 'STOOL';
                 }
             }
         }
 
-        $data['patient'] = $this->patient_model->getPatientById($data['lab']->patient);
+        if (!$is_imaging && $specimen_type === 'BLOOD') {
+            $tests_lower = strtolower(implode(' ', $test_names));
+            if (strpos($tests_lower, 'cbc') !== false || strpos($tests_lower, 'esr') !== false) {
+                $specimen_type = 'BLOOD (EDTA)';
+            } else {
+                $specimen_type = 'BLOOD (SERUM)';
+            }
+        }
 
-        //        $this->load->view('labLabel', $data);
-        //        
-        //        
-        //        $data = array();
-        //        $id = $this->input->get('id');
-        //        $data['settings'] = $this->settings_model->getSettings();
-        //        $data['lab'] = $this->lab_model->getLabById($id);
-        //        //$data['lab'] = $this->lab_model->getLabById($id);
-        //        if ($data['lab']->hospital_id != $this->session->userdata('hospital_id')) {
-        //            $this->load->view('home/permission');
-        //        }
-        //
-        //        //$this->load->view('newLabReport', $data);
+        $data['is_imaging'] = $is_imaging;
+        $data['specimen_type'] = $specimen_type;
+        $data['test_names'] = $test_names;
 
-        $mpdf = new \Mpdf\Mpdf();
+        if ($is_imaging) {
+            $mpdf = new \Mpdf\Mpdf(array('format' => array(100, 60), 'margin_left' => 2, 'margin_right' => 2, 'margin_top' => 2, 'margin_bottom' => 2));
+        } else {
+            $mpdf = new \Mpdf\Mpdf(array('format' => array(50, 30), 'margin_left' => 1, 'margin_right' => 1, 'margin_top' => 1, 'margin_bottom' => 1));
+        }
         $html = $this->load->view('labLabelPdf', $data, true);
         $mpdf->WriteHTML($html);
         $mpdf->Output('LABEL_' . $id . '_' . date('dmYHis') . '.pdf', 'D');
@@ -558,7 +600,7 @@ class Lab extends MX_Controller
 
             $options2 = '<a class="btn btn-sm btn-success mb-1 mr-1" title="' . lang('lab') . '" href="lab/invoice?id=' . $lab->id . '"><i class="fa fa-file"></i> ' . lang('') . '</a>';
             $options2 = '<a class="btn btn-sm btn-success mb-1 mr-1" title="Download PDF" href="lab/testPdf?id=' . $lab->id . '">PDF</a>';
-            $option_list_1 = '<a class="btn btn-sm btn-success invoicebutton mb-1 mr-1" target="_blank" href="lab/printLabel?id=' . $lab->id . '">' . lang('label_print') . '</a>';
+            $option_list_1 = '<a class="btn btn-sm btn-success invoicebutton mb-1 mr-1" target="_blank" href="lab/printLabel?id=' . $lab->id . '"><i class="fa fa-barcode"></i> ' . lang('label_print') . '</a>';
             $option_list_2 = '<a class="btn btn-sm btn-warning mb-1 mr-1" href="lab/pdfLabel?id=' . $lab->id . '"><i class="fas fa-file-pdf"></i></a>';
 
             if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Laboratorist'))) {
@@ -654,9 +696,12 @@ class Lab extends MX_Controller
             <button type="button" class="btn btn-info btn-sm label-primary dropdown-toggle action_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="">
             <i class="fas fa-bars"></i> ' . lang('actions') . ' <span class="caret"></span>
         </button>
-                <ul class="dropdown-menu">
-                    ' . ($option_list_1 ? '<li><a  style="margin-right: 10px" target="_blank" href="lab/printLabel?id=' . $lab->id . '">  <i class="fa fa-print"></i> ' . lang('label_print') . ' ' . lang('') . '</a></li>' : '') . '
-                    ' . ($option_list_2 ? '<li><a href="lab/pdfLabel?id=' . $lab->id . '"> <i class="fa fa-file-pdf"></i> ' . lang('download') . ' </a></li>' : '') . '
+                <ul class="dropdown-menu dropdown-menu-right">
+                    <li><a target="_blank" href="lab/printLabel?id=' . $lab->id . '"><i class="fa fa-print text-primary mr-1"></i> ' . lang('label_print') . '</a></li>
+                    <li><a target="_blank" href="lab/printLabel?id=' . $lab->id . '&format=tube"><i class="fa fa-barcode text-success mr-1"></i> Barcode Label (XP-350BM)</a></li>
+                    <li><a href="javascript:void(0)" onclick="silentPrintBarcode(' . $lab->id . ')"><i class="fas fa-bolt text-warning mr-1"></i> Silent Print Barcode</a></li>
+                    <li><a target="_blank" href="lab/printLabel?id=' . $lab->id . '&format=envelope"><i class="fa fa-envelope text-info mr-1"></i> Film Envelope (USG / X-Ray)</a></li>
+                    ' . ($option_list_2 ? '<li><a href="lab/pdfLabel?id=' . $lab->id . '"><i class="fa fa-file-pdf text-danger mr-1"></i> ' . lang('download') . '</a></li>' : '') . '
                 </ul>
             </div>';
 
@@ -3298,96 +3343,139 @@ class Lab extends MX_Controller
 
     function printLabel2()
     {
-        $id = $this->input->get('id');
-        $data['lab'] = $this->lab_model->getLabById($id);
-        $data['labels'] = array();
-        $label = $this->lab_model->getAllLabels($data['lab']->invoice_id, $data['lab']->category_id);
-
-        if ($label->category_id) {
-            $category_id = $this->db->get_where('payment_category', array('id' =>  $label->category_id))->row();
-            $category_id = $category_id->payment_category;
-        }
-
-        $alllabs = $this->db->get_where('lab', array('invoice_id' => $data['lab']->invoice_id))->result();
-        foreach ($alllabs as $lab) {
-            if ($lab->category_id) {
-                $category_id2 = $this->db->get_where('payment_category', array('id' =>  $lab->category_id))->row();
-                $category_id2 = $category_id2->payment_category;
-                if ($category_id == $category_id2) {
-                    array_push($data['labels'], $lab);
-                }
-            }
-        }
-
-        $data['patient'] = $this->patient_model->getPatientById($data['lab']->patient);
-
-        $this->load->view('labLabel', $data);
-        //        // Load library
-        //		$this->load->library('zend');
-        //		// Load in folder Zend
-        //		$this->zend->load('Zend/Barcode');
-        //		// Generate barcode
-        //		Zend_Barcode::render('code128', 'image', array('text'=>"PRASUN NANDY PRITAM"), array());
+        return $this->printLabel();
     }
 
     function printLabel()
     {
         $id = $this->input->get('id');
+        $silent = $this->input->get('silent');
+        $format_override = $this->input->get('format'); // 'tube' or 'envelope'
+
         $data['lab'] = $this->lab_model->getLabById($id);
+        if (empty($data['lab'])) {
+            redirect('lab');
+            return;
+        }
+
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['patient'] = $this->patient_model->getPatientById($data['lab']->patient);
+        $data['doctor'] = !empty($data['lab']->doctor) ? $this->doctor_model->getDoctorById($data['lab']->doctor) : null;
+
         $data['labels'] = array();
         $label = $this->lab_model->getAllLabels($data['lab']->invoice_id, $data['lab']->category_id);
 
-        if ($label->category_id) {
-            $category_id = $this->db->get_where('payment_category', array('id' =>  $label->category_id))->row();
-            $category_id = $category_id->payment_category;
+        $category_id = null;
+        if (!empty($label) && !empty($label->category_id)) {
+            $cat_row = $this->db->get_where('payment_category', array('id' => $label->category_id))->row();
+            if ($cat_row) {
+                $category_id = $cat_row->payment_category;
+            }
         }
 
         $alllabs = $this->db->get_where('lab', array('invoice_id' => $data['lab']->invoice_id))->result();
-        foreach ($alllabs as $lab) {
-            if ($lab->category_id) {
-                $category_id2 = $this->db->get_where('payment_category', array('id' =>  $lab->category_id))->row();
-                $category_id2 = $category_id2->payment_category;
-                if ($category_id == $category_id2) {
-                    array_push($data['labels'], $lab);
+        foreach ($alllabs as $lab_item) {
+            if (!empty($lab_item->category_id)) {
+                $cat_row2 = $this->db->get_where('payment_category', array('id' => $lab_item->category_id))->row();
+                if ($cat_row2 && ($category_id === null || $cat_row2->payment_category == $category_id)) {
+                    $data['labels'][] = $lab_item;
+                }
+            }
+        }
+        if (empty($data['labels'])) {
+            $data['labels'] = array($data['lab']);
+        }
+
+        // Diagnostic Category Classification: Imaging vs Specimen
+        $imaging_keywords = array('x-ray', 'xray', 'usg', 'ultrasound', 'ultrasonography', 'ecg', 'echo', 'echocardiogram', 'radiology');
+        $urine_keywords = array('urine', 'u/r/e', 'r/e of urine', 'c/s of urine', 'pregnancy test', 'urine pt', 'urine p/t');
+        $stool_keywords = array('stool', 'obt', 'feces', 'stool re', 'stool r/e');
+        $semen_keywords = array('semen');
+        $sputum_keywords = array('sputum', 'afb');
+
+        $is_imaging = false;
+        $specimen_type = 'BLOOD';
+        $test_names = array();
+
+        foreach ($data['labels'] as $lbl) {
+            $pcat = $this->db->get_where('payment_category', array('id' => $lbl->category_id))->row();
+            if ($pcat) {
+                $test_names[] = $pcat->category;
+                $cat_str = strtolower($pcat->category . ' ' . $pcat->payment_category_name . ' ' . $pcat->description);
+
+                if (in_array((int)$pcat->payment_category, array(16, 17, 18, 22))) {
+                    $is_imaging = true;
+                }
+                foreach ($imaging_keywords as $kw) {
+                    if (strpos($cat_str, $kw) !== false) {
+                        $is_imaging = true;
+                    }
+                }
+
+                if (in_array((int)$pcat->payment_category, array(15))) {
+                    $specimen_type = 'URINE';
+                }
+                foreach ($urine_keywords as $kw) {
+                    if (strpos($cat_str, $kw) !== false) {
+                        $specimen_type = 'URINE';
+                    }
+                }
+                if (in_array((int)$pcat->payment_category, array(14))) {
+                    $specimen_type = 'STOOL';
+                }
+                foreach ($stool_keywords as $kw) {
+                    if (strpos($cat_str, $kw) !== false) {
+                        $specimen_type = 'STOOL';
+                    }
+                }
+                foreach ($semen_keywords as $kw) {
+                    if (strpos($cat_str, $kw) !== false) {
+                        $specimen_type = 'SEMEN';
+                    }
+                }
+                foreach ($sputum_keywords as $kw) {
+                    if (strpos($cat_str, $kw) !== false) {
+                        $specimen_type = 'SPUTUM';
+                    }
                 }
             }
         }
 
-        $data['patient'] = $this->patient_model->getPatientById($data['lab']->patient);
+        if (!$is_imaging && $specimen_type === 'BLOOD') {
+            $tests_lower = strtolower(implode(' ', $test_names));
+            if (strpos($tests_lower, 'cbc') !== false || strpos($tests_lower, 'esr') !== false || strpos($tests_lower, 'haematology') !== false || strpos($tests_lower, 'blood count') !== false) {
+                $specimen_type = 'BLOOD (EDTA)';
+            } elseif (strpos($tests_lower, 'sugar') !== false || strpos($tests_lower, 'glucose') !== false || strpos($tests_lower, 'rbs') !== false || strpos($tests_lower, 'fbs') !== false || strpos($tests_lower, 'ogtt') !== false) {
+                $specimen_type = 'BLOOD (FLUORIDE)';
+            } else {
+                $specimen_type = 'BLOOD (SERUM)';
+            }
+        }
 
-        $this->load->view('home/dashboard');
-        $this->load->view('labLabel2', $data);
-        $this->load->view('home/footer');
+        if (!empty($format_override)) {
+            $data['default_mode'] = ($format_override === 'envelope') ? 'envelope' : 'tube';
+        } else {
+            $data['default_mode'] = $is_imaging ? 'envelope' : 'tube';
+        }
+
+        $data['is_imaging'] = $is_imaging;
+        $data['specimen_type'] = $specimen_type;
+        $data['test_names'] = $test_names;
+        $data['silent'] = ($silent == '1');
+
+        if ($silent == '1') {
+            $this->load->view('labLabel2', $data);
+        } else {
+            $this->load->view('home/dashboard');
+            $this->load->view('labLabel2', $data);
+            $this->load->view('home/footer');
+        }
     }
 
     function labLabel90()
     {
         $id = $this->input->get('id');
-        $data['lab'] = $this->lab_model->getLabById($id);
-        $data['labels'] = array();
-        $label = $this->lab_model->getAllLabels($data['lab']->invoice_id, $data['lab']->category_id);
-
-        if ($label->category_id) {
-            $category_id = $this->db->get_where('payment_category', array('id' =>  $label->category_id))->row();
-            $category_id = $category_id->payment_category;
-        }
-
-        $alllabs = $this->db->get_where('lab', array('invoice_id' => $data['lab']->invoice_id))->result();
-        foreach ($alllabs as $lab) {
-            if ($lab->category_id) {
-                $category_id2 = $this->db->get_where('payment_category', array('id' =>  $lab->category_id))->row();
-                $category_id2 = $category_id2->payment_category;
-                if ($category_id == $category_id2) {
-                    array_push($data['labels'], $lab);
-                }
-            }
-        }
-
-        $data['patient'] = $this->patient_model->getPatientById($data['lab']->patient);
-
-        $this->load->view('home/dashboard');
-        $this->load->view('labLabel90', $data);
-        $this->load->view('home/footer');
+        redirect('lab/printLabel?id=' . $id . '&rotate=90');
     }
 
     function getReportReceiver()
