@@ -173,14 +173,6 @@
                                             ?>
                                         </span>
                                     </div>
-                                    <?php if (!empty($payment->referrer_name)) { ?>
-                                        <div class="info-row mt-1">
-                                            <span class="info-label">Referrer:</span>
-                                            <span class="info-value font-weight-bold text-primary">
-                                                <?php echo html_escape($payment->referrer_name); ?>
-                                            </span>
-                                        </div>
-                                    <?php } ?>
                                 </div>
                             </div>
 

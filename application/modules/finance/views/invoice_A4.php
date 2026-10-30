@@ -130,9 +130,6 @@ if (!empty($payment->referrer_name)) {
 if (!empty($referrer_display)) {
     $referrer_display = $format_doctor_name($referrer_display);
 }
-if (empty($doctor_details['name']) && !empty($referrer_display)) {
-    $doctor_details['name'] = $referrer_display;
-}
 
 // Line Items Resolution (Historical Snapshot Compatibility & Automatic Delivery Date)
 $items = array();
@@ -640,7 +637,7 @@ if (!function_exists('invoiceAmountInWords')) {
                         </tr>
                         <!-- Doctor Row (English strictly) -->
                         <tr class="doctor-subrow">
-                            <td class="lbl">Doctor / Ref.</td>
+                            <td class="lbl">Doctor</td>
                             <td class="sep">:</td>
                             <td class="val" colspan="4">
                                 <?php if (!empty($doctor_details['name'])) { ?>
@@ -649,9 +646,6 @@ if (!function_exists('invoiceAmountInWords')) {
                                         <span class="doc-badge ml-2"><?php echo html_escape($doctor_details['qualifications']); ?></span>
                                     <?php } elseif (!empty($doctor_details['department'])) { ?>
                                         <span class="doc-badge ml-2"><?php echo html_escape($doctor_details['department']); ?></span>
-                                    <?php } ?>
-                                    <?php if (!empty($referrer_display) && strcasecmp(trim($referrer_display), trim($doctor_details['name'])) !== 0) { ?>
-                                        <span class="text-muted ml-2">/ Ref: <strong><?php echo html_escape($referrer_display); ?></strong></span>
                                     <?php } ?>
                                 <?php } else { ?>
                                     <span class="text-muted font-italic">Self / General</span>

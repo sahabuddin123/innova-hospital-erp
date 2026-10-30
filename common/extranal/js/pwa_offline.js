@@ -551,7 +551,6 @@
                             '</div>' +
                             '<div class="col-6 text-right">' +
                                 '<div><strong>Doctor:</strong> ' + invoice.doctor_name + '</div>' +
-                                (invoice.referrer_name ? '<div><strong>Ref:</strong> ' + invoice.referrer_name + '</div>' : '') +
                                 '<div><strong>Payment Method:</strong> ' + invoice.deposit_type + '</div>' +
                             '</div>' +
                         '</div>' +

@@ -485,12 +485,6 @@ height: 100%!important;
                                                         ?>
                                                     </span>
                                                 </div>
-                                                <?php if (!empty($payment->referrer_name)) { ?>
-                                                    <div class="paragraphprint col-md-12">
-                                                        <label class="control-label"> <?php echo lang('referrer'); ?> </label>
-                                                        <span class="info_text"> : <?php echo html_escape($payment->referrer_name); ?></span>
-                                                    </div>
-                                                <?php } ?>
                                             <?php } else { ?>
                                                 <table class="information_table">
                                                     <tr>
@@ -617,16 +611,6 @@ height: 100%!important;
                                                             </div>
                                                         </td>
                                                     </tr>
-                                                    <?php if (!empty($payment->referrer_name)) { ?>
-                                                        <tr>
-                                                            <td colspan="2">
-                                                                <div class="paragraphprint col-md-12">
-                                                                    <label class="control-label"> <?php echo lang('referrer'); ?> </label>
-                                                                    <span class="info_text"> : <?php echo html_escape($payment->referrer_name); ?></span>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    <?php } ?>
                                                 </table>
                                             <?php } ?>
                                         </td>

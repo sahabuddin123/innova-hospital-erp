@@ -120,9 +120,6 @@ if (!empty($payment->referrer_name)) {
 if (!empty($referrer_display)) {
     $referrer_display = $format_doctor_name($referrer_display);
 }
-if (empty($doctor_details['name']) && !empty($referrer_display)) {
-    $doctor_details['name'] = $referrer_display;
-}
 
 // Items Resolution & Automatic Delivery Date
 $items = array();
@@ -693,7 +690,7 @@ body {
             <td><?php echo $invoice_date; ?></td>
         </tr>
         <tr>
-            <td class="lbl">Doctor / Ref.</td>
+            <td class="lbl">Doctor</td>
             <td>:</td>
             <td colspan="4">
                 <?php if (!empty($doctor_details['name'])) { ?>
@@ -702,9 +699,6 @@ body {
                         &nbsp;<span class="doc-badge"><?php echo html_escape($doctor_details['qualifications']); ?></span>
                     <?php } elseif (!empty($doctor_details['department'])) { ?>
                         &nbsp;<span class="doc-badge"><?php echo html_escape($doctor_details['department']); ?></span>
-                    <?php } ?>
-                    <?php if (!empty($referrer_display) && strcasecmp(trim($referrer_display), trim($doctor_details['name'])) !== 0) { ?>
-                        &nbsp;<span style="color:#6c757d;">/ Ref: <strong><?php echo html_escape($referrer_display); ?></strong></span>
                     <?php } ?>
                 <?php } else { ?>
                     <span>Self / General</span>
