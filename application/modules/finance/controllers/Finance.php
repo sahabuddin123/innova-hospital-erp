@@ -2017,6 +2017,15 @@ class Finance extends MX_Controller
             $_POST['deposited_amount'] = '0';
         }
 
+        // Safety fallback: If patient ID is missing but payment_id (invoice_no) is provided, resolve patient from invoice
+        if (empty($patient) && !empty($payment_id)) {
+            $existing_payment = $this->finance_model->getPaymentById($payment_id);
+            if (!empty($existing_payment)) {
+                $patient = $existing_payment->patient;
+                $_POST['patient'] = $patient;
+            }
+        }
+
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
         // Validating Patient Name Field
@@ -2024,6 +2033,11 @@ class Finance extends MX_Controller
         // Validating Deposited Amount Field
         $this->form_validation->set_rules('deposited_amount', 'Deposited Amount', 'trim|min_length[1]|max_length[100]|xss_clean');
         if ($this->form_validation->run() == FALSE) {
+            if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(array('status' => 'error', 'message' => validation_errors() ?: 'Validation failed'));
+                return;
+            }
             if (empty($redirect)) {
                 redirect('finance/patientPaymentHistory?patient=' . $patient);
             } else {
@@ -2257,6 +2271,16 @@ class Finance extends MX_Controller
                 }
 
                 show_swal(lang('payment_updated_successfully'), 'success', lang('updated'));
+            }
+            if ($this->input->post('is_offline_sync') == '1' || $this->input->is_ajax_request()) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(array(
+                    'status' => 'success',
+                    'message' => lang('amount_deposited_successfully') ?: 'Amount deposited successfully',
+                    'payment_id' => $payment_id,
+                    'deposited_amount' => $deposited_amount
+                ));
+                return;
             }
             if (empty($redirect)) {
                 redirect('finance/patientPaymentHistory?patient=' . $patient);

@@ -29,16 +29,43 @@
             <div class="row justify-content-center">
                 <div class="col-md-12">
                     <div class="card shadow-lg border-0">
-                        <div class="card-header bg-light">
-                            <h3 class="card-title font-weight-bold"><?php echo lang('All the due invoices'); ?></h3>
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="card-title font-weight-bold mb-0"><?php echo lang('All the due invoices'); ?></h3>
+                            <span class="badge badge-primary px-3 py-2 font-weight-bold" id="due_pwa_badge" style="font-size:12px;">
+                                <i class="fas fa-bolt mr-1"></i> PWA Offline Ready
+                            </span>
                         </div>
 
-                        <div class="row mt-3">
-                            <div class="col-md-4 date_field ml-4 mt-2">
+                        <!-- Offline Mode Notice Banner -->
+                        <div id="due_offline_banner" class="alert alert-warning mx-4 mt-3 shadow-sm border-warning" style="display:none;">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-wifi text-danger mr-3 fa-2x"></i>
+                                <div>
+                                    <strong class="text-dark">Offline Due Collection Active:</strong> You can accept patient due deposits without internet.
+                                    <div class="small text-muted">Money receipts will be generated & printed immediately. Deposits will auto-sync to the central hospital server once connection is restored.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3 px-3 align-items-center">
+                            <div class="col-md-5 date_field mt-2">
                                 <div class="input-group input-large" data-date="13/07/2013" data-date-format="mm/dd/yyyy">
                                     <input type="text" class="form-control form-control-lg default-date-picker" name="date_from" id="date_from" value="" placeholder="<?php echo lang('date_from'); ?>" readonly="">
                                     <span class="input-group-addon"> <?php echo lang(''); ?></span>
                                     <input type="text" class="form-control form-control-lg default-date-picker" name="date_to" id="date_to" value="" placeholder="<?php echo lang('date_to'); ?>" readonly="">
+                                </div>
+                            </div>
+                            <div class="col-md-5 ml-auto mt-2">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text bg-white text-primary font-weight-bold"><i class="fas fa-receipt mr-1"></i> Quick Due</span>
+                                    </div>
+                                    <input type="text" id="quick_due_search_input" class="form-control form-control-lg" placeholder="Invoice # (e.g. 1052)...">
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-primary font-weight-bold px-3" id="btn_quick_due_lookup">
+                                            <i class="fas fa-search mr-1"></i> Collect Due
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -363,6 +390,36 @@
             }, 50);
         });
 
+        function fillDepositModal(response, from, iid) {
+            var d = new Date();
+            var strDate = d.getDate() + "-" + (d.getMonth() + 1) + "-" + d.getFullYear();
+            var due = (response.response !== undefined && response.response !== null) ? parseFloat(response.response) : (parseFloat(response.due) || 0);
+            var prev_discount = (response.previous_discount !== undefined && response.previous_discount !== null) ? parseFloat(response.previous_discount) : (parseFloat(response.discount) || 0);
+            var pName = response.patient ? (response.patient.name || response.patient_name || "") : (response.patient_name || "");
+            var pId = response.patient ? (response.patient.id || response.patient_id || "") : (response.patient_id || "");
+
+            $("#due_amount").val(due.toFixed(2));
+            $("#due_amount").data("original-due", due);
+            $("#due_amount").data("prev-discount", prev_discount);
+            $("#prev_discount_input").val(prev_discount.toFixed(2));
+            $("#prev_discount_badge").text(prev_discount.toFixed(2));
+            $("#total_discount_display").text(prev_discount.toFixed(2));
+
+            if (from == 'appointment') {
+                $("#deposited_amount").val(due.toFixed(2));
+                $('#deposited_amount').attr('readonly', true);
+                $('#additional_discount').attr('readonly', true);
+            } else {
+                $('#deposited_amount').attr('readonly', false);
+                $('#additional_discount').attr('readonly', false);
+            }
+            $("#payment_id").val(iid);
+            $("#patient_id").val(pId);
+            $("#name").val(pName);
+            $("#invoice_no").val(iid);
+            $("#date").val(strDate);
+        }
+
         $(document).off("click", ".depositButton").on("click", ".depositButton", function(e) {
             e.preventDefault();
             $("#loader").show();
@@ -385,46 +442,85 @@
                 $("#deposit-form").trigger("reset");
             }
             $("#myModal").modal("show");
-            $.ajax({
-                url: "finance/getDepositByInvoiceIdForDeposit?id=" + iid,
-                method: "GET",
-                data: "",
-                dataType: "json",
-                success: function(response) {
-                    var d = new Date();
-                    var strDate = d.getDate() + "-" + (d.getMonth() + 1) + "-" + d.getFullYear();
-                    var due = (response.response !== undefined && response.response !== null) ? parseFloat(response.response) : 0;
-                    var prev_discount = (response.previous_discount !== undefined && response.previous_discount !== null) ? parseFloat(response.previous_discount) : 0;
 
-                    $("#due_amount").val(due.toFixed(2));
-                    $("#due_amount").data("original-due", due);
-                    $("#due_amount").data("prev-discount", prev_discount);
-                    $("#prev_discount_input").val(prev_discount.toFixed(2));
-                    $("#prev_discount_badge").text(prev_discount.toFixed(2));
-                    $("#total_discount_display").text(prev_discount.toFixed(2));
-
-                    if (from == 'appointment') {
-                        $("#deposited_amount").val(due.toFixed(2));
-                        $('#deposited_amount').attr('readonly', true);
-                        $('#additional_discount').attr('readonly', true);
-                    } else {
-                        $('#deposited_amount').attr('readonly', false);
-                        $('#additional_discount').attr('readonly', false);
-                    }
-                    $("#payment_id").val(iid);
-                    $("#patient_id").val(response.patient ? response.patient.id : "");
-                    $("#name").val(response.patient ? response.patient.name : "");
-                    $("#invoice_no").val(iid);
-                    $("#date").val(strDate);
-                },
-                error: function(xhr, status, error) {
-                    console.error("Failed to load invoice deposit details:", error);
-                },
-                complete: function() {
+            if (!navigator.onLine) {
+                if (window.OfflineDB && window.OfflineDB.getCatalog) {
+                    window.OfflineDB.getCatalog('due_invoices_cache').then(function(cached) {
+                        var found = cached ? cached.find(function(c) { return String(c.id) === String(iid); }) : null;
+                        if (found) {
+                            fillDepositModal(found, from, iid);
+                        } else {
+                            var d = new Date();
+                            var strDate = d.getDate() + "-" + (d.getMonth() + 1) + "-" + d.getFullYear();
+                            $("#payment_id").val(iid);
+                            $("#invoice_no").val(iid);
+                            $("#date").val(strDate);
+                            $("#name").attr('readonly', false);
+                            $("#due_amount").attr('readonly', false);
+                        }
+                        $("#loader").hide();
+                    }).catch(function() {
+                        $("#loader").hide();
+                    });
+                } else {
                     $("#loader").hide();
                 }
-            });
+            } else {
+                $.ajax({
+                    url: "finance/getDepositByInvoiceIdForDeposit?id=" + iid,
+                    method: "GET",
+                    data: "",
+                    dataType: "json",
+                    success: function(response) {
+                        fillDepositModal(response, from, iid);
+                    },
+                    error: function(xhr, status, error) {
+                        console.warn("Could not fetch online due info, checking offline cache for invoice " + iid);
+                        if (window.OfflineDB && window.OfflineDB.getCatalog) {
+                            window.OfflineDB.getCatalog('due_invoices_cache').then(function(cached) {
+                                var found = cached ? cached.find(function(c) { return String(c.id) === String(iid); }) : null;
+                                if (found) {
+                                    fillDepositModal(found, from, iid);
+                                }
+                            });
+                        }
+                    },
+                    complete: function() {
+                        $("#loader").hide();
+                    }
+                });
+            }
         });
+
+        // Quick Due Collect Lookup by Invoice #
+        $(document).on("click", "#btn_quick_due_lookup", function(e) {
+            e.preventDefault();
+            var val = $.trim($("#quick_due_search_input").val());
+            if (!val) {
+                alert("Please enter an Invoice Number.");
+                $("#quick_due_search_input").focus();
+                return;
+            }
+            $("<button class='depositButton' data-id='" + val + "' data-from='payment'></button>").trigger("click");
+        });
+
+        $("#quick_due_search_input").on("keypress", function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                $("#btn_quick_due_lookup").trigger("click");
+            }
+        });
+
+        function updateDueOfflineBanner() {
+            if (!navigator.onLine) {
+                $("#due_offline_banner").slideDown();
+            } else {
+                $("#due_offline_banner").slideUp();
+            }
+        }
+        updateDueOfflineBanner();
+        window.addEventListener("online", updateDueOfflineBanner);
+        window.addEventListener("offline", updateDueOfflineBanner);
     });
 </script>
 

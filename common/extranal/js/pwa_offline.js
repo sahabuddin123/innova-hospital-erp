@@ -251,6 +251,10 @@
         }
     };
 
+    // Expose OfflineDB and SoundFX to global scope for module interoperability
+    window.OfflineDB = OfflineDB;
+    window.SoundFX = SoundFX;
+
     // ============================================================
     // 4. Smart Offline Diagnostic Catalog Preloader
     // ============================================================
@@ -723,6 +727,235 @@
     }
 
     // ============================================================
+    // 7B. Offline Due Collection Interception & Deposit Manager
+    // ============================================================
+    function captureDueDepositData(formElem) {
+        var $form = $(formElem);
+        var formDataArray = $form.serializeArray();
+
+        var now = new Date();
+        var dateFormatted = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US', { hour12: true });
+        var tokenRand = Math.floor(Math.random() * 8999 + 1000);
+        var offlineUuid = 'OFF-DEP-' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '-' + tokenRand;
+
+        var invoiceNo = $('#invoice_no').val() || $('#payment_id').val() || '';
+        var patientId = $('#patient_id').val() || '';
+        var patientName = $('#name').val() || 'Patient';
+        var originalDue = parseFloat($('#due_amount').data('original-due')) || parseFloat($('#due_amount').val()) || 0;
+        var depositVal = parseFloat($('#deposited_amount').val()) || 0;
+        var discountVal = parseFloat($('#additional_discount').val()) || 0;
+        var remainingDue = Math.max(0, originalDue - discountVal - depositVal);
+        var depositType = $('#selecttype').val() || 'Cash';
+
+        return {
+            uuid: offlineUuid,
+            type: 'due_deposit',
+            status: 'pending',
+            created_at: now.toISOString(),
+            display_time: dateFormatted,
+            invoice_no: invoiceNo,
+            payment_id: invoiceNo,
+            patient_id: patientId,
+            patient_name: patientName,
+            original_due: originalDue,
+            deposited_amount: depositVal,
+            additional_discount: discountVal,
+            remaining_due: remainingDue,
+            deposit_type: depositType,
+            formData: formDataArray
+        };
+    }
+
+    function showOfflineDueReceiptModal(deposit) {
+        var existingModal = $('#offlineDueReceiptModal');
+        if (existingModal.length) {
+            existingModal.remove();
+        }
+
+        var modalHtml = '<div class="modal fade" id="offlineDueReceiptModal" tabindex="-1" role="dialog" aria-hidden="true">' +
+            '<div class="modal-dialog modal-dialog-centered modal-lg" role="document">' +
+                '<div class="modal-content shadow-lg">' +
+                    '<div class="modal-header bg-success text-white py-2">' +
+                        '<h5 class="modal-title font-weight-bold">' +
+                            '<i class="fas fa-hand-holding-usd text-warning mr-2"></i> Offline Due Collection Receipt (Pending Server Sync)' +
+                        '</h5>' +
+                        '<button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">' +
+                            '<span aria-hidden="true">&times;</span>' +
+                        '</button>' +
+                    '</div>' +
+                    '<div class="modal-body p-4" id="offline_due_print_area">' +
+                        '<!-- Receipt Header -->' +
+                        '<div class="text-center pb-3 border-bottom mb-3">' +
+                            '<h3 class="font-weight-bold mb-1" style="color:#007bff;">LIFECARE DIAGNOSTIC CENTER</h3>' +
+                            '<p class="text-muted mb-1 small">Hospital Management System & Diagnostic Laboratory</p>' +
+                            '<h5 class="font-weight-bold text-dark my-2">OFFLINE MONEY RECEIPT (DUE COLLECTION)</h5>' +
+                            '<div class="d-inline-block px-3 py-1 rounded bg-warning text-dark font-weight-bold small mb-2">' +
+                                '<i class="fas fa-bolt mr-1"></i> OFFLINE DEPOSIT TOKEN: ' + deposit.uuid +
+                            '</div>' +
+                            '<div class="small text-secondary">Date & Time: ' + deposit.display_time + '</div>' +
+                        '</div>' +
+
+                        '<!-- Patient & Invoice Info Grid -->' +
+                        '<div class="row mb-3 small">' +
+                            '<div class="col-6">' +
+                                '<div><strong>Patient Name:</strong> ' + deposit.patient_name + '</div>' +
+                                '<div><strong>Central Invoice #:</strong> #' + deposit.invoice_no + '</div>' +
+                            '</div>' +
+                            '<div class="col-6 text-right">' +
+                                '<div><strong>Payment Method:</strong> ' + deposit.deposit_type + '</div>' +
+                                '<div><strong>Status:</strong> <span class="badge badge-warning">Offline Collected (Queued)</span></div>' +
+                            '</div>' +
+                        '</div>' +
+
+                        '<!-- Deposit Breakdown Table -->' +
+                        '<div class="table-responsive mb-3">' +
+                            '<table class="table table-sm table-bordered mb-0 small">' +
+                                '<thead class="thead-light text-center">' +
+                                    '<tr>' +
+                                        '<th>Description</th>' +
+                                        '<th style="width: 160px;" class="text-right">Amount (TK)</th>' +
+                                    '</tr>' +
+                                '</thead>' +
+                                '<tbody>' +
+                                    '<tr>' +
+                                        '<td>Previous Due Amount</td>' +
+                                        '<td class="text-right font-weight-bold">' + deposit.original_due.toFixed(2) + ' TK</td>' +
+                                    '</tr>' +
+                                    (deposit.additional_discount > 0 ? ('<tr><td class="text-success font-weight-bold">Additional Discount Applied</td><td class="text-right text-success font-weight-bold">-' + deposit.additional_discount.toFixed(2) + ' TK</td></tr>') : '') +
+                                    '<tr class="table-success font-weight-bold" style="font-size: 1.05em;">' +
+                                        '<td>Amount Deposited / Collected Now</td>' +
+                                        '<td class="text-right text-success font-weight-bold">' + deposit.deposited_amount.toFixed(2) + ' TK</td>' +
+                                    '</tr>' +
+                                    '<tr class="table-light font-weight-bold">' +
+                                        '<td class="text-danger">Remaining Balance Due</td>' +
+                                        '<td class="text-right text-danger font-weight-bold">' + deposit.remaining_due.toFixed(2) + ' TK</td>' +
+                                    '</tr>' +
+                                '</tbody>' +
+                            '</table>' +
+                        '</div>' +
+
+                        '<!-- Notice -->' +
+                        '<div class="alert alert-light border small text-center text-muted mb-0 py-2">' +
+                            '<i class="fas fa-info-circle mr-1 text-info"></i> ' +
+                            'Offline due deposit collected successfully. This receipt is legally valid and will auto-sync to the central hospital database once internet is restored.' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="modal-footer d-flex justify-content-between">' +
+                        '<button type="button" class="btn btn-secondary" data-dismiss="modal">' +
+                            '<i class="fas fa-times mr-1"></i> Close' +
+                        '</button>' +
+                        '<div>' +
+                            '<button type="button" class="btn btn-primary" id="btn_print_offline_due_receipt">' +
+                                '<i class="fas fa-print mr-1"></i> Print Money Receipt' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+        $('body').append(modalHtml);
+        $('#offlineDueReceiptModal').modal({ backdrop: 'static', keyboard: false });
+
+        $('#btn_print_offline_due_receipt').on('click', function () {
+            var printContents = document.getElementById('offline_due_print_area').innerHTML;
+            var printWin = window.open('', '', 'width=750,height=600');
+            printWin.document.write('<html><head><title>Due Receipt - ' + deposit.uuid + '</title>');
+            printWin.document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">');
+            printWin.document.write('<style>body{padding:20px;font-family:sans-serif;} @media print {.no-print{display:none;}}</style>');
+            printWin.document.write('</head><body>');
+            printWin.document.write(printContents);
+            printWin.document.write('</body></html>');
+            printWin.document.close();
+            setTimeout(function () {
+                printWin.focus();
+                printWin.print();
+                printWin.close();
+            }, 300);
+        });
+
+        $('#offlineDueReceiptModal').on('hidden.bs.modal', function () {
+            if ($('#deposit-form').length) {
+                $('#deposit-form').trigger('reset');
+            }
+        });
+    }
+
+    function processOfflineDepositSubmit(formElem) {
+        var invoiceNo = $('#invoice_no').val() || $('#payment_id').val();
+        if (!invoiceNo) {
+            SoundFX.offlineAlert();
+            alert('Invoice number is required for due deposit.');
+            return false;
+        }
+
+        var depositVal = parseFloat($('#deposited_amount').val()) || 0;
+        var discountVal = parseFloat($('#additional_discount').val()) || 0;
+        if (depositVal <= 0 && discountVal <= 0) {
+            SoundFX.offlineAlert();
+            alert('Please enter a Deposit Amount or Discount Amount.');
+            return false;
+        }
+
+        var originalDue = parseFloat($('#due_amount').data('original-due')) || parseFloat($('#due_amount').val()) || 0;
+        if ((depositVal + discountVal) > (originalDue + 0.05)) {
+            if (!confirm('Total Deposit (৳' + depositVal.toFixed(2) + ') and Additional Discount (৳' + discountVal.toFixed(2) + ') is greater than Due Amount (৳' + originalDue.toFixed(2) + '). Do you want to proceed?')) {
+                return false;
+            }
+        }
+
+        var depositData = captureDueDepositData(formElem);
+
+        OfflineDB.saveInvoice(depositData).then(function () {
+            SoundFX.posBeep();
+            updatePendingCountBadge();
+
+            // Update local cached due invoices so the due reflects immediately on screen
+            OfflineDB.getCatalog('due_invoices_cache').then(function (cached) {
+                if (cached && Array.isArray(cached)) {
+                    var updated = cached.map(function (c) {
+                        if (String(c.id) === String(depositData.invoice_no)) {
+                            c.due = depositData.remaining_due;
+                            c.paid_amount = (parseFloat(c.paid_amount) || 0) + depositData.deposited_amount;
+                            c.discount = (parseFloat(c.discount) || 0) + depositData.additional_discount;
+                        }
+                        return c;
+                    });
+                    OfflineDB.saveCatalog('due_invoices_cache', updated);
+                }
+            }).catch(function () {});
+
+            $('#myModal').modal('hide');
+            showOfflineDueReceiptModal(depositData);
+
+            if (typeof toastr !== 'undefined') {
+                toastr.success('Offline Due Deposit ' + depositData.uuid + ' saved in local vault!', 'Due Collection');
+            }
+        }).catch(function (err) {
+            console.error('[PWA] Error saving offline deposit:', err);
+            alert('Failed to save offline deposit to local database. Please try again.');
+        });
+    }
+
+    function initDueCollectionInterception() {
+        $(document).on('submit', '#deposit-form', function (e) {
+            if (!navigator.onLine) {
+                e.preventDefault();
+                processOfflineDepositSubmit(this);
+                return false;
+            }
+        });
+
+        $(document).on('click', '#deposit-form button[type="submit"]', function (e) {
+            if (!navigator.onLine) {
+                e.preventDefault();
+                processOfflineDepositSubmit($('#deposit-form')[0]);
+                return false;
+            }
+        });
+    }
+
+    // ============================================================
     // 8. Offline Vault & Sync Manager Modal
     // ============================================================
     function openOfflineVaultModal() {
@@ -735,21 +968,30 @@
 
             var pendingRows = '';
             if (pending.length === 0) {
-                pendingRows = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fas fa-check-circle text-success mr-1"></i> No pending offline bills. All invoices are synced!</td></tr>';
+                pendingRows = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fas fa-check-circle text-success mr-1"></i> No pending offline transactions. All invoices & deposits are synced!</td></tr>';
             } else {
                 pending.forEach(function (inv, idx) {
+                    var isDeposit = inv.type === 'due_deposit';
+                    var typeBadge = isDeposit ? '<span class="badge badge-info ml-1">Due Deposit</span>' : '<span class="badge badge-primary ml-1">POS Bill</span>';
+                    var detailCol = isDeposit ? 
+                        ('Invoice #' + inv.payment_id + '<br><small class="text-muted">Prev Due: ' + (inv.original_due || 0).toFixed(2) + '</small>') : 
+                        ((inv.items ? inv.items.length : 0) + ' test(s)');
+                    var amountCol = isDeposit ? 
+                        ('<strong class="text-success">Paid: ' + (inv.deposited_amount || 0).toFixed(2) + ' TK</strong><br><small class="text-danger">Remaining: ' + (inv.remaining_due || 0).toFixed(2) + '</small>') : 
+                        ('<strong>' + (inv.gross_total || 0).toFixed(2) + ' TK</strong><br><small class="text-success">Paid: ' + (inv.amount_received || 0).toFixed(2) + '</small>');
+
                     pendingRows += '<tr>' +
                         '<td>' + (idx + 1) + '</td>' +
-                        '<td><span class="badge badge-warning">' + inv.uuid + '</span></td>' +
+                        '<td><span class="badge badge-warning">' + inv.uuid + '</span>' + typeBadge + '</td>' +
                         '<td>' + inv.display_time + '</td>' +
                         '<td><strong>' + inv.patient_name + '</strong><br><small class="text-muted">' + (inv.patient_phone || '') + '</small></td>' +
-                        '<td>' + inv.items.length + ' test(s)</td>' +
-                        '<td><strong>' + inv.gross_total.toFixed(2) + ' TK</strong><br><small class="text-success">Paid: ' + inv.amount_received.toFixed(2) + '</small></td>' +
+                        '<td>' + detailCol + '</td>' +
+                        '<td>' + amountCol + '</td>' +
                         '<td class="text-right">' +
                             '<button type="button" class="btn btn-xs btn-primary btn-reprint-offline mr-1" data-uuid="' + inv.uuid + '" title="Re-print Receipt">' +
                                 '<i class="fas fa-print"></i>' +
                             '</button>' +
-                            '<button type="button" class="btn btn-xs btn-success btn-sync-single mr-1" data-uuid="' + inv.uuid + '" title="Sync This Bill Now">' +
+                            '<button type="button" class="btn btn-xs btn-success btn-sync-single mr-1" data-uuid="' + inv.uuid + '" title="Sync Now">' +
                                 '<i class="fas fa-sync-alt"></i>' +
                             '</button>' +
                             '<button type="button" class="btn btn-xs btn-danger btn-delete-offline" data-uuid="' + inv.uuid + '" title="Delete">' +
@@ -765,12 +1007,19 @@
                 syncedRows = '<tr><td colspan="6" class="text-center py-4 text-muted">No previously synced offline records found.</td></tr>';
             } else {
                 synced.forEach(function (inv, idx) {
+                    var isDeposit = inv.type === 'due_deposit';
+                    var typeBadge = isDeposit ? '<span class="badge badge-info ml-1">Due Deposit</span>' : '<span class="badge badge-primary ml-1">POS Bill</span>';
+                    var targetId = inv.server_invoice_id || inv.payment_id;
+                    var amountText = isDeposit ? 
+                        ('Paid: ' + (inv.deposited_amount || 0).toFixed(2) + ' TK') : 
+                        ((inv.gross_total || 0).toFixed(2) + ' TK');
+
                     syncedRows += '<tr>' +
                         '<td>' + (idx + 1) + '</td>' +
-                        '<td><span class="badge badge-light border">' + inv.uuid + '</span></td>' +
-                        '<td><a href="finance/invoice?id=' + inv.server_invoice_id + '" target="_blank" class="badge badge-success font-weight-bold">Invoice #' + inv.server_invoice_id + ' <i class="fas fa-external-link-alt ml-1"></i></a></td>' +
+                        '<td><span class="badge badge-light border">' + inv.uuid + '</span>' + typeBadge + '</td>' +
+                        '<td><a href="finance/invoice?id=' + targetId + '" target="_blank" class="badge badge-success font-weight-bold">Invoice #' + targetId + ' <i class="fas fa-external-link-alt ml-1"></i></a></td>' +
                         '<td>' + inv.patient_name + '</td>' +
-                        '<td>' + inv.gross_total.toFixed(2) + ' TK</td>' +
+                        '<td>' + amountText + '</td>' +
                         '<td class="text-right">' +
                             '<button type="button" class="btn btn-xs btn-secondary btn-reprint-offline mr-1" data-uuid="' + inv.uuid + '" title="View/Print Offline Token">' +
                                 '<i class="fas fa-print"></i>' +
@@ -900,7 +1149,11 @@
                 OfflineDB.getInvoice(uuid).then(function (inv) {
                     if (inv) {
                         $('#offlineVaultModal').modal('hide');
-                        showOfflineReceiptModal(inv);
+                        if (inv.type === 'due_deposit') {
+                            showOfflineDueReceiptModal(inv);
+                        } else {
+                            showOfflineReceiptModal(inv);
+                        }
                     }
                 });
             });
@@ -1014,8 +1267,18 @@
             $('#cameraScannerModal').modal('hide');
 
             var trimmed = codeStr.trim();
-            // Case 1: Offline Token (OFF-YYYYMMDD-XXXX)
-            if (trimmed.startsWith('OFF-')) {
+            // Case 1: Offline Tokens (Due Deposit or POS Bill)
+            if (trimmed.startsWith('OFF-DEP-')) {
+                OfflineDB.getInvoice(trimmed).then(function (inv) {
+                    if (inv) {
+                        showOfflineDueReceiptModal(inv);
+                    } else {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.info('Due Deposit Token ' + trimmed + ' not found in local vault.', 'Lookup');
+                        }
+                    }
+                });
+            } else if (trimmed.startsWith('OFF-')) {
                 OfflineDB.getInvoice(trimmed).then(function (inv) {
                     if (inv) {
                         showOfflineReceiptModal(inv);
@@ -1136,16 +1399,38 @@
             formData.append('is_offline_sync', '1');
             formData.append('offline_uuid', inv.uuid);
 
-            if (Array.isArray(inv.formData)) {
-                inv.formData.forEach(function (field) {
-                    formData.append(field.name, field.value);
-                });
-            }
-            if (!inv.formData.some(function (f) { return f.name === 'patient'; })) {
-                formData.append('patient', 'add_new');
-            }
+            var postUrl = '';
 
-            var postUrl = $('base').attr('href') ? $('base').attr('href') + 'finance/addPayment' : 'finance/addPayment';
+            if (inv.type === 'due_deposit') {
+                formData.append('id', '');
+                formData.append('patient', inv.patient_id || '');
+                formData.append('payment_id', inv.payment_id || inv.invoice_no);
+                formData.append('deposited_amount', inv.deposited_amount);
+                formData.append('additional_discount', inv.additional_discount);
+                formData.append('deposit_type', inv.deposit_type || 'Cash');
+                formData.append('redirect', 'due');
+
+                if (Array.isArray(inv.formData)) {
+                    inv.formData.forEach(function (field) {
+                        if (!formData.has(field.name)) {
+                            formData.append(field.name, field.value);
+                        }
+                    });
+                }
+
+                postUrl = $('base').attr('href') ? $('base').attr('href') + 'finance/deposit' : 'finance/deposit';
+            } else {
+                if (Array.isArray(inv.formData)) {
+                    inv.formData.forEach(function (field) {
+                        formData.append(field.name, field.value);
+                    });
+                }
+                if (!inv.formData.some(function (f) { return f.name === 'patient'; })) {
+                    formData.append('patient', 'add_new');
+                }
+
+                postUrl = $('base').attr('href') ? $('base').attr('href') + 'finance/addPayment' : 'finance/addPayment';
+            }
 
             fetch(postUrl, {
                 method: 'POST',
@@ -1156,10 +1441,14 @@
             .then(function (res) {
                 if (res && res.status === 'success') {
                     SoundFX.successChime();
-                    OfflineDB.markSynced(inv.uuid, res.invoice_id).then(function () {
+                    var refId = res.payment_id || res.invoice_id || inv.payment_id;
+                    OfflineDB.markSynced(inv.uuid, refId).then(function () {
                         updatePendingCountBadge();
                         if (typeof toastr !== 'undefined') {
-                            toastr.success('Token ' + inv.uuid + ' synced -> Central Invoice #' + res.invoice_id, 'Synced');
+                            var msg = (inv.type === 'due_deposit') ? 
+                                ('Due deposit for Invoice #' + refId + ' synced to central server!') : 
+                                ('Token ' + inv.uuid + ' synced -> Central Invoice #' + refId);
+                            toastr.success(msg, 'Synced');
                         }
                         if (callback) callback(true);
                     });
@@ -1199,7 +1488,7 @@
                 isSyncing = false;
                 updatePendingCountBadge();
                 if (manualTrigger && typeof toastr !== 'undefined') {
-                    toastr.info('All invoices are already up to date. No pending syncs.', 'All Synced');
+                    toastr.info('All transactions are already up to date. No pending syncs.', 'All Synced');
                 }
                 if (callback) callback(true);
                 return;
@@ -1209,7 +1498,7 @@
             $badge.html('<i class="fas fa-spinner fa-spin mr-1"></i> Syncing...');
 
             if (typeof toastr !== 'undefined') {
-                toastr.info('Syncing ' + pendingList.length + ' offline bill(s) with central server...', 'Background Sync');
+                toastr.info('Syncing ' + pendingList.length + ' offline transaction(s) with central server...', 'Background Sync');
             }
 
             var syncIndex = 0;
@@ -1224,7 +1513,7 @@
                         SoundFX.successChime();
                         DesktopNotify.send(
                             'LifeCare Sync Complete',
-                            successCount + ' offline bill(s) successfully synced with central server.',
+                            successCount + ' offline transaction(s) successfully synced with central server.',
                             'pwa-sync-complete'
                         );
 
@@ -1232,10 +1521,10 @@
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Sync Completed',
-                                text: successCount + ' offline bill(s) successfully synced with central server!'
+                                text: successCount + ' offline transaction(s) successfully synced with central server!'
                             });
                         } else if (typeof toastr !== 'undefined') {
-                            toastr.success(successCount + ' bills synced with server!', 'Sync Complete');
+                            toastr.success(successCount + ' transaction(s) synced with server!', 'Sync Complete');
                         }
                     }
                     if (callback) callback(true);
@@ -1249,16 +1538,38 @@
                 formData.append('is_offline_sync', '1');
                 formData.append('offline_uuid', inv.uuid);
 
-                if (Array.isArray(inv.formData)) {
-                    inv.formData.forEach(function (field) {
-                        formData.append(field.name, field.value);
-                    });
-                }
-                if (!inv.formData.some(function (f) { return f.name === 'patient'; })) {
-                    formData.append('patient', 'add_new');
-                }
+                var postUrl = '';
 
-                var postUrl = $('base').attr('href') ? $('base').attr('href') + 'finance/addPayment' : 'finance/addPayment';
+                if (inv.type === 'due_deposit') {
+                    formData.append('id', '');
+                    formData.append('patient', inv.patient_id || '');
+                    formData.append('payment_id', inv.payment_id || inv.invoice_no);
+                    formData.append('deposited_amount', inv.deposited_amount);
+                    formData.append('additional_discount', inv.additional_discount);
+                    formData.append('deposit_type', inv.deposit_type || 'Cash');
+                    formData.append('redirect', 'due');
+
+                    if (Array.isArray(inv.formData)) {
+                        inv.formData.forEach(function (field) {
+                            if (!formData.has(field.name)) {
+                                formData.append(field.name, field.value);
+                            }
+                        });
+                    }
+
+                    postUrl = $('base').attr('href') ? $('base').attr('href') + 'finance/deposit' : 'finance/deposit';
+                } else {
+                    if (Array.isArray(inv.formData)) {
+                        inv.formData.forEach(function (field) {
+                            formData.append(field.name, field.value);
+                        });
+                    }
+                    if (!inv.formData.some(function (f) { return f.name === 'patient'; })) {
+                        formData.append('patient', 'add_new');
+                    }
+
+                    postUrl = $('base').attr('href') ? $('base').attr('href') + 'finance/addPayment' : 'finance/addPayment';
+                }
 
                 fetch(postUrl, {
                     method: 'POST',
@@ -1269,7 +1580,8 @@
                 .then(function (res) {
                     if (res && res.status === 'success') {
                         successCount++;
-                        OfflineDB.markSynced(inv.uuid, res.invoice_id).then(function () {
+                        var refId = res.payment_id || res.invoice_id || inv.payment_id;
+                        OfflineDB.markSynced(inv.uuid, refId).then(function () {
                             processNext();
                         });
                     } else {
@@ -1278,7 +1590,7 @@
                     }
                 })
                 .catch(function (err) {
-                    console.error('[PWA Sync] Network error syncing invoice ' + inv.uuid + ':', err);
+                    console.error('[PWA Sync] Network error syncing transaction ' + inv.uuid + ':', err);
                     processNext();
                 });
             }
@@ -1374,6 +1686,7 @@
         initInstallPrompt();
         initNetworkListeners();
         initPOSInterception();
+        initDueCollectionInterception();
         initCameraScanner();
         initFullscreenKiosk();
         initLabReportOfflineDraft();
