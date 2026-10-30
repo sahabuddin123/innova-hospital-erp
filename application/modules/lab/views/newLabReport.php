@@ -259,13 +259,12 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
     flex-direction: column;
 }
 
-/* Watermark */
+/* Watermark (Lower Right Quadrant matching physical report) */
 .report-watermark {
     position: absolute;
-    top: 52%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    opacity: 0.06;
+    bottom: 22%;
+    right: 14%;
+    opacity: 0.08;
     pointer-events: none;
     z-index: 0;
 }
@@ -430,7 +429,9 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
 }
 
 .sig-cursive-wrap {
-    margin-bottom: 4px;
+    margin-bottom: -15px;
+    position: relative;
+    z-index: 2;
 }
 
 .sig-title {
