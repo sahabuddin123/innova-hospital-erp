@@ -966,7 +966,7 @@ class Lab_model extends CI_model
 
         $this->db->select('*');
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $this->db->where("(id LIKE '%" . $search . "%' OR invoice_id LIKE '%" . $search . "%' OR patient_name LIKE '%" . $search . "%' OR patient_phone LIKE '%" . $search . "%' OR patient_address LIKE '%" . $search . "%'OR doctor_name LIKE '%" . $search . "%'OR date_string LIKE '%" . $search . "%')", NULL, FALSE);
+        $this->db->where("(id LIKE '%" . $search . "%' OR invoice_id LIKE '%" . $search . "%' OR patient LIKE '%" . $search . "%' OR patient IN (SELECT id FROM patient WHERE patient_id LIKE '%" . $search . "%') OR patient_name LIKE '%" . $search . "%' OR patient_phone LIKE '%" . $search . "%' OR patient_address LIKE '%" . $search . "%' OR doctor_name LIKE '%" . $search . "%' OR date_string LIKE '%" . $search . "%')", NULL, FALSE);
         $query = $this->db->get('lab');
         return $query->result();
     }
@@ -1083,7 +1083,7 @@ class Lab_model extends CI_model
         $this->db->limit($limit, $start);
         $this->db->select('*');
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $this->db->where("(id LIKE '%" . $search . "%'  OR invoice_id LIKE '%" . $search . "%' OR patient_name LIKE '%" . $search . "%' OR patient_phone LIKE '%" . $search . "%' OR patient_address LIKE '%" . $search . "%'OR doctor_name LIKE '%" . $search . "%'OR date_string LIKE '%" . $search . "%')", NULL, FALSE);
+        $this->db->where("(id LIKE '%" . $search . "%' OR invoice_id LIKE '%" . $search . "%' OR patient LIKE '%" . $search . "%' OR patient IN (SELECT id FROM patient WHERE patient_id LIKE '%" . $search . "%') OR patient_name LIKE '%" . $search . "%' OR patient_phone LIKE '%" . $search . "%' OR patient_address LIKE '%" . $search . "%' OR doctor_name LIKE '%" . $search . "%' OR date_string LIKE '%" . $search . "%')", NULL, FALSE);
         $query = $this->db->get('lab');
         return $query->result();
     }

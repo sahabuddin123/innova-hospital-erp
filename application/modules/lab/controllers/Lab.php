@@ -721,7 +721,7 @@ class Lab extends MX_Controller
 
 
             $info[] = array(
-                isset($patient_info->id) ? $patient_info->id : "",
+                !empty($patient_info->patient_id) ? $patient_info->patient_id : (!empty($patient_info->id) ? $patient_info->id : ""),
                 $patient_details,
                 $lab->invoice_id,
                 $invoice_date_time,
@@ -940,7 +940,7 @@ class Lab extends MX_Controller
 
 
             $info[] = array(
-                isset($patient_info->id) ? $patient_info->id : "",
+                !empty($patient_info->patient_id) ? $patient_info->patient_id : (!empty($patient_info->id) ? $patient_info->id : ""),
                 //$patient_details,
                 $patient_name,
                 $patient_phone,
@@ -1254,7 +1254,7 @@ class Lab extends MX_Controller
 
 
             $info[] = array(
-                isset($patient_info->id) ? $patient_info->id : "",
+                !empty($patient_info->patient_id) ? $patient_info->patient_id : (!empty($patient_info->id) ? $patient_info->id : ""),
                 $patient_details,
                 $lab->invoice_id,
                 $invoice_date_time,
@@ -3259,7 +3259,7 @@ class Lab extends MX_Controller
             }
 
             $info[] = array(
-                isset($patient_info->id) ? $patient_info->id : "",
+                !empty($patient_info->patient_id) ? $patient_info->patient_id : (!empty($patient_info->id) ? $patient_info->id : ""),
                 //$patient_details,
                 $patient_name,
                 $patient_phone,
