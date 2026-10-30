@@ -1,398 +1,517 @@
 <?php
-$patient = $this->db->get_where('patient', array('id' => $lab->patient))->row();
-$invoice_details = "";
-$invoice_details = $this->db->get_where('payment', array('id' => $lab->invoice_id))->row();
+$patient = !empty($lab->patient) ? $this->db->get_where('patient', array('id' => $lab->patient))->row() : null;
+$invoice_details = !empty($lab->invoice_id) ? $this->db->get_where('payment', array('id' => $lab->invoice_id))->row() : null;
+
+// Patient ID / ID NO
+$id_no = !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : $lab->id);
+
+// Patient Name
+$patient_name = !empty($patient->name) ? strtoupper($patient->name) : (!empty($lab->patient_name) ? strtoupper($lab->patient_name) : '-');
+
+// Ref. By / Doctor
+$ref_by = 'SELF';
+$doctor_obj = null;
+if (!empty($lab->doctor)) {
+    $doctor_obj = $this->db->get_where('doctor', array('id' => $lab->doctor))->row();
+} elseif (!empty($invoice_details->doctor)) {
+    $doctor_obj = $this->db->get_where('doctor', array('id' => $invoice_details->doctor))->row();
+}
+if (!empty($doctor_obj->name)) {
+    $ref_by = $doctor_obj->name;
+} elseif (!empty($lab->doctor_name)) {
+    $ref_by = $lab->doctor_name;
+} elseif (!empty($invoice_details->doctor_name)) {
+    $ref_by = $invoice_details->doctor_name;
+}
+
+// Specimen Detection
+$specimen = 'Blood';
+$cat_name = !empty($lab->category_name) ? strtolower($lab->category_name) : '';
+if (strpos($cat_name, 'urine') !== false) {
+    $specimen = 'Urine';
+} elseif (strpos($cat_name, 'stool') !== false) {
+    $specimen = 'Stool';
+} elseif (strpos($cat_name, 'semen') !== false) {
+    $specimen = 'Semen';
+} elseif (strpos($cat_name, 'sputum') !== false) {
+    $specimen = 'Sputum';
+} elseif (strpos($cat_name, 'swab') !== false) {
+    $specimen = 'Swab';
+} elseif (strpos($cat_name, 'x-ray') !== false || strpos($cat_name, 'usg') !== false || strpos($cat_name, 'ecg') !== false || strpos($cat_name, 'echo') !== false) {
+    $specimen = 'N/A';
+}
+
+// Date
+$report_date = !empty($lab->date) ? (is_numeric($lab->date) ? date('d/m/Y', $lab->date) : date('d/m/Y', strtotime($lab->date))) : date('d/m/Y');
+
+// Age
+$patient_age = '-';
+if (!empty($patient->age)) {
+    $age_parts = explode('-', $patient->age);
+    $patient_age = trim($age_parts[0]) . ' Y';
+} elseif (!empty($patient->birthdate)) {
+    $diff = date_diff(date_create($patient->birthdate), date_create(date("Y-m-d")));
+    $patient_age = $diff->format('%y Y');
+}
+
+// Sex
+$patient_sex = !empty($patient->sex) ? ucfirst($patient->sex) : (!empty($patient->gender) ? ucfirst($patient->gender) : '-');
+
+// Hospital Logo
+$logo_path = 'uploads/lifecare_logo_circle.png';
+if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings->logo)) {
+    $logo_path = $settings->logo;
+}
 ?>
 
 <div class="content-wrapper">
-    <section class="content py-2">
-        <div class="container-fluid">
-            <div class="document-wrapper">
-                <!-- Document Header -->
-                <div class="document-header mb-2">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h3 class="document-title mb-1">LABORATORY REPORT #<?php echo $lab->id; ?></h3>
-                            <p class="document-subtitle mb-0"><?php echo $patient->name; ?> | ID: <?php echo $patient->id; ?> | Invoice: <?php echo $invoice_details->id; ?></p>
-                        </div>
-                        <div class="col-md-4 text-right">
-                            <div class="document-actions">
-                                <button type="button" class="btn btn-outline-primary btn-sm print-btn" onclick="printDocument()">
-                                    <i class="fas fa-print mr-1"></i>
-                                    Print Report
-                                </button>
-                                <?php if (empty($redirect) || $redirect != 'download1') { ?>
-                                    <a href="<?php echo site_url('lab/testPdf?id=' . $lab->id); ?>" class="btn btn-outline-success btn-sm">
-                                        <i class="fas fa-download mr-1"></i>
-                                        Download PDF
-                                    </a>
-                                <?php } ?>
-                            </div>
-                        </div>
-                    </div>
+    <!-- Top Action Bar (Screen Only) -->
+    <div class="report-action-bar no-print py-3 px-4 bg-white border-bottom shadow-sm d-flex justify-content-between align-items-center">
+        <div>
+            <a href="lab" class="btn btn-outline-secondary btn-sm mr-2 font-weight-bold">
+                <i class="fas fa-arrow-left mr-1"></i> <?php echo lang('back_to_lab_module'); ?>
+            </a>
+            <span class="badge badge-light border text-dark font-weight-bold p-2">
+                Report ID: #<?php echo $lab->id; ?> | Invoice: #<?php echo !empty($lab->invoice_id) ? $lab->invoice_id : 'N/A'; ?>
+            </span>
+        </div>
+        <div>
+            <?php if ($this->ion_auth->in_group(array('admin', 'Laboratorist'))) { ?>
+                <a href="lab?id=<?php echo $lab->id; ?>" class="btn btn-outline-info btn-sm mr-2 font-weight-bold">
+                    <i class="fas fa-edit mr-1"></i> Edit Report
+                </a>
+            <?php } ?>
+            <?php if (empty($redirect) || $redirect != 'download1') { ?>
+                <a href="<?php echo site_url('lab/testPdf?id=' . $lab->id); ?>" class="btn btn-outline-success btn-sm mr-2 font-weight-bold">
+                    <i class="fas fa-file-pdf mr-1"></i> Download PDF
+                </a>
+            <?php } ?>
+            <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm font-weight-bold" onclick="window.print()">
+                <i class="fas fa-print mr-1"></i> Print Report (A4)
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Report Canvas Container -->
+    <section class="content py-4">
+        <div class="container-fluid d-flex justify-content-center">
+            
+            <!-- A4 Clinical Laboratory Report Sheet -->
+            <div class="lab-report-sheet" id="printable-report">
+                
+                <!-- Background LCDC Emblem Watermark -->
+                <div class="report-watermark" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 260" width="340" height="340">
+                        <circle cx="130" cy="130" r="120" fill="none" stroke="#b91c1c" stroke-width="2.5"/>
+                        <circle cx="130" cy="130" r="112" fill="none" stroke="#b91c1c" stroke-width="1.2"/>
+                        <circle cx="130" cy="130" r="82" fill="none" stroke="#b91c1c" stroke-width="1.2"/>
+                        
+                        <path id="lcdcWatermarkTop" d="M 30,130 A 100,100 0 0,1 230,130" fill="none"/>
+                        <text font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="bold" fill="#b91c1c" letter-spacing="2">
+                            <textPath href="#lcdcWatermarkTop" startOffset="50%" text-anchor="middle">LIFE CARE DIAGNOSTIC CENTER</textPath>
+                        </text>
+
+                        <path id="lcdcWatermarkBottom" d="M 230,130 A 100,100 0 0,1 30,130" fill="none"/>
+                        <text font-family="Arial, Helvetica, sans-serif" font-size="10.5" font-weight="bold" fill="#b91c1c" letter-spacing="2">
+                            <textPath href="#lcdcWatermarkBottom" startOffset="50%" text-anchor="middle">★ KHASERHAT ★ NOAKHALI ★</textPath>
+                        </text>
+
+                        <rect x="122" y="96" width="16" height="68" fill="#b91c1c" rx="2"/>
+                        <rect x="96" y="122" width="68" height="16" fill="#b91c1c" rx="2"/>
+                        <text x="130" y="90" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="900" fill="#b91c1c" text-anchor="middle">L C D C</text>
+                    </svg>
                 </div>
 
-                <!-- Document Content -->
-                <div class="document-content">
-                    <!-- Hospital Information -->
-                    <div class="document-section mb-2">
-                        <h5 class="section-title">HOSPITAL INFORMATION</h5>
-                        <div class="section-content">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <div class="info-row">
-                                        <span class="info-label">Hospital:</span>
-                                        <span class="info-value"><?php echo $settings->title; ?></span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Address:</span>
-                                        <span class="info-value"><?php echo $settings->address; ?></span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Phone:</span>
-                                        <span class="info-value"><?php echo $settings->phone; ?></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4 text-right">
-                                    <img src="<?php echo site_url($this->settings_model->getSettings()->logo); ?>" alt="Hospital Logo" class="hospital-logo" style="max-height: 60px;">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- 1. HEADER SECTION -->
+                <header class="report-header">
+                    <!-- Top-Left Green Ribbon Accent -->
+                    <div class="header-green-ribbon"></div>
 
-                    <!-- Patient Information -->
-                    <div class="document-section mb-2">
-                        <h5 class="section-title">PATIENT INFORMATION</h5>
-                        <div class="section-content">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="info-row">
-                                        <span class="info-label">Name:</span>
-                                        <span class="info-value"><?php echo $patient->name; ?></span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Patient ID:</span>
-                                        <span class="info-value"><?php echo $patient->id; ?></span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Phone:</span>
-                                        <span class="info-value"><?php echo $patient->phone; ?></span>
-                                    </div>
+                    <!-- Header Grid -->
+                    <div class="header-grid">
+                        <!-- Left: Logo & Hospital Names -->
+                        <div class="header-left">
+                            <div class="brand-row">
+                                <div class="logo-box">
+                                    <img src="<?php echo $logo_path; ?>" alt="Life Care Logo" class="center-logo">
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="info-row">
-                                        <span class="info-label">Age:</span>
-                                        <span class="info-value">
-                                            <?php
-                                            $age = explode('-', $patient->age);
-                                            if (count($age) == 3) {
-                                                echo $age[0] . " Y " . $age[1] . " M " . $age[2] . " D";
-                                            } else {
-                                                echo $patient->age;
-                                            }
-                                            ?>
-                                        </span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Gender:</span>
-                                        <span class="info-value"><?php echo $patient->sex; ?></span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Visit ID:</span>
-                                        <span class="info-value"><?php echo $lab->invoice_id; ?></span>
-                                    </div>
+                                <div class="brand-texts">
+                                    <div class="brand-tagline">বিশ্বাস ও আস্থার সাথে, সব সময় আপনার পাশে</div>
+                                    <h1 class="brand-bangla">লাইফ কেয়ার ডায়াগনস্টিক সেন্টার</h1>
+                                    <h2 class="brand-english">LIFE CARE DIAGNOSTIC CENTER</h2>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Doctor Information -->
-                    <div class="document-section mb-2">
-                        <h5 class="section-title">REFERRING PHYSICIAN</h5>
-                        <div class="section-content">
-                            <?php
-                            $doctor_details = "";
-                            if ($invoice_details) {
-                                if ($invoice_details->doctor) {
-                                    $doctor_details = $this->db->get_where('doctor', array('id' => $invoice_details->doctor))->row();
-                                }
-                            }
-                            ?>
-                            <div class="info-row">
-                                <span class="info-label">Doctor:</span>
-                                <span class="info-value">
-                                    <?php if ($doctor_details) { ?>
-                                        <?php echo $doctor_details->name; ?>
-                                    <?php } else { ?>
-                                        Not specified
-                                    <?php } ?>
-                                </span>
+                        <!-- Right: Address, Phone, Email -->
+                        <div class="header-right">
+                            <div class="contact-line">
+                                <i class="fas fa-map-marker-alt text-danger contact-icon"></i>
+                                <span>খাসেরহাট রাস্তার মাথা, চরবাটা, সুবর্ণচর, নোয়াখালী</span>
                             </div>
-                            <?php if ($doctor_details && $doctor_details->profile) { ?>
-                                <div class="info-row">
-                                    <span class="info-label">Specialization:</span>
-                                    <span class="info-value"><?php echo $doctor_details->profile; ?></span>
-                                </div>
-                            <?php } ?>
-                            <div class="info-row">
-                                <span class="info-label">Visit Date:</span>
-                                <span class="info-value">
-                                    <?php
-                                    if ($invoice_details) {
-                                        echo date('M d, Y h:i A', $invoice_details->date);
-                                    }
-                                    ?>
-                                </span>
+                            <div class="contact-line">
+                                <i class="fas fa-phone-alt text-primary contact-icon"></i>
+                                <span>01829 96 25 55, 01727 69 69 77</span>
+                            </div>
+                            <div class="contact-line">
+                                <i class="fas fa-envelope text-info contact-icon"></i>
+                                <span>lifecare5boy@gmail.com</span>
                             </div>
                         </div>
                     </div>
+                </header>
 
-                    <!-- Lab Report Content -->
-                    <div class="document-section mb-2">
-                        <h5 class="section-title">LABORATORY RESULTS</h5>
-                        <div class="section-content">
-                            <div class="report-content">
-                                <?php echo $lab->report; ?>
-                            </div>
-                        </div>
-                    </div>
+                <!-- 2. PATIENT INFORMATION BOX -->
+                <div class="patient-info-box">
+                    <table class="patient-info-tbl">
+                        <tr>
+                            <td class="lbl">ID NO</td>
+                            <td class="sep">:</td>
+                            <td class="val"><strong><?php echo html_escape($id_no); ?></strong></td>
+                            
+                            <td class="lbl">Date</td>
+                            <td class="sep">:</td>
+                            <td class="val"><?php echo html_escape($report_date); ?></td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Patient's Name</td>
+                            <td class="sep">:</td>
+                            <td class="val"><strong><?php echo html_escape($patient_name); ?></strong></td>
 
-                    <!-- Report Footer -->
-                    <div class="document-section mb-2">
-                        <h5 class="section-title">REPORT DETAILS</h5>
-                        <div class="section-content">
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="info-row">
-                                        <span class="info-label">Done By:</span>
-                                        <span class="info-value"><?php echo $lab->done_by; ?></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="info-row">
-                                        <span class="info-label">Test Date:</span>
-                                        <span class="info-value">
-                                            <?php echo $lab->test_status_date != null ? date('M d, Y h:i A', $lab->test_status_date) : "Not completed"; ?>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="info-row">
-                                        <span class="info-label">Last Updated:</span>
-                                        <span class="info-value">
-                                            <?php
-                                            if ($lab->updated_on) {
-                                                echo date('M d, Y h:i A', $lab->updated_on);
-                                            } else {
-                                                echo "Not updated";
-                                            }
-                                            ?>
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                            <td class="lbl">Age</td>
+                            <td class="sep">:</td>
+                            <td class="val"><?php echo html_escape($patient_age); ?></td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Ref. By</td>
+                            <td class="sep">:</td>
+                            <td class="val"><strong><?php echo html_escape($ref_by); ?></strong></td>
+
+                            <td class="lbl">Sex</td>
+                            <td class="sep">:</td>
+                            <td class="val"><?php echo html_escape($patient_sex); ?></td>
+                        </tr>
+                        <tr>
+                            <td class="lbl">Specimen</td>
+                            <td class="sep">:</td>
+                            <td class="val"><strong><?php echo html_escape($specimen); ?></strong></td>
+
+                            <td class="lbl"></td>
+                            <td class="sep"></td>
+                            <td class="val"></td>
+                        </tr>
+                    </table>
                 </div>
+
+                <!-- 3. REPORT BODY / CLINICAL TEST CONTENT -->
+                <main class="report-content-body">
+                    <?php echo $lab->report; ?>
+                </main>
+
+                <!-- 4. SIGNATURE SECTION -->
+                <footer class="report-signatures-section">
+                    <!-- Left: Doctor Signature Block -->
+                    <div class="sig-block sig-left">
+                        <div class="sig-title font-weight-bold">DR.MD.ABU SUFIAN</div>
+                        <div class="sig-sub">MBBS.CMU (ULTRA).</div>
+                        <div class="sig-role">MEDICAL OFFICER</div>
+                        <div class="sig-hosp">LIFE CARE DIAGNOSTIC CENTER</div>
+                    </div>
+
+                    <!-- Right: Medical Technologist Signature Block with Cursive Stamp -->
+                    <div class="sig-block sig-right">
+                        <div class="sig-cursive-wrap">
+                            <!-- Rasel Ahammed Cursive Signature Stroke -->
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 55" width="135" height="42" class="sig-pen-stroke">
+                                <path d="M 22 42 C 18 36, 14 20, 26 12 C 36 5, 44 14, 36 26 C 28 38, 20 44, 42 32 C 52 26, 58 18, 64 22 C 70 26, 68 36, 75 28 C 82 20, 88 18, 94 26 C 100 32, 106 28, 112 24 C 118 18, 124 20, 130 30 M 32 32 L 140 20 M 36 46 C 60 40, 105 30, 150 16" fill="none" stroke="#0a192f" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="sig-title font-weight-bold">RASEL AHAMMED</div>
+                        <div class="sig-sub">Medical Technologist (Lab)</div>
+                        <div class="sig-role">Diploma In LabratoryMedicine(OMI)</div>
+                        <div class="sig-hosp">Life Care Diagnostic Center</div>
+                    </div>
+                </footer>
+
+                <!-- 5. BOTTOM SOLID GREEN BAR -->
+                <div class="report-bottom-green-bar"></div>
+
             </div>
         </div>
     </section>
 </div>
 
+<!-- STYLING: Pixel-Perfect A4 Lab Report Sheet -->
 <style>
-/* Document Wrapper */
-.document-wrapper {
-    margin: 0 2rem;
-    padding: 1.5rem;
-    background: #fff;
-    border: 1px solid #e1e5e9;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Document Header */
-.document-header {
-    border-bottom: 2px solid #000;
-    padding-bottom: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.document-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #000;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.document-subtitle {
-    font-size: 0.9rem;
-    color: #666;
-    margin: 0;
-}
-
-/* Section Styling */
-.document-section {
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-.section-title {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #000;
-    text-transform: uppercase;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 0.25rem;
-    margin-bottom: 0.5rem;
-}
-
-/* Information Display */
-.info-row {
+/* Base Styles */
+.lab-report-sheet {
+    width: 210mm;
+    min-height: 297mm;
+    background: #ffffff;
+    margin: 0 auto;
+    padding: 12mm 15mm 10mm 15mm;
+    box-shadow: 0 4px 25px rgba(0,0,0,0.12);
+    position: relative;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111;
     display: flex;
-    margin-bottom: 0.25rem;
-    font-size: 0.85rem;
-    line-height: 1.3;
+    flex-direction: column;
 }
 
-.info-label {
+/* Watermark */
+.report-watermark {
+    position: absolute;
+    top: 52%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Header */
+.report-header {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 6px;
+}
+
+.header-green-ribbon {
+    position: absolute;
+    top: -12mm;
+    left: -15mm;
+    width: 28mm;
+    height: 28mm;
+    background: #16a34a;
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+    z-index: 2;
+}
+
+.header-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1.5px solid #222;
+    padding-bottom: 8px;
+}
+
+.header-left .brand-row {
+    display: flex;
+    align-items: center;
+}
+
+.logo-box {
+    margin-right: 12px;
+}
+
+.center-logo {
+    width: 62px;
+    height: 62px;
+    object-fit: contain;
+    border-radius: 50%;
+}
+
+.brand-tagline {
+    font-size: 11px;
+    color: #1e3a8a;
+    font-style: italic;
     font-weight: 600;
-    color: #333;
-    min-width: 120px;
-    margin-right: 0.5rem;
-    flex-shrink: 0;
+    margin-bottom: 1px;
 }
 
-.info-value {
-    color: #000;
+.brand-bangla {
+    font-size: 21px;
+    font-weight: 800;
+    color: #c5221f;
+    margin: 0;
+    line-height: 1.15;
+    letter-spacing: 0.2px;
+}
+
+.brand-english {
+    font-size: 14.5px;
+    font-weight: 900;
+    color: #0b2545;
+    margin: 1px 0 0 0;
+    letter-spacing: 0.8px;
+}
+
+.header-right {
+    font-size: 10.5px;
+    color: #222;
+    line-height: 1.5;
+    text-align: left;
+    max-width: 250px;
+}
+
+.contact-line {
+    display: flex;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.contact-icon {
+    width: 14px;
+    margin-right: 6px;
+    font-size: 11px;
+}
+
+/* Patient Box */
+.patient-info-box {
+    position: relative;
+    z-index: 1;
+    border: 1.5px solid #222;
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin: 8px 0 10px 0;
+    background: #ffffff;
+}
+
+.patient-info-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    color: #111;
+}
+
+.patient-info-tbl td {
+    padding: 2px 2px;
+    vertical-align: middle;
+}
+
+.patient-info-tbl .lbl {
+    font-weight: 700;
+    width: 90px;
+    color: #222;
+}
+
+.patient-info-tbl .sep {
+    width: 12px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.patient-info-tbl .val {
+    width: 38%;
+}
+
+/* Report Content Body */
+.report-content-body {
+    position: relative;
+    z-index: 1;
     flex: 1;
-    word-wrap: break-word;
+    margin: 4px 0 12px 0;
 }
 
-/* Report Content */
-.report-content {
-    font-size: 0.9rem;
-    line-height: 1.4;
+/* Signatures */
+.report-signatures-section {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: auto;
+    padding-top: 15px;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.sig-block {
+    width: 44%;
+}
+
+.sig-left {
+    text-align: left;
+}
+
+.sig-right {
+    text-align: right;
+}
+
+.sig-cursive-wrap {
+    margin-bottom: 4px;
+}
+
+.sig-title {
+    font-size: 12px;
     color: #000;
+    letter-spacing: 0.3px;
 }
 
-/* Print Button */
-.print-btn {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.8rem;
+.sig-sub, .sig-role, .sig-hosp {
+    color: #222;
+    font-size: 10.5px;
 }
 
-/* Hospital Logo */
-.hospital-logo {
-    max-width: 100%;
-    height: auto;
+/* Bottom Green Bar */
+.report-bottom-green-bar {
+    position: relative;
+    z-index: 1;
+    height: 10px;
+    background: #16a34a;
+    margin-top: 10px;
+    border-radius: 0 0 2px 2px;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .document-wrapper {
-        margin: 0 1rem;
-        padding: 1rem;
-    }
-    
-    .document-title {
-        font-size: 1.2rem;
-    }
-    
-    .info-label {
-        min-width: 100px;
-    }
-}
-
-@media (max-width: 576px) {
-    .document-wrapper {
-        margin: 0 0.5rem;
-        padding: 0.75rem;
-    }
-    
-    .document-title {
-        font-size: 1rem;
-    }
-    
-    .info-row {
-        font-size: 0.8rem;
-    }
-}
-
-/* Print Styles */
+/* Print Overrides */
 @media print {
-    .document-wrapper {
-        margin: 0;
-        padding: 0;
-        border: none;
-        box-shadow: none;
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
-    
-    .document-actions {
-        display: none;
+
+    .no-print,
+    .main-header,
+    .main-sidebar,
+    .main-footer,
+    .control-sidebar,
+    .report-action-bar,
+    .breadcrumb,
+    nav {
+        display: none !important;
     }
-    
-    .document-header {
-        border-bottom: 2px solid #000;
+
+    .content-wrapper {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        border: none !important;
     }
-    
-    .document-section {
-        page-break-inside: avoid;
+
+    .content {
+        padding: 0 !important;
+        margin: 0 !important;
     }
-    
-    .section-title {
-        border-bottom: 1px solid #000;
+
+    .container-fluid {
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+    }
+
+    .lab-report-sheet {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 6mm 10mm 6mm 10mm !important;
+        box-shadow: none !important;
+        border: none !important;
+        box-sizing: border-box !important;
+    }
+
+    .header-green-ribbon {
+        top: -6mm !important;
+        left: -10mm !important;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 6mm;
     }
 }
 </style>
-
-<script>
-function printDocument() {
-    // Hide non-printable elements
-    const elementsToHide = document.querySelectorAll('.document-actions, .no-print');
-    elementsToHide.forEach(el => el.style.display = 'none');
-    
-    // Print the document
-    window.print();
-    
-    // Restore elements after printing
-    elementsToHide.forEach(el => el.style.display = '');
-}
-</script>
-
-
-
-
-
-<!--main content end-->
-<!--footer start-->
-
-
-
-<script src="common/js/codearistos.min.js"></script>
-<script type="text/javascript">
-    var select_doctor = "<?php echo lang('select_doctor'); ?>";
-</script>
-<script type="text/javascript">
-    var select_email = "<?php echo lang('select_email'); ?>";
-</script>
-<script src="common/extranal/js/lab/lab.js"></script>
-
-<script>
-    $(document).ready(function() {
-        var prevRowHeight = 0;
-        $("p, tr, img").each(function() {
-            console.log(prevRowHeight);
-            var maxHeight = 750;
-            var eachRowHeight = $(this).height();
-            if ((prevRowHeight + eachRowHeight) > maxHeight) {
-                prevRowHeight = 0;
-                $(this).before('<div class="page_breaker"></div>');
-                console.log("add page break before");
-            }
-            prevRowHeight = prevRowHeight + $(this).height();
-        });
-
-    });
-</script>

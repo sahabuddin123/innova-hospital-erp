@@ -165,27 +165,9 @@
 
 <body>
     <div class="flex-wrapper">
-        <?php $patient = $this->db->get_where('patient', array('id' => $lab->patient))->row(); ?>
-
-        <div class="reportBlock" style="padding: 10px">
+        <div class="reportBlock" style="padding: 10px 5px;">
             <?php echo $lab->report; ?>
         </div>
-        <htmlpagefooter>
-           
-            <div id="footer" style="padding: 10px;">
-                <?php
-                $signature = "";
-                if ($lab->signed_by) {
-                    $laboratorist = $this->db->get_where('laboratorist', array('ion_user_id' => $lab->signed_by))->row();
-
-                    if ($laboratorist) {
-                        $signature = $laboratorist->signature;
-                    }
-                ?>
-                <?php } ?>
-                <hr style="margin: 10px 0px !important;">
-            </div>
-        </htmlpagefooter>
     </div>
 </body>
 

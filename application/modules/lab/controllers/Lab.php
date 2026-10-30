@@ -154,139 +154,142 @@ class Lab extends MX_Controller
         }
         //$this->load->view('newLabReport', $data);
 
-        $age = explode('-', $patient->age);
-        if (count($age) == 3) {
+        $id_no = !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : $lab->id);
+        $patient_name = !empty($patient->name) ? strtoupper($patient->name) : (!empty($lab->patient_name) ? strtoupper($lab->patient_name) : '-');
 
-            $age_as = '<td style="padding-right: 10px;"><label class="control_label">' . lang('age') . '</label> <span class="info_text">:' . $age[0] . " Y " . $age[1] . " M " . $age[2] . " D" . '</td></span>';
-        } else {
-            $age_as = '<td style="padding-right: 10px;"><label class="control_label">' . lang('age') . '</label> <span class="info_text">: </span></td>';
+        $doctor_details = null;
+        $invoice_details = !empty($lab->invoice_id) ? $this->db->get_where('payment', array('id' => $lab->invoice_id))->row() : null;
+        if (!empty($lab->doctor)) {
+            $doctor_details = $this->db->get_where('doctor', array('id' => $lab->doctor))->row();
+        } elseif (!empty($invoice_details->doctor)) {
+            $doctor_details = $this->db->get_where('doctor', array('id' => $invoice_details->doctor))->row();
         }
 
-        $doctor_details = "";
-        $invoice_details = "";
-        $invoice_details = $this->db->get_where('payment', array('id' => $lab->invoice_id))->row();
-        if ($invoice_details) {
-            if ($invoice_details->doctor) {
-                $doctor_details = $this->db->get_where('doctor', array('id' => $invoice_details->doctor))->row();
-            }
+        $ref_by = 'SELF';
+        if (!empty($doctor_details->name)) {
+            $ref_by = $doctor_details->name;
+        } elseif (!empty($lab->doctor_name)) {
+            $ref_by = $lab->doctor_name;
+        } elseif (!empty($invoice_details->doctor_name)) {
+            $ref_by = $invoice_details->doctor_name;
         }
 
-        if ($invoice_details) {
-            $datess = date('d/m/Y h:i A', $invoice_details->date);
-        } else {
-            $datess = '';
-        }
-        if ($doctor_details) {
-            $doc_name = '<span class="info_text">: ' . $doctor_details->name . '</span>';
-            $profile = '<span class="info_text">' . $doctor_details->profile . '</span>';
-        } else {
-            $doc_name = '';
-            $profile = '';
+        $report_date = !empty($lab->date) ? (is_numeric($lab->date) ? date('d/m/Y', $lab->date) : date('d/m/Y', strtotime($lab->date))) : date('d/m/Y');
+
+        $patient_age = '-';
+        if (!empty($patient->age)) {
+            $age_parts = explode('-', $patient->age);
+            $patient_age = trim($age_parts[0]) . ' Y';
         }
 
+        $patient_sex = !empty($patient->sex) ? ucfirst($patient->sex) : '-';
 
-
-
-        $signature = "";
-        if ($lab->signed_by) {
-            $laboratorist = $this->db->get_where('laboratorist', array('ion_user_id' => $lab->signed_by))->row();
-
-            if ($laboratorist) {
-                $signature = $laboratorist->signature;
-            }
+        $specimen = 'Blood';
+        $cat_name = !empty($lab->category_name) ? strtolower($lab->category_name) : '';
+        if (strpos($cat_name, 'urine') !== false) {
+            $specimen = 'Urine';
+        } elseif (strpos($cat_name, 'stool') !== false) {
+            $specimen = 'Stool';
+        } elseif (strpos($cat_name, 'semen') !== false) {
+            $specimen = 'Semen';
+        } elseif (strpos($cat_name, 'sputum') !== false) {
+            $specimen = 'Sputum';
+        } elseif (strpos($cat_name, 'swab') !== false) {
+            $specimen = 'Swab';
+        } elseif (strpos($cat_name, 'x-ray') !== false || strpos($cat_name, 'usg') !== false || strpos($cat_name, 'ecg') !== false || strpos($cat_name, 'echo') !== false) {
+            $specimen = 'N/A';
         }
 
+        $logo_url = base_url('uploads/lifecare_logo_circle.png');
 
-
-
-
-
-        $header = '       <div id="invoice_header">
-                        <table style="width: 100%">
+        $header = '
+        <div style="font-family: Arial, Helvetica, sans-serif;">
+            <table style="width: 100%; border-bottom: 1.5px solid #222; padding-bottom: 6px;">
+                <tr>
+                    <td style="width: 62%; vertical-align: middle;">
+                        <table>
                             <tr>
-                                <td style="width: 25%">
-                                    <img alt="" src="' . site_url($this->settings_model->getSettings()->logo) . '" width="150" height="auto" style="margin-top:-45px; margin-left: 5px;">
+                                <td style="width: 60px; vertical-align: middle;">
+                                    <img src="' . $logo_url . '" width="56" height="56" style="border-radius: 50%;">
                                 </td>
-                                <td>
-                                    <h4 style="margin-bottom: 10px; font-weight: 800; margin-top: -20px;">' . $settings1->title . '</h4>
-                                    <h6 style="margin-bottom: 10px;">' . $settings1->address . '</h6>
-                                    <h4 style="line-height: 20px">' . lang('phone') . ': <br>' . $settings1->phone . '</h4>
-                                </td>
-                                <td>
-                                    <table style="margin-top: 10px;">
-                                        <tr>
-                                            <td colspan="2">
-                                                <label class="control_label">' . lang('name') . '</label> <span class="info_text">:' . $patient->name . '</span>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            ' . $age_as . '
-                                            <td>
-                                                <label class="control_label">' . lang('done_by') . '</label> <span class="info_text">: ' . $patient->sex . '</span>
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td style="padding-right: 10px;"><label class="control_label">HN</label> <span class="info_text">: 0000000' . $patient->id . '</span></td>
-                                            <td><label class="control_label">' . lang('phone') . '</label> <span class="info_text">: ' . $patient->phone . '</span></td>
-                                        </tr>
-                                       
-                                        <tr>
-                                            <td style="padding-right: 10px;"><label class="control_label">VN</label> <span class="info_text">: 0000000' . $lab->invoice_id . '</span></td>
-                                            <td><label class="control_label">VN ' . lang('date') . '</label> <span class="info_text">:
-                                                                                                                        ' . $datess . '</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2">
-                                                <label class="control_label">' . lang('doctor') . '</label>
-                                                ' . $doc_name . '
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2">
-                                                ' . $profile . '
-                                            </td>
-                                        </tr>
-                                    </table>
+                                <td style="vertical-align: middle; padding-left: 8px;">
+                                    <div style="font-size: 10px; color: #1e3a8a; font-style: italic; font-weight: bold;">বিশ্বাস ও আস্থার সাথে, সব সময় আপনার পাশে</div>
+                                    <div style="font-size: 19px; font-weight: bold; color: #c5221f; margin: 1px 0;">লাইফ কেয়ার ডায়াগনস্টিক সেন্টার</div>
+                                    <div style="font-size: 13.5px; font-weight: bold; color: #0b2545; letter-spacing: 0.5px;">LIFE CARE DIAGNOSTIC CENTER</div>
                                 </td>
                             </tr>
                         </table>
-                        
-                        <hr class="table-qr-hr">
-                        <table style="width: 100%">
-                            <tr>
-                                <td style="width: 50%; padding-left: 20px; display: inline-flex">
-                                    <label style="margin-bottom: 10px;">HN:</label>
-                                    <img class="image_bar" alt="testing" src="' . site_url("lab/barcode") . '?text=000000000' . $patient->id . '&print=true" />
-                                </td>
-                                
-                                <td style="width: 50%; text-align: right; padding-right: 20px; display: inline-flex; justify-content: end;">
-                                    <label style="margin-bottom: 10px;">VN:</label>
-                                    <img class="image_bar" alt="testing" src="' . site_url("lab/barcode") . '?text=000000000' . $lab->invoice_id . '&print=true" />
-                                </td>
-                            </tr>
-                        </table>
-                    </div>';
+                    </td>
+                    <td style="width: 38%; vertical-align: middle; text-align: right; font-size: 10px; line-height: 1.4; color: #222;">
+                        <div>খাসেরহাট রাস্তার মাথা, চরবাটা, সুবর্ণচর, নোয়াখালী</div>
+                        <div>01829 96 25 55, 01727 69 69 77</div>
+                        <div>lifecare5boy@gmail.com</div>
+                    </td>
+                </tr>
+            </table>
 
-        $footer = '<div class="invoice_footer" style="margin-top:50px;">
+            <table style="width: 100%; border: 1.2px solid #222; border-radius: 4px; margin-top: 6px; margin-bottom: 8px; padding: 4px 6px; font-size: 11px; line-height: 1.35;">
+                <tr>
+                    <td style="width: 15%; font-weight: bold;">ID NO</td>
+                    <td style="width: 2%;">:</td>
+                    <td style="width: 33%;"><strong>' . html_escape($id_no) . '</strong></td>
+                    <td style="width: 12%; font-weight: bold;">Date</td>
+                    <td style="width: 2%;">:</td>
+                    <td style="width: 36%;">' . html_escape($report_date) . '</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold;">Patient\'s Name</td>
+                    <td>:</td>
+                    <td><strong>' . html_escape($patient_name) . '</strong></td>
+                    <td style="font-weight: bold;">Age</td>
+                    <td>:</td>
+                    <td>' . html_escape($patient_age) . '</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold;">Ref. By</td>
+                    <td>:</td>
+                    <td><strong>' . html_escape($ref_by) . '</strong></td>
+                    <td style="font-weight: bold;">Sex</td>
+                    <td>:</td>
+                    <td>' . html_escape($patient_sex) . '</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold;">Specimen</td>
+                    <td>:</td>
+                    <td><strong>' . html_escape($specimen) . '</strong></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>';
 
-                                <table style="width: 100%">
-                                
-                                    <tr>
-                                        <td  id="footer_done" style="padding-right: 20px;"><span class="info_text">' . lang('done_by') . ': ' . $lab->done_by . '</span>
-                                          
-</td>
-                                        <td id="footer_second">
-                                           |{PAGENO} of {nbpg}| 
-                                        </td>
-                                        <td id="footer_third" style="text-align: right;">
-                                            <p style="font-weight: bold">
-                                                ' . $update_on . '
-                                            </p>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>';
+        $sig_base64 = base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 55" width="135" height="42"><path d="M 22 42 C 18 36, 14 20, 26 12 C 36 5, 44 14, 36 26 C 28 38, 20 44, 42 32 C 52 26, 58 18, 64 22 C 70 26, 68 36, 75 28 C 82 20, 88 18, 94 26 C 100 32, 106 28, 112 24 C 118 18, 124 20, 130 30 M 32 32 L 140 20 M 36 46 C 60 40, 105 30, 150 16" fill="none" stroke="#0a192f" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+
+        $footer = '
+        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; padding-top: 5px;">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="width: 50%; vertical-align: bottom;">
+                        <div style="font-weight: bold; font-size: 11.5px; color: #000;">DR.MD.ABU SUFIAN</div>
+                        <div style="font-size: 10px; color: #222;">MBBS.CMU (ULTRA).</div>
+                        <div style="font-size: 10px; color: #222;">MEDICAL OFFICER</div>
+                        <div style="font-size: 10px; color: #222;">LIFE CARE DIAGNOSTIC CENTER</div>
+                    </td>
+                    <td style="width: 50%; vertical-align: bottom; text-align: right;">
+                        <div style="margin-bottom: 2px;">
+                            <img src="data:image/svg+xml;base64,' . $sig_base64 . '" width="130" height="40" />
+                        </div>
+                        <div style="font-weight: bold; font-size: 11.5px; color: #000;">RASEL AHAMMED</div>
+                        <div style="font-size: 10px; color: #222;">Medical Technologist (Lab)</div>
+                        <div style="font-size: 10px; color: #222;">Diploma In LabratoryMedicine(OMI)</div>
+                        <div style="font-size: 10px; color: #222;">Life Care Diagnostic Center</div>
+                    </td>
+                </tr>
+            </table>
+            <div style="height: 8px; background: #16a34a; margin-top: 6px;"></div>
+        </div>';
+
         $mpdf = new \Mpdf\Mpdf();
         $mpdf->setAutoTopMargin = 'stretch';
         $mpdf->setAutoBottomMargin = 'stretch';
@@ -2185,18 +2188,8 @@ class Lab extends MX_Controller
 
     function invoice()
     {
-        $data = array();
         $id = $this->input->get('id');
-        $data['settings'] = $this->settings_model->getSettings();
-        $data['lab'] = $this->lab_model->getLabById($id);
-
-        if ($data['lab']->hospital_id != $this->session->userdata('hospital_id')) {
-            $this->load->view('home/permission');
-        }
-
-        $this->load->view('home/dashboard');
-        $this->load->view('invoice', $data);
-        $this->load->view('home/footer'); // just the footer fi
+        redirect("lab/viewReport?id=" . $id);
     }
 
     function patientLabHistory()
