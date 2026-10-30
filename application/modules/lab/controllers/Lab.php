@@ -293,6 +293,13 @@ class Lab extends MX_Controller
         $mpdf->SetHTMLHeader($header);
         $mpdf->SetHTMLFooter($footer);
         $mpdf->setAutoBottomMargin = 'stretch';
+
+        $wm_logo = 'uploads/lifecare_logo_circle.png';
+        if (file_exists($wm_logo)) {
+            $mpdf->SetWatermarkImage($wm_logo, 0.08, array(100, 100));
+            $mpdf->showWatermarkImage = true;
+        }
+
         $html = $this->load->view('labReportDownload', $data, true);
 
 

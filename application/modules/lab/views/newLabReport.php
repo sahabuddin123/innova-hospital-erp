@@ -101,27 +101,9 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
             <!-- A4 Clinical Laboratory Report Sheet -->
             <div class="lab-report-sheet" id="printable-report">
                 
-                <!-- Background LCDC Emblem Watermark -->
+                <!-- Background Lifecare Logo Watermark -->
                 <div class="report-watermark" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 260" width="340" height="340">
-                        <circle cx="130" cy="130" r="120" fill="none" stroke="#b91c1c" stroke-width="2.5"/>
-                        <circle cx="130" cy="130" r="112" fill="none" stroke="#b91c1c" stroke-width="1.2"/>
-                        <circle cx="130" cy="130" r="82" fill="none" stroke="#b91c1c" stroke-width="1.2"/>
-                        
-                        <path id="lcdcWatermarkTop" d="M 30,130 A 100,100 0 0,1 230,130" fill="none"/>
-                        <text font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="bold" fill="#b91c1c" letter-spacing="2">
-                            <textPath href="#lcdcWatermarkTop" startOffset="50%" text-anchor="middle">LIFE CARE DIAGNOSTIC CENTER</textPath>
-                        </text>
-
-                        <path id="lcdcWatermarkBottom" d="M 230,130 A 100,100 0 0,1 30,130" fill="none"/>
-                        <text font-family="Arial, Helvetica, sans-serif" font-size="10.5" font-weight="bold" fill="#b91c1c" letter-spacing="2">
-                            <textPath href="#lcdcWatermarkBottom" startOffset="50%" text-anchor="middle">★ KHASERHAT ★ NOAKHALI ★</textPath>
-                        </text>
-
-                        <rect x="122" y="96" width="16" height="68" fill="#b91c1c" rx="2"/>
-                        <rect x="96" y="122" width="68" height="16" fill="#b91c1c" rx="2"/>
-                        <text x="130" y="90" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="900" fill="#b91c1c" text-anchor="middle">L C D C</text>
-                    </svg>
+                    <img src="<?php echo $logo_path; ?>" alt="Life Care Logo Watermark" class="watermark-logo-img">
                 </div>
 
                 <!-- 1. HEADER SECTION -->
@@ -255,14 +237,21 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
     flex-direction: column;
 }
 
-/* Watermark (Lower Right Quadrant matching physical report) */
+/* Watermark (Lifecare Logo) */
 .report-watermark {
     position: absolute;
-    bottom: 22%;
-    right: 14%;
+    bottom: 20%;
+    right: 12%;
     opacity: 0.08;
     pointer-events: none;
     z-index: 0;
+}
+
+.watermark-logo-img {
+    width: 330px;
+    height: 330px;
+    object-fit: contain;
+    display: block;
 }
 
 /* Header */
@@ -498,6 +487,12 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
     .header-green-ribbon {
         top: -6mm !important;
         left: -10mm !important;
+    }
+
+    .report-watermark {
+        opacity: 0.08 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
     @page {
