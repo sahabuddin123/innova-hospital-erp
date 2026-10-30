@@ -189,7 +189,7 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
 
                 <!-- 3. REPORT BODY / CLINICAL TEST CONTENT -->
                 <main class="report-content-body">
-                    <?php echo $lab->report; ?>
+                    <?php echo $this->lab_model->renderDynamicCbcReport($lab->report); ?>
                 </main>
 
                 <!-- 4. SIGNATURE SECTION -->
@@ -237,21 +237,25 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
     flex-direction: column;
 }
 
-/* Watermark (Lifecare Logo) */
+/* Watermark (Lifecare Logo) - Centered and balanced */
 .report-watermark {
     position: absolute;
-    bottom: 20%;
-    right: 12%;
-    opacity: 0.08;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.06;
     pointer-events: none;
     z-index: 0;
+    text-align: center;
 }
 
 .watermark-logo-img {
-    width: 330px;
-    height: 330px;
+    width: 370px;
+    height: 370px;
+    max-width: 80%;
     object-fit: contain;
     display: block;
+    margin: 0 auto;
 }
 
 /* Header */
@@ -385,7 +389,23 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
     position: relative;
     z-index: 1;
     flex: 1;
-    margin: 4px 0 12px 0;
+    margin: 4px 0 10px 0;
+}
+
+.cbc-report-body table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cbc-report-body th {
+    padding: 6px 4px !important;
+    font-size: 12.5px !important;
+}
+
+.cbc-report-body td {
+    padding: 3.5px 4px !important;
+    font-size: 12.5px !important;
+    line-height: 1.35 !important;
 }
 
 /* Signatures */
@@ -434,12 +454,19 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
     border-radius: 0 0 2px 2px;
 }
 
-/* Print Overrides */
+/* Print Overrides: Strictly 1 Sheet A4 Pixel-Perfect */
 @media print {
-    body {
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+
+    html, body {
+        width: 210mm !important;
+        height: 297mm !important;
         margin: 0 !important;
         padding: 0 !important;
-        background: #fff !important;
+        background: #ffffff !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
@@ -474,30 +501,65 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
     }
 
     .lab-report-sheet {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-height: auto !important;
-        margin: 0 !important;
-        padding: 6mm 10mm 6mm 10mm !important;
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 296mm !important;
+        max-height: 296mm !important;
+        height: 296mm !important;
+        margin: 0 auto !important;
+        padding: 10mm 15mm 8mm 15mm !important;
         box-shadow: none !important;
         border: none !important;
         box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        position: relative !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+        overflow: hidden !important;
     }
 
     .header-green-ribbon {
-        top: -6mm !important;
-        left: -10mm !important;
+        top: -10mm !important;
+        left: -15mm !important;
     }
 
     .report-watermark {
-        opacity: 0.08 !important;
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        opacity: 0.06 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
-    @page {
-        size: A4 portrait;
-        margin: 6mm;
+    .watermark-logo-img {
+        width: 370px !important;
+        height: 370px !important;
+        object-fit: contain !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+
+    .report-content-body {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        margin: 4px 0 6px 0 !important;
+    }
+
+    .report-signatures-section {
+        margin-top: auto !important;
+        padding-top: 10px !important;
+        padding-bottom: 2mm !important;
+    }
+
+    .report-bottom-green-bar {
+        margin-top: 3mm !important;
+        height: 8px !important;
     }
 }
 </style>

@@ -166,7 +166,7 @@
 <body>
     <div class="flex-wrapper">
         <div class="reportBlock" style="padding: 10px 5px;">
-            <?php echo $lab->report; ?>
+            <?php echo $this->lab_model->renderDynamicCbcReport($lab->report); ?>
         </div>
     </div>
 </body>

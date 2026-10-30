@@ -141,6 +141,10 @@ class Lab extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['lab'] = $this->lab_model->getLabById($id);
         $lab = $this->lab_model->getLabById($id);
+        if (!empty($lab->report)) {
+            $lab->report = $this->lab_model->renderDynamicCbcReport($lab->report);
+            $data['lab']->report = $lab->report;
+        }
         $data['redirect'] = 'download1';
         //$data['lab'] = $this->lab_model->getLabById($id);
         $patient = $this->db->get_where('patient', array('id' => $lab->patient))->row();
@@ -402,6 +406,9 @@ class Lab extends MX_Controller
         $data['lab'] = $this->lab_model->getLabById($id);
         if (empty($data['lab']) || $data['lab']->hospital_id != $this->session->userdata('hospital_id')) {
             redirect('home/permission');
+        }
+        if (!empty($data['lab']->report)) {
+            $data['lab']->report = $this->lab_model->renderDynamicCbcReport($data['lab']->report);
         }
         $data['redirect'] = $this->input->get('redirect') ? $this->input->get('redirect') : '';
 
@@ -1684,6 +1691,9 @@ class Lab extends MX_Controller
         $id = $this->input->post('id');
 
         $report = $this->input->post('report');
+        if (!empty($report)) {
+            $report = $this->lab_model->renderDynamicCbcReport($report);
+        }
         $status = $this->input->post('status');
 
         $patient = $this->input->post('patient');
