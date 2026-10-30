@@ -220,14 +220,8 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
                         <div class="sig-hosp">LIFE CARE DIAGNOSTIC CENTER</div>
                     </div>
 
-                    <!-- Right: Medical Technologist Signature Block with Cursive Stamp -->
+                    <!-- Right: Medical Technologist Signature Block -->
                     <div class="sig-block sig-right">
-                        <div class="sig-cursive-wrap">
-                            <!-- Rasel Ahammed Cursive Signature Stroke -->
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 55" width="135" height="42" class="sig-pen-stroke">
-                                <path d="M 22 42 C 18 36, 14 20, 26 12 C 36 5, 44 14, 36 26 C 28 38, 20 44, 42 32 C 52 26, 58 18, 64 22 C 70 26, 68 36, 75 28 C 82 20, 88 18, 94 26 C 100 32, 106 28, 112 24 C 118 18, 124 20, 130 30 M 32 32 L 140 20 M 36 46 C 60 40, 105 30, 150 16" fill="none" stroke="#0a192f" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
                         <div class="sig-title font-weight-bold">RASEL AHAMMED</div>
                         <div class="sig-sub">Medical Technologist (Lab)</div>
                         <div class="sig-role">Diploma In LabratoryMedicine(OMI)</div>
@@ -428,12 +422,6 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
 
 .sig-right {
     text-align: right;
-}
-
-.sig-cursive-wrap {
-    margin-bottom: -15px;
-    position: relative;
-    z-index: 2;
 }
 
 .sig-title {

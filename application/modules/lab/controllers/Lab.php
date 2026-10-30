@@ -266,8 +266,6 @@ class Lab extends MX_Controller
             </table>
         </div>';
 
-        $sig_base64 = base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 55" width="135" height="42"><path d="M 22 42 C 18 36, 14 20, 26 12 C 36 5, 44 14, 36 26 C 28 38, 20 44, 42 32 C 52 26, 58 18, 64 22 C 70 26, 68 36, 75 28 C 82 20, 88 18, 94 26 C 100 32, 106 28, 112 24 C 118 18, 124 20, 130 30 M 32 32 L 140 20 M 36 46 C 60 40, 105 30, 150 16" fill="none" stroke="#0a192f" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-
         $footer = '
         <div style="font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; padding-top: 5px;">
             <table style="width: 100%;">
@@ -279,9 +277,6 @@ class Lab extends MX_Controller
                         <div style="font-size: 10px; color: #222;">LIFE CARE DIAGNOSTIC CENTER</div>
                     </td>
                     <td style="width: 50%; vertical-align: bottom; text-align: right;">
-                        <div style="margin-bottom: 2px;">
-                            <img src="data:image/svg+xml;base64,' . $sig_base64 . '" width="130" height="40" />
-                        </div>
                         <div style="font-weight: bold; font-size: 11.5px; color: #000;">RASEL AHAMMED</div>
                         <div style="font-size: 10px; color: #222;">Medical Technologist (Lab)</div>
                         <div style="font-size: 10px; color: #222;">Diploma In LabratoryMedicine(OMI)</div>
