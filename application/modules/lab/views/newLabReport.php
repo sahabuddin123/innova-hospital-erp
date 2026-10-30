@@ -2,8 +2,10 @@
 $patient = !empty($lab->patient) ? $this->db->get_where('patient', array('id' => $lab->patient))->row() : null;
 $invoice_details = !empty($lab->invoice_id) ? $this->db->get_where('payment', array('id' => $lab->invoice_id))->row() : null;
 
-// Patient ID / ID NO
-$id_no = !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : $lab->id);
+// Billing ID & Patient ID
+$billing_id = !empty($lab->invoice_id) ? $lab->invoice_id : (!empty($invoice_details->id) ? $invoice_details->id : '-');
+$patient_id = !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : (!empty($lab->patient) ? $lab->patient : '-'));
+$id_no = $billing_id;
 
 // Patient Name
 $patient_name = !empty($patient->name) ? strtoupper($patient->name) : (!empty($lab->patient_name) ? strtoupper($lab->patient_name) : '-');
@@ -165,9 +167,9 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
                 <div class="patient-info-box">
                     <table class="patient-info-tbl">
                         <tr>
-                            <td class="lbl">ID NO</td>
+                            <td class="lbl">Billing ID</td>
                             <td class="sep">:</td>
-                            <td class="val"><strong><?php echo html_escape($id_no); ?></strong></td>
+                            <td class="val"><strong><?php echo html_escape($billing_id); ?></strong></td>
                             
                             <td class="lbl">Date</td>
                             <td class="sep">:</td>
@@ -196,9 +198,9 @@ if (!file_exists($logo_path) && !empty($settings->logo) && file_exists($settings
                             <td class="sep">:</td>
                             <td class="val"><strong><?php echo html_escape($specimen); ?></strong></td>
 
-                            <td class="lbl"></td>
-                            <td class="sep"></td>
-                            <td class="val"></td>
+                            <td class="lbl">Patient ID</td>
+                            <td class="sep">:</td>
+                            <td class="val"><strong><?php echo html_escape($patient_id); ?></strong></td>
                         </tr>
                     </table>
                 </div>

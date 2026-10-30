@@ -154,11 +154,13 @@ class Lab extends MX_Controller
         }
         //$this->load->view('newLabReport', $data);
 
-        $id_no = !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : $lab->id);
+        $invoice_details = !empty($lab->invoice_id) ? $this->db->get_where('payment', array('id' => $lab->invoice_id))->row() : null;
+        $billing_id = !empty($lab->invoice_id) ? $lab->invoice_id : (!empty($invoice_details->id) ? $invoice_details->id : '-');
+        $patient_id = !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : (!empty($lab->patient) ? $lab->patient : '-'));
+        $id_no = $billing_id;
         $patient_name = !empty($patient->name) ? strtoupper($patient->name) : (!empty($lab->patient_name) ? strtoupper($lab->patient_name) : '-');
 
         $doctor_details = null;
-        $invoice_details = !empty($lab->invoice_id) ? $this->db->get_where('payment', array('id' => $lab->invoice_id))->row() : null;
         if (!empty($lab->doctor)) {
             $doctor_details = $this->db->get_where('doctor', array('id' => $lab->doctor))->row();
         } elseif (!empty($invoice_details->doctor)) {
@@ -230,9 +232,9 @@ class Lab extends MX_Controller
 
             <table style="width: 100%; border: 1.2px solid #222; border-radius: 4px; margin-top: 6px; margin-bottom: 8px; padding: 4px 6px; font-size: 11px; line-height: 1.35;">
                 <tr>
-                    <td style="width: 15%; font-weight: bold;">ID NO</td>
+                    <td style="width: 15%; font-weight: bold;">Billing ID</td>
                     <td style="width: 2%;">:</td>
-                    <td style="width: 33%;"><strong>' . html_escape($id_no) . '</strong></td>
+                    <td style="width: 33%;"><strong>' . html_escape($billing_id) . '</strong></td>
                     <td style="width: 12%; font-weight: bold;">Date</td>
                     <td style="width: 2%;">:</td>
                     <td style="width: 36%;">' . html_escape($report_date) . '</td>
@@ -257,9 +259,9 @@ class Lab extends MX_Controller
                     <td style="font-weight: bold;">Specimen</td>
                     <td>:</td>
                     <td><strong>' . html_escape($specimen) . '</strong></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
+                    <td style="font-weight: bold;">Patient ID</td>
+                    <td>:</td>
+                    <td><strong>' . html_escape($patient_id) . '</strong></td>
                 </tr>
             </table>
         </div>';
@@ -1558,6 +1560,7 @@ class Lab extends MX_Controller
             '{{report_number}}'        => $report_id,
             '{{lab_id}}'               => !empty($lab->id) ? $lab->id : '',
             '{{invoice_id}}'           => !empty($lab->invoice_id) ? $lab->invoice_id : '',
+            '{{billing_id}}'           => !empty($lab->invoice_id) ? $lab->invoice_id : '',
             '{{patient_name}}'         => !empty($patient->name) ? htmlspecialchars($patient->name) : (!empty($lab->patient_name) ? htmlspecialchars($lab->patient_name) : ''),
             '{{patient_id}}'           => !empty($patient->patient_id) ? $patient->patient_id : (!empty($patient->id) ? $patient->id : ''),
             '{{patient_age}}'          => $patient_age,
