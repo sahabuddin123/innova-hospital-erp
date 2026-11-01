@@ -236,3 +236,4 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳ ';
 
     </div>
 </div>
+
