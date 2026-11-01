@@ -780,8 +780,35 @@ $sidebar_hidden_modules = array(
             <?php } ?>
             <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorsCommission"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('doctors_commission'); ?></p>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorsCommissionSummary"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('doctor_commission_summary'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('doctor_wise_commission_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/testWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('test_wise_commission_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/invoiceWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('invoice_wise_commission_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionPayableReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('commission_payable_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionPaidReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('commission_paid_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionLedger"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('doctor_commission_ledger'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionStatement"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('doctor_commission_statement'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionAdjustmentReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('commission_adjustment_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionConfigurationReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('commission_configuration_report'); ?></p>
                         </a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="finance/monthly"><i class="text-secondary nav-icon far fa-circle"></i>
                             <p><?php echo lang('monthly_sales'); ?></p>

@@ -2635,3 +2635,21 @@ $lang['petty_cash_report'] = 'Petty Cash Report';
 $lang['cash_book_report'] = 'Cash Book';
 $lang['bank_book_report'] = 'Bank Book';
 $lang['expense_approval_report'] = 'Expense Approval Report';
+
+// Phase 4: Doctor Commission Reporting Language Strings
+$lang['doctor_commission_summary'] = 'Doctor Commission Summary';
+$lang['doctor_wise_commission_report'] = 'Doctor-Wise Commission Report';
+$lang['test_wise_commission_report'] = 'Test-Wise Commission Report';
+$lang['invoice_wise_commission_report'] = 'Invoice-Wise Commission Report';
+$lang['commission_payable_report'] = 'Commission Payable Report';
+$lang['commission_paid_report'] = 'Commission Paid Report';
+$lang['doctor_commission_ledger'] = 'Doctor Commission Ledger';
+$lang['doctor_commission_statement'] = 'Doctor Commission Statement';
+$lang['commission_adjustment_report'] = 'Commission Adjustment Report';
+$lang['commission_configuration_report'] = 'Commission Configuration Report';
+$lang['generated_commission'] = 'Generated Commission';
+$lang['eligible_commission'] = 'Eligible Commission';
+$lang['payable_commission'] = 'Payable Commission';
+$lang['pending_commission'] = 'Pending Commission';
+$lang['commission_rate'] = 'Commission Rate';
+$lang['print_statement'] = 'Print Statement';

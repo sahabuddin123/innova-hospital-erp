@@ -2545,45 +2545,16 @@ class Finance extends MX_Controller
 
     function doctorsCommission()
     {
-        $date_from = strtotime($this->input->post('date_from'));
-        $date_to = strtotime($this->input->post('date_to'));
-        if (!empty($date_to)) {
-            $date_to = $date_to + 86399;
-        }
-        $data['doctors'] = $this->doctor_model->getDoctor();
-        $data['payments'] = $this->finance_model->getPaymentByDate($date_from, $date_to);
-        $data['ot_payments'] = $this->finance_model->getOtPaymentByDate($date_from, $date_to);
-        $data['settings'] = $this->settings_model->getSettings();
-        $data['from'] = $this->input->post('date_from');
-        $data['to'] = $this->input->post('date_to');
-        $this->load->view('home/dashboard');
-        $this->load->view('doctors_commission', $data);
-        $this->load->view('home/footer');
+        $this->doctorsCommissionSummary();
     }
 
     function docComDetails()
     {
-        $date_from = strtotime($this->input->post('date_from'));
-        $date_to = strtotime($this->input->post('date_to'));
-        if (!empty($date_to)) {
-            $date_to = $date_to + 86399;
-        }
         $doctor = $this->input->get('id');
         if (empty($doctor)) {
             $doctor = $this->input->post('doctor');
         }
-        $data['doctor'] = $doctor;
-        if (!empty($date_from)) {
-            $data['payments'] = $this->finance_model->getPaymentByDoctorDate($doctor, $date_from, $date_to);
-        } else {
-            $data['payments'] = $this->finance_model->getPaymentByDoctor($doctor);
-        }
-        $data['settings'] = $this->settings_model->getSettings();
-        $data['from'] = $this->input->post('date_from');
-        $data['to'] = $this->input->post('date_to');
-        $this->load->view('home/dashboard');
-        $this->load->view('doc_com_view', $data);
-        $this->load->view('home/footer');
+        redirect('finance/doctorCommissionStatement?id=' . $doctor);
     }
 
     function financialReport()
@@ -5928,4 +5899,437 @@ class Finance extends MX_Controller
         $this->load->view('home/footer');
     }
 
+
+    /* =========================================================================
+     * PHASE 4: DOCTOR COMMISSION REPORTING CONTROLLERS
+     * Lifecare Diagnostic Center
+     * ========================================================================= */
+
+    /**
+     * 1. Doctor Commission Summary
+     */
+    public function doctorsCommissionSummary()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $doctor_id = $this->input->get_post('doctor_id');
+
+        // If logged in as Doctor, restrict to own doctor_id
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getDoctorCommissionSummary($period['start_time'], $period['end_time'], $doctor_id);
+
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $doctors = $this->doctor_model->getDoctor();
+        $departments = $this->department_model->getDepartment();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $doctors;
+        $data['departments'] = $departments;
+        $data['selected_doctor'] = $doctor_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'doctor_summary';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/doctor_commission_summary', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 2. Doctor-Wise Commission Report
+     */
+    public function doctorWiseCommissionReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $department = $this->input->get_post('department');
+        $doctor_id = $this->input->get_post('doctor_id') ?: $this->input->get('id');
+
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getDoctorWiseCommissionReport($period['start_time'], $period['end_time'], $department, $doctor_id);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['departments'] = $this->department_model->getDepartment();
+        $data['selected_doctor'] = $doctor_id;
+        $data['selected_department'] = $department;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'doctor_wise';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/doctor_wise_commission_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 3. Test-Wise Commission Report
+     */
+    public function testWiseCommissionReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $doctor_id = $this->input->get_post('doctor_id');
+        $category_id = $this->input->get_post('category_id');
+        $status = $this->input->get_post('status');
+
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getTestWiseCommissionReport($period['start_time'], $period['end_time'], $doctor_id, $category_id, null, $status);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['test_categories'] = $this->finance_model->getPaymentCategory();
+        $data['selected_doctor'] = $doctor_id;
+        $data['selected_category'] = $category_id;
+        $data['selected_status'] = $status;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'test_wise';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/test_wise_commission_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 4. Invoice-Wise Commission Report
+     */
+    public function invoiceWiseCommissionReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $doctor_id = $this->input->get_post('doctor_id');
+        $status = $this->input->get_post('status');
+
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getInvoiceWiseCommissionReport($period['start_time'], $period['end_time'], $doctor_id, $status);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['selected_doctor'] = $doctor_id;
+        $data['selected_status'] = $status;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'invoice_wise';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/invoice_wise_commission_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 5. Commission Payable Report
+     */
+    public function commissionPayableReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $doctor_id = $this->input->get_post('doctor_id');
+        $status = $this->input->get_post('status');
+
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getCommissionPayableReport($period['start_time'], $period['end_time'], $doctor_id, $status);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['selected_doctor'] = $doctor_id;
+        $data['selected_status'] = $status;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'payable';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/commission_payable_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 6. Commission Paid Report
+     */
+    public function commissionPaidReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $doctor_id = $this->input->get_post('doctor_id');
+        $payment_method = $this->input->get_post('payment_method');
+
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getCommissionPaidReport($period['start_time'], $period['end_time'], $doctor_id, $payment_method);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['selected_doctor'] = $doctor_id;
+        $data['selected_method'] = $payment_method;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'paid';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/commission_paid_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 7. Doctor Commission Ledger
+     */
+    public function doctorCommissionLedger()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $doctor_id = $this->input->get_post('doctor_id');
+
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getDoctorCommissionLedger($period['start_time'], $period['end_time'], $doctor_id);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['selected_doctor'] = $doctor_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'ledger';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/doctor_commission_ledger', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 8. Doctor-Wise Commission Statement
+     */
+    public function doctorCommissionStatement()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Doctor'))) {
+            redirect('home/permission');
+        }
+
+        $doctor_id = $this->input->get_post('doctor_id') ?: $this->input->get('id');
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        if ($this->ion_auth->in_group(array('Doctor')) && !$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            $user_id = $this->ion_auth->get_user_id();
+            $doc = $this->db->get_where('doctor', ['ion_user_id' => $user_id])->row();
+            if (!empty($doc)) {
+                $doctor_id = $doc->id;
+            }
+        }
+
+        $doctors = $this->doctor_model->getDoctor();
+        if (empty($doctor_id) && !empty($doctors)) {
+            $doctor_id = $doctors[0]->id;
+        }
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $statement = $this->finance_model->getDoctorCommissionStatement($doctor_id, $period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['statement'] = $statement;
+        $data['doctors'] = $doctors;
+        $data['selected_doctor'] = $doctor_id;
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'statement';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/doctor_commission_statement', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 9. Commission Adjustment & Reversal Report
+     */
+    public function commissionAdjustmentReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $doctor_id = $this->input->get_post('doctor_id');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getCommissionAdjustmentReport($period['start_time'], $period['end_time'], $doctor_id);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['doctors'] = $this->doctor_model->getDoctor();
+        $data['selected_doctor'] = $doctor_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'adjustment';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/commission_adjustment_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 10. Commission Configuration Report
+     */
+    public function commissionConfigurationReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $result = $this->finance_model->getCommissionConfigurationReport();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'config';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/commission_configuration_report', $data);
+        $this->load->view('home/footer');
+    }
 }

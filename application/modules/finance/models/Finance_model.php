@@ -4468,4 +4468,939 @@ class Finance_model extends CI_model
         ];
     }
 
+
+    // =========================================================================
+    // PHASE 4: DOCTOR COMMISSION REPORTING & RECONCILIATION METHODS
+    // =========================================================================
+
+    /**
+     * Helper: Resolve hospital ID
+     */
+    // (Already in Finance_model)
+
+    /**
+     * 1. DOCTOR COMMISSION SUMMARY
+     * Returns KPI aggregates and doctor-by-doctor performance table
+     */
+    public function getDoctorCommissionSummary($start_time, $end_time, $doctor_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        // 1. Fetch doctors for this hospital
+        $this->db->select("d.id as doctor_id, d.name as doctor_name, d.phone, d.email, d.department, dep.name as department_name");
+        $this->db->from('doctor d');
+        $this->db->join('department dep', 'dep.id = d.department', 'left');
+        $this->db->where("(d.hospital_id = '$hospital_id' OR d.hospital_id IS NULL)", NULL, FALSE);
+        if (!empty($doctor_id)) {
+            $this->db->where('d.id', $doctor_id);
+        }
+        $this->db->order_by('d.name', 'ASC');
+        $doctors = $this->db->get()->result();
+
+        // 2. Fetch invoice aggregates by doctor within the time window
+        $this->db->reset_query();
+        $this->db->select("p.id as invoice_id, p.doctor as doctor_id, p.gross_total, p.amount as gross_items_total,
+                           COALESCE(p.flat_discount, p.discount, 0) as discount_amount,
+                           COALESCE(p.amount_received, 0) as amount_received,
+                           p.status, p.doctor_amount, p.date");
+        $this->db->from('payment p');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where("p.doctor IS NOT NULL AND p.doctor != '' AND p.doctor != '0'", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        if (!empty($doctor_id)) {
+            $this->db->where('p.doctor', $doctor_id);
+        }
+        $invoices = $this->db->get()->result();
+
+        // Map invoices and invoice items
+        $inv_ids = array_column($invoices, 'invoice_id');
+        $items_by_inv = [];
+        if (!empty($inv_ids)) {
+            $this->db->reset_query();
+            $this->db->select("pi.*");
+            $this->db->from('payment_items pi');
+            $this->db->where_in('pi.payment_id', $inv_ids);
+            $items = $this->db->get()->result();
+            foreach ($items as $item) {
+                $items_by_inv[$item->payment_id][] = $item;
+            }
+        }
+
+        // 3. Fetch actual disbursements / commission payments from expenses
+        $doc_payments = $this->getDoctorCommissionExpenses($start_time, $end_time, $doctor_id, $hospital_id);
+        $paid_by_doc = [];
+        foreach ($doc_payments as $dp) {
+            // Match doctor name or ID from pay_to or note
+            foreach ($doctors as $d) {
+                if ((!empty($dp->pay_to) && stripos($dp->pay_to, $d->name) !== false) ||
+                    (!empty($dp->note) && stripos($dp->note, $d->name) !== false) ||
+                    (!empty($dp->pay_to) && $dp->pay_to == $d->id)) {
+                    $paid_by_doc[$d->doctor_id] = ($paid_by_doc[$d->doctor_id] ?? 0.00) + floatval($dp->amount);
+                    break;
+                }
+            }
+        }
+
+        // Group invoice stats by doctor
+        $invs_by_doc = [];
+        foreach ($invoices as $inv) {
+            $invs_by_doc[$inv->doctor_id][] = $inv;
+        }
+
+        $records = [];
+        $kpi = [
+            'total_generated_commission' => 0.00,
+            'total_eligible_commission' => 0.00,
+            'total_commission_payable' => 0.00,
+            'total_commission_paid' => 0.00,
+            'pending_commission' => 0.00,
+            'commission_adjustments' => 0.00,
+            'commission_reversed' => 0.00,
+            'total_invoices' => count($invoices),
+            'total_billed_amount' => 0.00,
+            'total_collected_amount' => 0.00
+        ];
+
+        foreach ($doctors as $doc) {
+            $d_id = $doc->doctor_id;
+            $doc_invs = $invs_by_doc[$d_id] ?? [];
+
+            $total_inv_count = count($doc_invs);
+            $total_items_count = 0;
+            $gross_billed = 0.00;
+            $total_disc = 0.00;
+            $net_payable = 0.00;
+            $total_coll = 0.00;
+            $gen_comm = 0.00;
+            $eligible_comm = 0.00;
+
+            foreach ($doc_invs as $inv) {
+                $gross_billed += floatval($inv->gross_items_total);
+                $total_disc += floatval($inv->discount_amount);
+                $inv_net = floatval($inv->gross_total);
+                $net_payable += $inv_net;
+                $inv_coll = floatval($inv->amount_received);
+                $total_coll += $inv_coll;
+
+                // Calculate item-level or invoice-level doctor commission
+                $inv_gen_comm = 0.00;
+                if (!empty($items_by_inv[$inv->invoice_id])) {
+                    foreach ($items_by_inv[$inv->invoice_id] as $it) {
+                        $total_items_count++;
+                        $inv_gen_comm += floatval($it->doctor_commission_amount);
+                    }
+                } else {
+                    $inv_gen_comm = floatval($inv->doctor_amount);
+                }
+
+                $gen_comm += $inv_gen_comm;
+
+                // Eligibility collection ratio
+                $ratio = ($inv_net > 0) ? min(1.0, max(0.0, $inv_coll / $inv_net)) : (($inv_coll > 0) ? 1.0 : 0.0);
+                $eligible_comm += round($inv_gen_comm * $ratio, 2);
+            }
+
+            $comm_paid = $paid_by_doc[$d_id] ?? 0.00;
+            $rem_payable = max(0.00, round($eligible_comm - $comm_paid, 2));
+            $pending_coll = max(0.00, round($gen_comm - $eligible_comm, 2));
+            $coll_pct = ($net_payable > 0) ? round(($total_coll / $net_payable) * 100, 1) : 0;
+
+            // Update KPI totals
+            $kpi['total_generated_commission'] += $gen_comm;
+            $kpi['total_eligible_commission'] += $eligible_comm;
+            $kpi['total_commission_payable'] += $rem_payable;
+            $kpi['total_commission_paid'] += $comm_paid;
+            $kpi['pending_commission'] += $pending_coll;
+            $kpi['total_billed_amount'] += $gross_billed;
+            $kpi['total_collected_amount'] += $total_coll;
+
+            $records[] = [
+                'doctor_id' => $d_id,
+                'doctor_name' => $doc->doctor_name,
+                'department_name' => !empty($doc->department_name) ? $doc->department_name : 'General',
+                'phone' => $doc->phone,
+                'total_invoices' => $total_inv_count,
+                'total_items' => $total_items_count,
+                'gross_billed' => $gross_billed,
+                'total_discount' => $total_disc,
+                'net_payable' => $net_payable,
+                'total_collected' => $total_coll,
+                'collection_rate' => $coll_pct,
+                'generated_commission' => $gen_comm,
+                'eligible_commission' => $eligible_comm,
+                'commission_paid' => $comm_paid,
+                'remaining_payable' => $rem_payable,
+                'pending_collection' => $pending_coll
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => $kpi
+        ];
+    }
+
+    /**
+     * 2. DOCTOR-WISE COMMISSION REPORT
+     * Comprehensive breakdown for each doctor with patient referral count
+     */
+    public function getDoctorWiseCommissionReport($start_time, $end_time, $department = null, $doctor_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("d.id as doctor_id, d.name as doctor_name, d.phone, d.email, d.department, dep.name as department_name, d.consultation_fee");
+        $this->db->from('doctor d');
+        $this->db->join('department dep', 'dep.id = d.department', 'left');
+        $this->db->where("(d.hospital_id = '$hospital_id' OR d.hospital_id IS NULL)", NULL, FALSE);
+        if (!empty($department)) {
+            $this->db->where('d.department', $department);
+        }
+        if (!empty($doctor_id)) {
+            $this->db->where('d.id', $doctor_id);
+        }
+        $this->db->order_by('d.name', 'ASC');
+        $doctors = $this->db->get()->result();
+
+        // Invoices with patient info
+        $this->db->reset_query();
+        $this->db->select("p.id as invoice_id, p.doctor as doctor_id, p.patient, p.gross_total, p.amount as gross_items_total,
+                           COALESCE(p.flat_discount, p.discount, 0) as discount_amount,
+                           COALESCE(p.amount_received, 0) as amount_received,
+                           p.status, p.doctor_amount, p.date");
+        $this->db->from('payment p');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where("p.doctor IS NOT NULL AND p.doctor != '' AND p.doctor != '0'", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        $invoices = $this->db->get()->result();
+
+        $inv_ids = array_column($invoices, 'invoice_id');
+        $items_by_inv = [];
+        if (!empty($inv_ids)) {
+            $this->db->reset_query();
+            $this->db->select("pi.*");
+            $this->db->from('payment_items pi');
+            $this->db->where_in('pi.payment_id', $inv_ids);
+            $items = $this->db->get()->result();
+            foreach ($items as $item) {
+                $items_by_inv[$item->payment_id][] = $item;
+            }
+        }
+
+        $invs_by_doc = [];
+        foreach ($invoices as $inv) {
+            $invs_by_doc[$inv->doctor_id][] = $inv;
+        }
+
+        $doc_payments = $this->getDoctorCommissionExpenses($start_time, $end_time, $doctor_id, $hospital_id);
+        $paid_by_doc = [];
+        foreach ($doc_payments as $dp) {
+            foreach ($doctors as $d) {
+                if ((!empty($dp->pay_to) && stripos($dp->pay_to, $d->name) !== false) ||
+                    (!empty($dp->note) && stripos($dp->note, $d->name) !== false) ||
+                    (!empty($dp->pay_to) && $dp->pay_to == $d->id)) {
+                    $paid_by_doc[$d->doctor_id] = ($paid_by_doc[$d->doctor_id] ?? 0.00) + floatval($dp->amount);
+                    break;
+                }
+            }
+        }
+
+        $rows = [];
+        $total_invoices_all = 0;
+        $total_gross_all = 0.00;
+        $total_gen_comm_all = 0.00;
+        $total_elig_comm_all = 0.00;
+        $total_paid_all = 0.00;
+        $total_remaining_all = 0.00;
+
+        foreach ($doctors as $doc) {
+            $d_id = $doc->doctor_id;
+            $doc_invs = $invs_by_doc[$d_id] ?? [];
+
+            $distinct_patients = [];
+            $total_items = 0;
+            $gross_test_amount = 0.00;
+            $applicable_disc = 0.00;
+            $net_amount = 0.00;
+            $gen_comm = 0.00;
+            $elig_comm = 0.00;
+
+            foreach ($doc_invs as $inv) {
+                if (!empty($inv->patient)) {
+                    $distinct_patients[$inv->patient] = true;
+                }
+                $gross_test_amount += floatval($inv->gross_items_total);
+                $applicable_disc += floatval($inv->discount_amount);
+                $inv_net = floatval($inv->gross_total);
+                $net_amount += $inv_net;
+                $inv_coll = floatval($inv->amount_received);
+
+                $inv_gen = 0.00;
+                if (!empty($items_by_inv[$inv->invoice_id])) {
+                    foreach ($items_by_inv[$inv->invoice_id] as $it) {
+                        $total_items++;
+                        $inv_gen += floatval($it->doctor_commission_amount);
+                    }
+                } else {
+                    $inv_gen = floatval($inv->doctor_amount);
+                }
+
+                $gen_comm += $inv_gen;
+                $ratio = ($inv_net > 0) ? min(1.0, max(0.0, $inv_coll / $inv_net)) : (($inv_coll > 0) ? 1.0 : 0.0);
+                $elig_comm += round($inv_gen * $ratio, 2);
+            }
+
+            $paid = $paid_by_doc[$d_id] ?? 0.00;
+            $rem = max(0.00, round($elig_comm - $paid, 2));
+            $avg_rate = ($gross_test_amount > 0) ? round(($gen_comm / $gross_test_amount) * 100, 1) : 0.0;
+
+            $total_invoices_all += count($doc_invs);
+            $total_gross_all += $gross_test_amount;
+            $total_gen_comm_all += $gen_comm;
+            $total_elig_comm_all += $elig_comm;
+            $total_paid_all += $paid;
+            $total_remaining_all += $rem;
+
+            $rows[] = [
+                'doctor_id' => $d_id,
+                'doctor_name' => $doc->doctor_name,
+                'department_name' => !empty($doc->department_name) ? $doc->department_name : 'General',
+                'phone' => $doc->phone,
+                'referred_patients' => count($distinct_patients),
+                'total_invoices' => count($doc_invs),
+                'total_items' => $total_items,
+                'gross_test_amount' => $gross_test_amount,
+                'applicable_discount' => $applicable_disc,
+                'net_amount' => $net_amount,
+                'avg_commission_rate' => $avg_rate,
+                'generated_commission' => $gen_comm,
+                'eligible_commission' => $elig_comm,
+                'commission_paid' => $paid,
+                'remaining_payable' => $rem
+            ];
+        }
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'doctors_count' => count($rows),
+                'total_invoices' => $total_invoices_all,
+                'gross_test_amount' => $total_gross_all,
+                'generated_commission' => $total_gen_comm_all,
+                'eligible_commission' => $total_elig_comm_all,
+                'commission_paid' => $total_paid_all,
+                'remaining_payable' => $total_remaining_all
+            ]
+        ];
+    }
+
+    /**
+     * 3. TEST-WISE COMMISSION REPORT
+     * Itemized test level commission breakdown using configured rates
+     */
+    public function getTestWiseCommissionReport($start_time, $end_time, $doctor_id = null, $category_id = null, $item_id = null, $status = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("pi.*, p.id as invoice_id, p.date as invoice_date, p.doctor as doctor_id, p.doctor_name,
+                           p.gross_total as invoice_net, p.amount_received as invoice_collected,
+                           pc.category as test_category_name, pc.type as test_type");
+        $this->db->from('payment_items pi');
+        $this->db->join('payment p', 'p.id = pi.payment_id', 'inner');
+        $this->db->join('payment_category pc', 'pc.id = pi.item_id', 'left');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where("p.doctor IS NOT NULL AND p.doctor != '' AND p.doctor != '0'", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+
+        if (!empty($doctor_id)) {
+            $this->db->where('p.doctor', $doctor_id);
+        }
+        if (!empty($item_id)) {
+            $this->db->where('pi.item_id', $item_id);
+        }
+        if (!empty($category_id)) {
+            $this->db->where('pc.id', $category_id);
+        }
+
+        $this->db->order_by('p.date', 'DESC');
+        $raw_items = $this->db->get()->result();
+
+        $records = [];
+        $total_tests = count($raw_items);
+        $total_price_sum = 0.00;
+        $total_gen_comm = 0.00;
+        $total_elig_comm = 0.00;
+        $total_pending_comm = 0.00;
+
+        foreach ($raw_items as $item) {
+            $inv_net = floatval($item->invoice_net);
+            $inv_coll = floatval($item->invoice_collected);
+            $subtotal = floatval($item->subtotal);
+            $rate = floatval($item->doctor_commission_rate);
+            $gen_comm = floatval($item->doctor_commission_amount);
+
+            $ratio = ($inv_net > 0) ? min(1.0, max(0.0, $inv_coll / $inv_net)) : (($inv_coll > 0) ? 1.0 : 0.0);
+            $elig_comm = round($gen_comm * $ratio, 2);
+            $pending_comm = max(0.00, round($gen_comm - $elig_comm, 2));
+
+            // Status filter
+            if ($ratio >= 0.999) {
+                $item_status = 'Fully Eligible';
+            } elseif ($ratio > 0.001) {
+                $item_status = 'Partially Eligible';
+            } else {
+                $item_status = 'Pending Collection';
+            }
+
+            if (!empty($status) && strtolower($status) !== 'all' && strtolower($status) !== strtolower($item_status)) {
+                continue;
+            }
+
+            $total_price_sum += $subtotal;
+            $total_gen_comm += $gen_comm;
+            $total_elig_comm += $elig_comm;
+            $total_pending_comm += $pending_comm;
+
+            $records[] = [
+                'item_id' => $item->item_id,
+                'item_name' => !empty($item->item_name) ? $item->item_name : 'Test #' . $item->item_id,
+                'test_category' => !empty($item->test_category_name) ? $item->test_category_name : 'Diagnostic',
+                'doctor_name' => !empty($item->doctor_name) ? $item->doctor_name : 'Doctor #' . $item->doctor_id,
+                'doctor_id' => $item->doctor_id,
+                'invoice_id' => $item->invoice_id,
+                'invoice_date' => $item->invoice_date,
+                'test_price' => floatval($item->item_price),
+                'quantity' => floatval($item->quantity),
+                'subtotal' => $subtotal,
+                'commission_rate' => $rate,
+                'generated_commission' => $gen_comm,
+                'eligible_commission' => $elig_comm,
+                'paid_commission' => 0.00,
+                'pending_commission' => $pending_comm,
+                'commission_status' => $item_status
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_tests_billed' => count($records),
+                'total_test_amount' => $total_price_sum,
+                'total_generated_commission' => $total_gen_comm,
+                'total_eligible_commission' => $total_elig_comm,
+                'total_pending_commission' => $total_pending_comm
+            ]
+        ];
+    }
+
+    /**
+     * 4. INVOICE-WISE COMMISSION REPORT
+     * Invoice level details with item list and anti-duplication SQL
+     */
+    public function getInvoiceWiseCommissionReport($start_time, $end_time, $doctor_id = null, $status = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("p.*, pt.name as pt_name, pt.patient_id as pt_code, pt.phone as pt_phone,
+                           d.name as doc_name, dep.name as department_name");
+        $this->db->from('payment p');
+        $this->db->join('doctor d', 'd.id = p.doctor', 'left');
+        $this->db->join('department dep', 'dep.id = d.department', 'left');
+        $this->db->join('patient pt', 'pt.id = p.patient', 'left');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where("p.doctor IS NOT NULL AND p.doctor != '' AND p.doctor != '0'", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        if (!empty($doctor_id)) {
+            $this->db->where('p.doctor', $doctor_id);
+        }
+        $this->db->order_by('p.date', 'DESC');
+        $invoices = $this->db->get()->result();
+
+        $inv_ids = array_column($invoices, 'id');
+        $items_by_inv = [];
+        if (!empty($inv_ids)) {
+            $this->db->reset_query();
+            $this->db->select("pi.*");
+            $this->db->from('payment_items pi');
+            $this->db->where_in('pi.payment_id', $inv_ids);
+            $items = $this->db->get()->result();
+            foreach ($items as $it) {
+                $items_by_inv[$it->payment_id][] = $it;
+            }
+        }
+
+        $records = [];
+        $tot_gross = 0.00;
+        $tot_disc = 0.00;
+        $tot_net = 0.00;
+        $tot_coll = 0.00;
+        $tot_gen = 0.00;
+        $tot_elig = 0.00;
+
+        foreach ($invoices as $inv) {
+            $gross = floatval($inv->amount);
+            $disc = !empty($inv->flat_discount) ? floatval($inv->flat_discount) : floatval($inv->discount);
+            $net = floatval($inv->gross_total);
+            $coll = floatval($inv->amount_received);
+            $due = max(0.00, round($net - $coll, 2));
+
+            // Status check
+            if ($coll >= $net && $net > 0) {
+                $inv_status = 'Paid';
+            } elseif ($coll > 0) {
+                $inv_status = 'Partial';
+            } else {
+                $inv_status = 'Unpaid';
+            }
+
+            if (!empty($status) && strtolower($status) !== 'all' && strtolower($status) !== strtolower($inv_status)) {
+                continue;
+            }
+
+            $inv_items = $items_by_inv[$inv->id] ?? [];
+            $item_names = [];
+            $gen_comm = 0.00;
+            if (!empty($inv_items)) {
+                foreach ($inv_items as $it) {
+                    $item_names[] = $it->item_name;
+                    $gen_comm += floatval($it->doctor_commission_amount);
+                }
+            } else {
+                $gen_comm = floatval($inv->doctor_amount);
+            }
+
+            $ratio = ($net > 0) ? min(1.0, max(0.0, $coll / $net)) : (($coll > 0) ? 1.0 : 0.0);
+            $elig_comm = round($gen_comm * $ratio, 2);
+            $rem_comm = max(0.00, round($elig_comm, 2));
+
+            $tot_gross += $gross;
+            $tot_disc += $disc;
+            $tot_net += $net;
+            $tot_coll += $coll;
+            $tot_gen += $gen_comm;
+            $tot_elig += $elig_comm;
+
+            $records[] = [
+                'invoice_id' => $inv->id,
+                'invoice_date' => $inv->date,
+                'patient_name' => !empty($inv->pt_name) ? $inv->pt_name : (!empty($inv->patient_name) ? $inv->patient_name : 'Patient #' . $inv->patient),
+                'patient_phone' => !empty($inv->pt_phone) ? $inv->pt_phone : $inv->patient_phone,
+                'doctor_name' => !empty($inv->doc_name) ? $inv->doc_name : $inv->doctor_name,
+                'doctor_id' => $inv->doctor,
+                'department_name' => !empty($inv->department_name) ? $inv->department_name : 'General',
+                'items_count' => count($inv_items),
+                'items_summary' => !empty($item_names) ? implode(', ', array_slice($item_names, 0, 3)) . (count($item_names) > 3 ? ' +' . (count($item_names) - 3) . ' more' : '') : 'Investigation Items',
+                'items_list' => $item_names,
+                'gross_amount' => $gross,
+                'discount' => $disc,
+                'net_payable' => $net,
+                'amount_collected' => $coll,
+                'due_amount' => $due,
+                'generated_commission' => $gen_comm,
+                'eligible_commission' => $elig_comm,
+                'commission_paid' => 0.00,
+                'remaining_commission' => $rem_comm,
+                'payment_status' => $inv_status
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_invoices' => count($records),
+                'total_gross' => $tot_gross,
+                'total_discount' => $tot_disc,
+                'total_net_payable' => $tot_net,
+                'total_collected' => $tot_coll,
+                'total_generated_commission' => $tot_gen,
+                'total_eligible_commission' => $tot_elig
+            ]
+        ];
+    }
+
+    /**
+     * 5. COMMISSION PAYABLE REPORT
+     * Focuses strictly on outstanding liabilities/obligations
+     */
+    public function getCommissionPayableReport($start_time, $end_time, $doctor_id = null, $status = null, $hospital_id = null)
+    {
+        // Leverage Invoice-Wise logic to find all eligible commissions
+        $inv_data = $this->getInvoiceWiseCommissionReport($start_time, $end_time, $doctor_id, null, $hospital_id);
+        $records = [];
+        $total_payable_sum = 0.00;
+        $total_elig_sum = 0.00;
+        $total_gen_sum = 0.00;
+
+        foreach ($inv_data['records'] as $r) {
+            $gen = $r['generated_commission'];
+            $elig = $r['eligible_commission'];
+            $paid = $r['commission_paid'];
+            $rem = max(0.00, round($elig - $paid, 2));
+
+            if ($paid >= $elig && $elig > 0) {
+                $comm_status = 'Fully Paid';
+            } elseif ($paid > 0) {
+                $comm_status = 'Partially Paid';
+            } elseif ($elig > 0) {
+                $comm_status = 'Pending';
+            } else {
+                $comm_status = 'Pending Collection';
+            }
+
+            if (!empty($status) && strtolower($status) !== 'all' && strtolower($status) !== strtolower($comm_status)) {
+                continue;
+            }
+
+            $total_payable_sum += $rem;
+            $total_elig_sum += $elig;
+            $total_gen_sum += $gen;
+
+            $records[] = [
+                'doctor_name' => $r['doctor_name'],
+                'doctor_id' => $r['doctor_id'],
+                'department_name' => $r['department_name'],
+                'invoice_id' => $r['invoice_id'],
+                'invoice_date' => $r['invoice_date'],
+                'patient_name' => $r['patient_name'],
+                'net_bill' => $r['net_payable'],
+                'amount_collected' => $r['amount_collected'],
+                'commission_generated' => $gen,
+                'commission_eligible' => $elig,
+                'commission_paid' => $paid,
+                'remaining_payable' => $rem,
+                'last_payment_date' => null,
+                'commission_status' => $comm_status
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_payable_invoices' => count($records),
+                'total_generated' => $total_gen_sum,
+                'total_eligible' => $total_elig_sum,
+                'total_outstanding_payable' => $total_payable_sum
+            ]
+        ];
+    }
+
+    /**
+     * 6. COMMISSION PAID REPORT
+     * Actual saved commission disbursement vouchers
+     */
+    public function getCommissionPaidReport($start_time, $end_time, $doctor_id = null, $payment_method = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $expenses = $this->getDoctorCommissionExpenses($start_time, $end_time, $doctor_id, $hospital_id);
+
+        $records = [];
+        $total_paid = 0.00;
+        $doc_payout_map = [];
+
+        foreach ($expenses as $e) {
+            $method = $this->detectExpensePaymentMethod($e);
+            if (!empty($payment_method) && strtolower($payment_method) !== 'all' && strtolower($payment_method) !== strtolower($method)) {
+                continue;
+            }
+
+            $amt = floatval($e->amount);
+            $total_paid += $amt;
+            $doc_name = !empty($e->pay_to) ? $e->pay_to : (!empty($e->note) ? $e->note : 'Doctor Payout');
+            $doc_payout_map[$doc_name] = ($doc_payout_map[$doc_name] ?? 0.00) + $amt;
+
+            $records[] = [
+                'voucher_id' => $e->id,
+                'payment_date' => $e->date,
+                'doctor_name' => $doc_name,
+                'category_name' => $e->category_name,
+                'amount' => $amt,
+                'payment_method' => $method,
+                'transaction_ref' => 'EXP-VOUCHER-' . $e->id,
+                'note' => $e->note,
+                'paid_by' => $e->recorded_by,
+                'approved_by' => !empty($e->payer_name) ? $e->payer_name : 'Admin'
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_paid' => $total_paid,
+                'number_of_transactions' => count($records),
+                'doctor_wise_summary' => $doc_payout_map
+            ]
+        ];
+    }
+
+    /**
+     * 7. DOCTOR COMMISSION LEDGER
+     * Chronological audit ledger with running payable balance
+     */
+    public function getDoctorCommissionLedger($start_time, $end_time, $doctor_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        // 1. Commission accruals from invoices
+        $inv_data = $this->getInvoiceWiseCommissionReport($start_time, $end_time, $doctor_id, null, $hospital_id);
+        
+        // 2. Disbursements from expenses
+        $expenses = $this->getDoctorCommissionExpenses($start_time, $end_time, $doctor_id, $hospital_id);
+
+        $ledger_entries = [];
+
+        foreach ($inv_data['records'] as $r) {
+            if ($r['generated_commission'] > 0) {
+                $ledger_entries[] = [
+                    'timestamp' => (int)$r['invoice_date'],
+                    'date' => $r['invoice_date'],
+                    'doctor_name' => $r['doctor_name'],
+                    'doctor_id' => $r['doctor_id'],
+                    'type' => 'Commission Accrued',
+                    'ref_no' => 'INV-' . $r['invoice_id'],
+                    'test_name' => $r['items_summary'],
+                    'commission_rate' => '-',
+                    'commission_generated' => $r['generated_commission'],
+                    'commission_eligible' => $r['eligible_commission'],
+                    'commission_paid' => 0.00,
+                    'reversal' => 0.00,
+                    'notes' => 'Patient: ' . $r['patient_name'] . ' (Billed: ৳' . number_format($r['net_payable'], 2) . ', Collected: ৳' . number_format($r['amount_collected'], 2) . ')'
+                ];
+            }
+        }
+
+        foreach ($expenses as $e) {
+            $amt = floatval($e->amount);
+            $doc_name = !empty($e->pay_to) ? $e->pay_to : 'Doctor';
+            $ledger_entries[] = [
+                'timestamp' => (int)$e->date,
+                'date' => $e->date,
+                'doctor_name' => $doc_name,
+                'doctor_id' => null,
+                'type' => 'Commission Payout',
+                'ref_no' => 'EXP-' . $e->id,
+                'test_name' => $e->category_name,
+                'commission_rate' => '-',
+                'commission_generated' => 0.00,
+                'commission_eligible' => 0.00,
+                'commission_paid' => $amt,
+                'reversal' => 0.00,
+                'notes' => $e->note . ' (Paid to ' . $doc_name . ')'
+            ];
+        }
+
+        // Sort chronologically ascending
+        usort($ledger_entries, function($a, $b) {
+            return $a['timestamp'] - $b['timestamp'];
+        });
+
+        // Compute running balance: Cumulative Eligible - Cumulative Paid
+        $running_balance = 0.00;
+        foreach ($ledger_entries as &$le) {
+            $running_balance += ($le['commission_eligible'] - $le['commission_paid'] - $le['reversal']);
+            $le['running_balance'] = $running_balance;
+        }
+        unset($le);
+
+        return [
+            'records' => $ledger_entries,
+            'summary' => [
+                'total_entries' => count($ledger_entries),
+                'final_running_balance' => $running_balance
+            ]
+        ];
+    }
+
+    /**
+     * 8. DOCTOR-WISE COMMISSION STATEMENT
+     * Printable formal statement for an individual doctor
+     */
+    public function getDoctorCommissionStatement($doctor_id, $start_time = null, $end_time = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        if (empty($start_time)) $start_time = strtotime(date('Y-m-01 00:00:00'));
+        if (empty($end_time)) $end_time = strtotime(date('Y-m-t 23:59:59'));
+
+        // Doctor details
+        $this->db->reset_query();
+        $this->db->select("d.*, dep.name as department_name");
+        $this->db->from('doctor d');
+        $this->db->join('department dep', 'dep.id = d.department', 'left');
+        $this->db->where('d.id', $doctor_id);
+        $doctor = $this->db->get()->row();
+
+        if (empty($doctor)) {
+            return null;
+        }
+
+        // Test items for this doctor in this statement period
+        $test_data = $this->getTestWiseCommissionReport($start_time, $end_time, $doctor_id, null, null, null, $hospital_id);
+
+        // Payouts for this doctor in this statement period
+        $paid_data = $this->getCommissionPaidReport($start_time, $end_time, $doctor_id, null, $hospital_id);
+
+        // Historical opening balance before $start_time
+        $historical_invs = $this->getInvoiceWiseCommissionReport(1, $start_time - 1, $doctor_id, null, $hospital_id);
+        $hist_elig = $historical_invs['summary']['total_eligible_commission'] ?? 0.00;
+        $historical_paid = $this->getCommissionPaidReport(1, $start_time - 1, $doctor_id, null, $hospital_id);
+        $hist_paid_amt = $historical_paid['summary']['total_paid'] ?? 0.00;
+        $opening_payable = max(0.00, round($hist_elig - $hist_paid_amt, 2));
+
+        $period_gen = $test_data['summary']['total_generated_commission'] ?? 0.00;
+        $period_elig = $test_data['summary']['total_eligible_commission'] ?? 0.00;
+        $period_paid = $paid_data['summary']['total_paid'] ?? 0.00;
+        $closing_payable = max(0.00, round($opening_payable + $period_elig - $period_paid, 2));
+
+        return [
+            'doctor' => $doctor,
+            'period' => [
+                'start_time' => $start_time,
+                'end_time' => $end_time,
+                'formatted' => date('d/m/Y', $start_time) . ' - ' . date('d/m/Y', $end_time)
+            ],
+            'summary' => [
+                'opening_payable' => $opening_payable,
+                'period_generated' => $period_gen,
+                'period_eligible' => $period_elig,
+                'period_adjustments' => 0.00,
+                'period_paid' => $period_paid,
+                'period_reversed' => 0.00,
+                'closing_payable' => $closing_payable
+            ],
+            'investigations' => $test_data['records'],
+            'disbursements' => $paid_data['records']
+        ];
+    }
+
+    /**
+     * 9. COMMISSION ADJUSTMENT & REVERSAL REPORT
+     * Audits any cancellations, patient refunds, or rate adjustments
+     */
+    public function getCommissionAdjustmentReport($start_time, $end_time, $doctor_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        // Check cancelled or refunded invoices
+        $this->db->select("p.*, d.name as doctor_name");
+        $this->db->from('payment p');
+        $this->db->join('doctor d', 'd.id = p.doctor', 'left');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where("p.doctor IS NOT NULL AND p.doctor != '' AND p.doctor != '0'", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        $this->db->group_start();
+        $this->db->where('p.status', 'cancelled');
+        $this->db->or_like('p.remarks', 'refund');
+        $this->db->or_like('p.remarks', 'cancel');
+        $this->db->or_where('p.is_edited', 1);
+        $this->db->group_end();
+        if (!empty($doctor_id)) {
+            $this->db->where('p.doctor', $doctor_id);
+        }
+        $adj_invoices = $this->db->get()->result();
+
+        $records = [];
+        $total_adj = 0.00;
+
+        foreach ($adj_invoices as $ai) {
+            $gen = floatval($ai->doctor_amount);
+            $type = ($ai->status === 'cancelled') ? 'Invoice Cancellation' : ($ai->is_edited ? 'Invoice Amendment' : 'Refund Reversal');
+            $total_adj += $gen;
+
+            $records[] = [
+                'doctor_name' => !empty($ai->doctor_name) ? $ai->doctor_name : 'Doctor #' . $ai->doctor,
+                'doctor_id' => $ai->doctor,
+                'original_ref' => 'INV-' . $ai->id,
+                'invoice_id' => $ai->id,
+                'adjustment_date' => !empty($ai->edited_at) ? $ai->edited_at : $ai->date,
+                'adjustment_type' => $type,
+                'adjusted_amount' => $gen,
+                'reason' => !empty($ai->remarks) ? $ai->remarks : 'Audit adjustment / invoice status update',
+                'processed_by' => !empty($ai->edited_by) ? 'User #' . $ai->edited_by : 'Cashier #' . $ai->user,
+                'authorized_by' => 'Hospital Admin'
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_adjustments_count' => count($records),
+                'total_adjusted_amount' => $total_adj
+            ]
+        ];
+    }
+
+    /**
+     * 10. COMMISSION CONFIGURATION REPORT
+     * Audits configured commission rates in payment_category
+     */
+    public function getCommissionConfigurationReport($hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("pc.*");
+        $this->db->from('payment_category pc');
+        $this->db->where("(pc.hospital_id = '$hospital_id' OR pc.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->order_by('pc.category', 'ASC');
+        $items = $this->db->get()->result();
+
+        $records = [];
+        $configured_count = 0;
+        $zero_count = 0;
+        $inactive_count = 0;
+
+        foreach ($items as $it) {
+            $price = floatval($it->c_price);
+            $d_rate = isset($it->d_commission) ? floatval($it->d_commission) : 0.00;
+            $r_rate = isset($it->r_commission) ? floatval($it->r_commission) : 0.00;
+            $status = !empty($it->status) ? $it->status : 'Active';
+
+            $nominal_comm = round(($price * $d_rate) / 100, 2);
+
+            if ($status === 'Inactive') {
+                $inactive_count++;
+            }
+
+            if ($d_rate > 0) {
+                $configured_count++;
+                $compliance = 'Configured';
+            } else {
+                $zero_count++;
+                $compliance = 'Zero Commission (Verify)';
+            }
+
+            $records[] = [
+                'item_id' => $it->id,
+                'code' => !empty($it->code) ? $it->code : 'TEST-' . $it->id,
+                'test_name' => $it->category,
+                'category_group' => !empty($it->type) ? ucfirst($it->type) : 'Diagnostic',
+                'standard_price' => $price,
+                'doctor_commission_rate' => $d_rate,
+                'nominal_commission' => $nominal_comm,
+                'referrer_commission_rate' => $r_rate,
+                'status' => $status,
+                'compliance_status' => $compliance,
+                'last_updated' => null,
+                'updated_by' => 'Admin'
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_tests' => count($items),
+                'configured_count' => $configured_count,
+                'zero_commission_count' => $zero_count,
+                'inactive_count' => $inactive_count
+            ]
+        ];
+    }
 }
