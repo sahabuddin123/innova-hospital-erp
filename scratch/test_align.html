@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@600;700&family=Inter:wght@700;800&display=swap');
+body { background: #f0f2f5; padding: 40px; font-family: 'Inter', sans-serif; }
+.box {
+    background: #fff;
+    padding: 20px;
+    width: 320px;
+    border: 1px solid #ccc;
+    margin-bottom: 20px;
+}
+.brand-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.hospital-brand-titles {
+    display: inline-flex;
+    flex-direction: column;
+    width: max-content;
+}
+.hospital-brand-title {
+    font-size: 16.5px;
+    font-weight: 800;
+    color: #0f2942;
+    line-height: 1.15;
+    letter-spacing: -0.2px;
+    margin: 0;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+/* Option 1: Justified */
+.bangla-justified {
+    font-family: 'Hind Siliguri', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f766e;
+    line-height: 1.25;
+    margin-top: 2px;
+    width: 100%;
+    text-align: justify;
+    text-align-last: justify;
+}
+/* Option 2: letter-spacing */
+.bangla-spaced {
+    font-family: 'Hind Siliguri', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f766e;
+    line-height: 1.25;
+    margin-top: 2px;
+    letter-spacing: 1.8px;
+    white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<h3>Option 1: text-align-last: justify (Word spacing stretches evenly)</h3>
+<div class="box">
+    <div class="hospital-brand-titles">
+        <h1 class="hospital-brand-title">LIFECARE DIAGNOSTIC CENTER</h1>
+        <div class="bangla-justified">লাইফ কেয়ার ডায়াগনস্টিক সেন্টার</div>
+    </div>
+</div>
+
+<h3>Option 2: letter-spacing</h3>
+<div class="box">
+    <div class="hospital-brand-titles">
+        <h1 class="hospital-brand-title">LIFECARE DIAGNOSTIC CENTER</h1>
+        <div class="bangla-spaced">লাইফ কেয়ার ডায়াগনস্টিক সেন্টার</div>
+    </div>
+</div>
+</body>
+</html>
+

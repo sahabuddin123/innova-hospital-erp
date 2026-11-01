@@ -265,18 +265,30 @@ if ($is_cancelled) {
     $status_text = 'CANCELLED';
     $status_bg = '#fee2e2';
     $status_color = '#dc2626';
+    $payment_stamp_text = 'Cancelled';
+    $payment_stamp_border = '#94a3b8';
+    $payment_stamp_color = '#64748b';
 } elseif ($balance_due <= 0.009) {
-    $status_text = 'PAID IN FULL';
+    $status_text = 'Full Paid';
     $status_bg = '#dcfce7';
     $status_color = '#15803d';
+    $payment_stamp_text = 'Full Paid';
+    $payment_stamp_border = '#16a34a';
+    $payment_stamp_color = '#15803d';
 } elseif ($amount_received > 0.009) {
-    $status_text = 'PARTIALLY PAID';
+    $status_text = 'Due';
     $status_bg = '#fef3c7';
     $status_color = '#b45309';
+    $payment_stamp_text = 'Due';
+    $payment_stamp_border = '#f59e0b';
+    $payment_stamp_color = '#d97706';
 } else {
-    $status_text = 'DUE';
+    $status_text = 'Full Due';
     $status_bg = '#fee2e2';
     $status_color = '#dc2626';
+    $payment_stamp_text = 'Full Due';
+    $payment_stamp_border = '#ef4444';
+    $payment_stamp_color = '#dc2626';
 }
 
 // Cashier Name
@@ -391,6 +403,8 @@ body {
     font-weight: normal;
     color: #0f766e;
     margin-top: 1px;
+    text-align: justify;
+    text-justify: inter-word;
 }
 .brand-addr {
     font-size: 7.2pt;
@@ -747,12 +761,6 @@ body {
         <!-- Left Pane (54%) -->
         <td style="width: 54%; padding-right: 8px;">
             <div class="status-card">
-                <div>
-                    <span class="badge-status"><?php echo $status_text; ?></span>
-                    <?php if ($balance_due > 0.009) { ?>
-                        <span class="badge-due">Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?></span>
-                    <?php } ?>
-                </div>
                 <div class="in-words">
                     <strong>In Words:</strong> <?php echo html_escape($amount_in_words); ?>
                 </div>
@@ -763,6 +771,11 @@ body {
                         </div>
                     </div>
                 <?php } ?>
+                <div style="margin-top: 6px;">
+                    <span style="display: inline-block; padding: 3px 14px; font-size: 10.5pt; font-weight: bold; text-transform: uppercase; border: 1.5pt solid <?php echo $payment_stamp_border; ?>; color: <?php echo $payment_stamp_color; ?>; background: #ffffff;">
+                        <?php echo $payment_stamp_text; ?>
+                    </span>
+                </div>
             </div>
 
             <!-- Signatures -->

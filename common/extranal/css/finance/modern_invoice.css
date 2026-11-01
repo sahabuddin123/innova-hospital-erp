@@ -255,9 +255,10 @@
 }
 
 .hospital-brand-titles {
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
     min-width: 0;
+    width: max-content;
 }
 
 .hospital-brand-title {
@@ -272,12 +273,17 @@
 }
 
 .hospital-brand-bangla {
-    font-family: 'Hind Siliguri', 'Inter', sans-serif;
+    font-family: 'Hind Siliguri', 'Kalpurush', 'Inter', sans-serif;
     font-size: 13px;
     font-weight: 700;
     color: var(--inv-teal-dark);
     line-height: 1.25;
     margin-top: 1px;
+    width: 100%;
+    display: block;
+    text-align: justify;
+    text-align-last: justify;
+    text-justify: inter-word;
 }
 
 .hospital-brand-address {
@@ -710,6 +716,47 @@
     color: #0f172a;
 }
 
+/* Payment Status Stamp (Bottom-left below Room No) */
+.invoice-payment-stamp-wrap {
+    margin-top: 8px;
+    margin-bottom: 2px;
+}
+
+.invoice-payment-stamp {
+    display: inline-block;
+    padding: 4px 18px;
+    font-size: 15px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-radius: 4px;
+    line-height: 1.25;
+}
+
+.invoice-payment-stamp.stamp-full-paid {
+    color: #15803d;
+    background: #ffffff;
+    border: 1.8px solid #16a34a;
+}
+
+.invoice-payment-stamp.stamp-due {
+    color: #d97706;
+    background: #ffffff;
+    border: 1.8px solid #f59e0b;
+}
+
+.invoice-payment-stamp.stamp-full-due {
+    color: #dc2626;
+    background: #ffffff;
+    border: 1.8px solid #ef4444;
+}
+
+.invoice-payment-stamp.stamp-cancelled {
+    color: #64748b;
+    background: #ffffff;
+    border: 1.8px solid #94a3b8;
+}
+
 .sig-block-left,
 .sig-block-right {
     padding-top: 25px;
@@ -1066,5 +1113,10 @@
         background: #fee2e2 !important;
         color: #dc2626 !important;
         -webkit-print-color-adjust: exact !important;
+    }
+
+    .invoice-payment-stamp {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }

@@ -334,15 +334,23 @@ $is_cancelled = (strtolower($payment->status ?? '') === 'cancelled');
 if ($is_cancelled) {
     $status_text = 'CANCELLED';
     $status_class = 'status-cancelled';
+    $payment_stamp_text = 'Cancelled';
+    $payment_stamp_class = 'stamp-cancelled';
 } elseif ($balance_due <= 0.009) {
-    $status_text = 'PAID IN FULL';
+    $status_text = 'Full Paid';
     $status_class = 'status-paid';
+    $payment_stamp_text = 'Full Paid';
+    $payment_stamp_class = 'stamp-full-paid';
 } elseif ($amount_received > 0.009) {
-    $status_text = 'PARTIALLY PAID';
+    $status_text = 'Due';
     $status_class = 'status-partial';
+    $payment_stamp_text = 'Due';
+    $payment_stamp_class = 'stamp-due';
 } else {
-    $status_text = 'DUE';
+    $status_text = 'Full Due';
     $status_class = 'status-due';
+    $payment_stamp_text = 'Full Due';
+    $payment_stamp_class = 'stamp-full-due';
 }
 
 // Cashier / Bill Creator Information
@@ -648,17 +656,6 @@ if (!function_exists('invoiceAmountInWords')) {
                 <!-- Left Pane: Payment Status, Advisory, Signatures -->
                 <div class="invoice-left-pane">
                     <div>
-                        <div class="status-row-top">
-                            <span class="invoice-status-badge <?php echo $status_class; ?>">
-                                <i class="fas fa-circle mr-1" style="font-size: 7px;"></i> <?php echo $status_text; ?>
-                            </span>
-                            <?php if ($balance_due > 0.009) { ?>
-                                <span class="due-amount-banner banner-has-due">
-                                    Due : <?php echo $currency . ' ' . number_format($balance_due, 2); ?>
-                                </span>
-                            <?php } ?>
-                        </div>
-
                         <!-- Amount in Words -->
                         <div class="in-words-row">
                             <strong>In Words:</strong> 
@@ -675,6 +672,13 @@ if (!function_exists('invoiceAmountInWords')) {
                                 </div>
                             </div>
                         <?php } ?>
+
+                        <!-- Payment Status Stamp Box -->
+                        <div class="invoice-payment-stamp-wrap">
+                            <span class="invoice-payment-stamp <?php echo $payment_stamp_class; ?>">
+                                <?php echo $payment_stamp_text; ?>
+                            </span>
+                        </div>
                     </div>
 
                     <!-- Left Signature Block -->
