@@ -203,8 +203,26 @@ $is_print = !empty($print_mode);
         }
         @media print {
             .btn-print-bar { display: none !important; }
-            body { padding: 0 !important; }
-            .statement-wrap { border: none !important; padding: 0 !important; }
+            body { padding: 0 !important; background: #ffffff !important; }
+            .statement-wrap { border: none !important; padding: 0 !important; max-width: 100% !important; margin: 0 auto !important; }
+            .page-break {
+                page-break-before: always !important;
+                break-before: page !important;
+                height: 0 !important;
+                display: block !important;
+                visibility: hidden !important;
+            }
+            .page-2 {
+                page-break-before: always !important;
+                break-before: page !important;
+                margin-top: 0 !important;
+            }
+            .test-detail-table tr {
+                page-break-inside: avoid !important;
+            }
+        }
+        .page-2 {
+            margin-top: 24px;
         }
     </style>
 </head>
@@ -432,54 +450,10 @@ $is_print = !empty($print_mode);
                         </tr>
                     </table>
                 </div>
-            </td>
-        </tr>
-    </table>
 
-    <!-- 6. Service Performance (Top 5) & 7. Payment Method Wise Collection -->
-    <table class="columns-table">
-        <tr>
-            <!-- 6. Service / Test Performance (Top 5) -->
-            <td style="width: 55%;">
+                <!-- 6. Payment Method Wise Collection -->
                 <div class="section-box">
-                    <div class="section-box-header">6. Service / Test Performance (Top 5)</div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 25px;">#</th>
-                                <th>Service / Test</th>
-                                <th style="text-align: center;">Qty</th>
-                                <th style="text-align: right;">Gross</th>
-                                <th style="text-align: right;">Discount</th>
-                                <th style="text-align: right;">Net</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($service_perf)): ?>
-                                <?php $i = 1; foreach (array_slice($service_perf, 0, 5) as $sp): ?>
-                                    <tr>
-                                        <td><?php echo $i++; ?></td>
-                                        <td style="font-weight: 600;"><?php echo html_escape($sp['name']); ?></td>
-                                        <td style="text-align: center;"><?php echo $sp['qty']; ?></td>
-                                        <td class="val-num"><?php echo $currency . ' ' . number_format($sp['gross'], 2); ?></td>
-                                        <td class="val-num" style="color: #dc2626;"><?php echo $currency . ' ' . number_format($sp['discount'], 2); ?></td>
-                                        <td class="val-num" style="color: #16a34a; font-weight: 700;"><?php echo $currency . ' ' . number_format($sp['net'], 2); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="6" style="text-align: center; color: #94a3b8;">No service records</td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </td>
-
-            <!-- 7. Payment Method Wise Collection -->
-            <td style="width: 45%;">
-                <div class="section-box">
-                    <div class="section-box-header">7. Payment Method Wise Collection</div>
+                    <div class="section-box-header">6. Payment Method Wise Collection</div>
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -528,7 +502,127 @@ $is_print = !empty($print_mode);
 
     <!-- Statement Footer -->
     <div class="statement-footer">
-        Computer Generated Financial Statement &bull; Lifecare Diagnostic Center
+        Computer Generated Financial Statement &bull; Lifecare Diagnostic Center &bull; Page 1 of 2
+    </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 2: DETAILED SERVICE & LAB TEST PERFORMANCE -->
+<div class="statement-wrap page-2">
+    <!-- Header -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 50%;">
+                <div class="logo-title">+ <?php echo html_escape($settings->title ?? 'Lifecare Diagnostic Center'); ?></div>
+                <div class="logo-subtitle">লাইফ কেয়ার ডায়াগনস্টিক সেন্টার</div>
+            </td>
+            <td style="width: 50%;">
+                <div class="hospital-info">
+                    <strong><?php echo html_escape($settings->title ?? 'Lifecare Diagnostic Center'); ?></strong><br>
+                    <?php echo html_escape($settings->address ?? 'Khaserhat Rastermatha, Charbata, Subarnachar, Noakhali'); ?><br>
+                    <?php echo html_escape($settings->phone ?? '01829 95 25 95, 01727 69 69 77'); ?>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Statement Title & Period -->
+    <div class="statement-title-box">
+        <div class="statement-title">Service / Lab Test Performance Statement</div>
+        <div class="statement-meta">
+            Period: <strong><?php echo html_escape($period_label); ?></strong> &bull;
+            Generated Date: <strong><?php echo date('d/m/Y h:i A'); ?></strong> &bull;
+            Total Unique Tests: <strong><?php echo count($service_perf); ?></strong>
+        </div>
+    </div>
+
+    <!-- 7. Detailed Service / Test Breakdown Table -->
+    <div class="section-box" style="margin-bottom: 20px;">
+        <div class="section-box-header" style="background: #0f172a; color: #ffffff;">
+            7. Service / Lab Test Performance &amp; Referral Commission Breakdown
+        </div>
+        <table class="data-table test-detail-table" style="font-size: 10.5px;">
+            <thead>
+                <tr style="background: #f1f5f9; font-weight: 700;">
+                    <th style="width: 32px; text-align: center;">#</th>
+                    <th style="text-align: left;">Service / Test Name</th>
+                    <th style="width: 65px; text-align: center;">Qty (বার)</th>
+                    <th style="width: 90px; text-align: right;">Gross Price</th>
+                    <th style="width: 80px; text-align: right;">Discount</th>
+                    <th style="width: 95px; text-align: right;">Net Billing</th>
+                    <th style="width: 100px; text-align: right; color: #7e22ce;">Ref Comm (রেফ.)</th>
+                    <th style="width: 110px; text-align: right; color: #15803d;">Hospital Net (হাসপাতাল)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                $tot_qty = 0;
+                $tot_gross = 0.00;
+                $tot_disc = 0.00;
+                $tot_net = 0.00;
+                $tot_ref = 0.00;
+                $tot_hosp = 0.00;
+                if (!empty($service_perf)):
+                    $sl = 1;
+                    foreach ($service_perf as $sp):
+                        $tot_qty += $sp['qty'];
+                        $tot_gross += $sp['gross'];
+                        $tot_disc += $sp['discount'];
+                        $tot_net += $sp['net'];
+                        $tot_ref += $sp['ref_comm'];
+                        $tot_hosp += $sp['hospital_net'];
+                ?>
+                    <tr>
+                        <td style="text-align: center; color: #64748b;"><?php echo $sl++; ?></td>
+                        <td style="font-weight: 600; color: #0f172a;"><?php echo html_escape($sp['name']); ?></td>
+                        <td style="text-align: center; font-weight: 700; color: #1e293b;"><?php echo $sp['qty']; ?></td>
+                        <td class="val-num"><?php echo $currency . ' ' . number_format($sp['gross'], 2); ?></td>
+                        <td class="val-num" style="color: #dc2626;"><?php echo ($sp['discount'] > 0) ? '- ' . $currency . ' ' . number_format($sp['discount'], 2) : '-'; ?></td>
+                        <td class="val-num" style="font-weight: 700; color: #0284c7;"><?php echo $currency . ' ' . number_format($sp['net'], 2); ?></td>
+                        <td class="val-num" style="font-weight: 600; color: #9333ea;"><?php echo $currency . ' ' . number_format($sp['ref_comm'], 2); ?></td>
+                        <td class="val-num" style="font-weight: 700; color: #16a34a;"><?php echo $currency . ' ' . number_format($sp['hospital_net'], 2); ?></td>
+                    </tr>
+                <?php endforeach; else: ?>
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #94a3b8; padding: 16px;">No service / test records for this period.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+            <tfoot>
+                <tr style="background: #0f172a; color: #ffffff; font-weight: 800; font-size: 11px;">
+                    <td colspan="2" style="text-align: right; padding-right: 12px;">TOTAL:</td>
+                    <td style="text-align: center;"><?php echo number_format($tot_qty); ?></td>
+                    <td style="text-align: right;"><?php echo $currency . ' ' . number_format($tot_gross, 2); ?></td>
+                    <td style="text-align: right; color: #fca5a5;">- <?php echo $currency . ' ' . number_format($tot_disc, 2); ?></td>
+                    <td style="text-align: right; color: #93c5fd;"><?php echo $currency . ' ' . number_format($tot_net, 2); ?></td>
+                    <td style="text-align: right; color: #d8b4fe;"><?php echo $currency . ' ' . number_format($tot_ref, 2); ?></td>
+                    <td style="text-align: right; color: #86efac;"><?php echo $currency . ' ' . number_format($tot_hosp, 2); ?></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Signatures on Page 2 -->
+    <table class="signatures-table" style="margin-top: 35px;">
+        <tr>
+            <td>
+                <span class="sig-line"></span>
+                Prepared By
+            </td>
+            <td>
+                <span class="sig-line"></span>
+                Accounts Officer
+            </td>
+            <td>
+                <span class="sig-line"></span>
+                Authorized Signature
+            </td>
+        </tr>
+    </table>
+
+    <div class="statement-footer">
+        Computer Generated Service Performance Statement &bull; Lifecare Diagnostic Center &bull; Page 2 of 2
     </div>
 </div>
 

@@ -201,7 +201,7 @@ $period_label = !empty($summary['period_label']) ? $summary['period_label'] : uc
 
     <!-- Service Performance -->
     <tr>
-        <td colspan="6" class="sec-hdr">SERVICE / TEST PERFORMANCE</td>
+        <td colspan="8" class="sec-hdr">SERVICE / TEST PERFORMANCE (TEST-WISE INCOME &amp; REFERRAL COMMISSION)</td>
     </tr>
     <tr>
         <th class="th">#</th>
@@ -210,6 +210,8 @@ $period_label = !empty($summary['period_label']) ? $summary['period_label'] : uc
         <th class="th">Gross Amount</th>
         <th class="th">Discount</th>
         <th class="th">Net Amount</th>
+        <th class="th">Ref Commission</th>
+        <th class="th">Hospital Net</th>
     </tr>
     <?php if (!empty($service_perf)): ?>
         <?php $i = 1; foreach ($service_perf as $s): ?>
@@ -220,6 +222,8 @@ $period_label = !empty($summary['period_label']) ? $summary['period_label'] : uc
                 <td class="td-num"><?php echo number_format($s['gross'], 2); ?></td>
                 <td class="td-num"><?php echo number_format($s['discount'], 2); ?></td>
                 <td class="td-num"><?php echo number_format($s['net'], 2); ?></td>
+                <td class="td-num"><?php echo number_format($s['ref_comm'], 2); ?></td>
+                <td class="td-num"><?php echo number_format($s['hospital_net'], 2); ?></td>
             </tr>
         <?php endforeach; ?>
     <?php endif; ?>

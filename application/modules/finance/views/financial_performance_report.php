@@ -591,6 +591,8 @@ $trends = !empty($summary['trends']) ? $summary['trends'] : [];
                                             <th class="text-right">Gross Amount</th>
                                             <th class="text-right">Discount</th>
                                             <th class="text-right">Net Amount</th>
+                                            <th class="text-right" style="color: #9333ea;">Ref Comm</th>
+                                            <th class="text-right" style="color: #16a34a;">Hospital Net</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -599,15 +601,17 @@ $trends = !empty($summary['trends']) ? $summary['trends'] : [];
                                                 <tr class="<?php echo ($idx >= 5) ? 'fin-service-extra-row' : ''; ?>" style="<?php echo ($idx >= 5) ? 'display:none;' : ''; ?>">
                                                     <td><?php echo $i++; ?></td>
                                                     <td class="font-weight-600"><?php echo html_escape($s['name']); ?></td>
-                                                    <td class="text-center"><?php echo $s['qty']; ?></td>
+                                                    <td class="text-center font-weight-bold"><?php echo $s['qty']; ?></td>
                                                     <td class="text-right"><?php echo $currency . ' ' . number_format($s['gross'], 2); ?></td>
-                                                    <td class="text-right text-danger"><?php echo $currency . ' ' . number_format($s['discount'], 2); ?></td>
-                                                    <td class="text-right font-weight-bold text-success"><?php echo $currency . ' ' . number_format($s['net'], 2); ?></td>
+                                                    <td class="text-right text-danger"><?php echo ($s['discount'] > 0) ? '- ' . $currency . ' ' . number_format($s['discount'], 2) : '-'; ?></td>
+                                                    <td class="text-right font-weight-bold text-primary"><?php echo $currency . ' ' . number_format($s['net'], 2); ?></td>
+                                                    <td class="text-right font-weight-600" style="color: #9333ea;"><?php echo $currency . ' ' . number_format($s['ref_comm'], 2); ?></td>
+                                                    <td class="text-right font-weight-bold text-success"><?php echo $currency . ' ' . number_format($s['hospital_net'], 2); ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                         <?php else: ?>
                                             <tr>
-                                                <td colspan="6" class="text-center text-muted py-3">No service / test records for this period.</td>
+                                                <td colspan="8" class="text-center text-muted py-3">No service / test records for this period.</td>
                                             </tr>
                                         <?php endif; ?>
                                     </tbody>

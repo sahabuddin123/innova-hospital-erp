@@ -2082,6 +2082,71 @@ class Finance_model extends CI_model
             $all_categories_cached[$cat->id] = trim($cat->category);
         }
 
+        // Pre-fetch Referral Commissions for the period
+        $this->db->reset_query();
+        $this->db->select('rcl.*, r.name as referrer_name');
+        $this->db->from('referral_commission_ledger rcl');
+        $this->db->join('referrer r', 'r.id = rcl.referrer_id', 'left');
+        $this->db->where('rcl.hospital_id', $hospital_id);
+        $this->db->where('rcl.created_date >=', $start_time);
+        $this->db->where('rcl.created_date <=', $end_time);
+        $this->db->where_not_in('rcl.status', array('Cancelled'));
+        $ref_ledgers = $this->db->get()->result();
+
+        $total_ref_comm = 0.00;
+        $earned_ref_comm = 0.00;
+        $pending_ref_comm = 0.00;
+        $referrer_breakdown = [];
+        $ref_comm_by_item = [];
+        $ref_comm_by_invoice = [];
+
+        foreach ($ref_ledgers as $rl) {
+            if ($rl->status === 'Reversed') continue;
+            $comm = floatval($rl->commission_amount);
+            $earned = floatval($rl->earned_amount);
+            $slot_key = ($period_type == 'daily') ? date('H:00', $rl->created_date) : (($period_type == 'yearly') ? date('Y-m', $rl->created_date) : date('Y-m-d', $rl->created_date));
+            if (isset($breakdown[$slot_key])) {
+                $breakdown[$slot_key]['referral_comm'] += $comm;
+            }
+            $total_ref_comm += $comm;
+            $earned_ref_comm += $earned;
+            $pending_ref_comm += ($comm - $earned);
+
+            if (!empty($rl->invoice_item_id)) {
+                if (!isset($ref_comm_by_item[$rl->invoice_item_id])) {
+                    $ref_comm_by_item[$rl->invoice_item_id] = 0.00;
+                }
+                $ref_comm_by_item[$rl->invoice_item_id] += $comm;
+            }
+            if (!empty($rl->invoice_id)) {
+                if (!isset($ref_comm_by_invoice[$rl->invoice_id])) {
+                    $ref_comm_by_invoice[$rl->invoice_id] = 0.00;
+                }
+                $ref_comm_by_invoice[$rl->invoice_id] += $comm;
+            }
+
+            $ref_id = $rl->referrer_id;
+            $ref_name = !empty($rl->referrer_name) ? $rl->referrer_name : 'Referrer #' . $ref_id;
+            if (!isset($referrer_breakdown[$ref_id])) {
+                $referrer_breakdown[$ref_id] = [
+                    'id' => $ref_id,
+                    'name' => $ref_name,
+                    'patients' => [],
+                    'invoices' => [],
+                    'billing' => 0.00,
+                    'commission' => 0.00
+                ];
+            }
+            if (!empty($rl->patient_id)) {
+                $referrer_breakdown[$ref_id]['patients'][$rl->patient_id] = true;
+            }
+            if (!empty($rl->invoice_id)) {
+                $referrer_breakdown[$ref_id]['invoices'][$rl->invoice_id] = true;
+            }
+            $referrer_breakdown[$ref_id]['billing'] += floatval($rl->item_price);
+            $referrer_breakdown[$ref_id]['commission'] += $comm;
+        }
+
         $cancelled_invoices = 0;
         $refunded_amount = 0.00;
         $doctor_breakdown = [];
@@ -2156,22 +2221,35 @@ class Finance_model extends CI_model
                     $line_disc = ($gross > 0) ? round(($subtotal / $gross) * $disc, 2) : 0.00;
                     $line_net = $subtotal - $line_disc;
 
+                    $item_ref_comm = 0.00;
+                    if (isset($ref_comm_by_item[$item->id])) {
+                        $item_ref_comm = $ref_comm_by_item[$item->id];
+                    } elseif (isset($item->referral_commission_amount) && floatval($item->referral_commission_amount) > 0) {
+                        $item_ref_comm = floatval($item->referral_commission_amount);
+                    }
+                    $hospital_net = max(0.00, $line_net - $item_ref_comm);
+
                     if (!isset($service_perf[$item_name])) {
                         $service_perf[$item_name] = [
                             'name' => $item_name,
                             'qty' => 0,
                             'gross' => 0.00,
                             'discount' => 0.00,
-                            'net' => 0.00
+                            'net' => 0.00,
+                            'ref_comm' => 0.00,
+                            'hospital_net' => 0.00
                         ];
                     }
                     $service_perf[$item_name]['qty'] += $qty;
                     $service_perf[$item_name]['gross'] += $subtotal;
                     $service_perf[$item_name]['discount'] += $line_disc;
                     $service_perf[$item_name]['net'] += $line_net;
+                    $service_perf[$item_name]['ref_comm'] += $item_ref_comm;
+                    $service_perf[$item_name]['hospital_net'] += $hospital_net;
                 }
             } elseif (!empty($p->category_name)) {
                 $cats = explode(',', $p->category_name);
+                $p_ref_comm = isset($ref_comm_by_invoice[$p->id]) ? $ref_comm_by_invoice[$p->id] : floatval($p->referral_commission ?? 0);
                 foreach ($cats as $cat_str) {
                     $parts = explode('*', $cat_str);
                     if (count($parts) >= 2) {
@@ -2185,6 +2263,8 @@ class Finance_model extends CI_model
 
                         $line_disc = ($gross > 0) ? round(($subtotal / $gross) * $disc, 2) : 0.00;
                         $line_net = $subtotal - $line_disc;
+                        $line_ref_comm = ($gross > 0) ? round(($subtotal / $gross) * $p_ref_comm, 2) : 0.00;
+                        $hospital_net = max(0.00, $line_net - $line_ref_comm);
 
                         if (!isset($service_perf[$item_name])) {
                             $service_perf[$item_name] = [
@@ -2192,13 +2272,17 @@ class Finance_model extends CI_model
                                 'qty' => 0,
                                 'gross' => 0.00,
                                 'discount' => 0.00,
-                                'net' => 0.00
+                                'net' => 0.00,
+                                'ref_comm' => 0.00,
+                                'hospital_net' => 0.00
                             ];
                         }
                         $service_perf[$item_name]['qty'] += $qty;
                         $service_perf[$item_name]['gross'] += $subtotal;
                         $service_perf[$item_name]['discount'] += $line_disc;
                         $service_perf[$item_name]['net'] += $line_net;
+                        $service_perf[$item_name]['ref_comm'] += $line_ref_comm;
+                        $service_perf[$item_name]['hospital_net'] += $hospital_net;
                     }
                 }
             }
@@ -2236,56 +2320,6 @@ class Finance_model extends CI_model
                     $prev_due_collected += $amt;
                 }
             }
-        }
-
-        // 4. Fetch Referral Commissions
-        $this->db->reset_query();
-        $this->db->select('rcl.*, r.name as referrer_name');
-        $this->db->from('referral_commission_ledger rcl');
-        $this->db->join('referrer r', 'r.id = rcl.referrer_id', 'left');
-        $this->db->where('rcl.hospital_id', $hospital_id);
-        $this->db->where('rcl.created_date >=', $start_time);
-        $this->db->where('rcl.created_date <=', $end_time);
-        $this->db->where_not_in('rcl.status', array('Cancelled'));
-        $ref_ledgers = $this->db->get()->result();
-
-        $total_ref_comm = 0.00;
-        $earned_ref_comm = 0.00;
-        $pending_ref_comm = 0.00;
-        $referrer_breakdown = [];
-
-        foreach ($ref_ledgers as $rl) {
-            if ($rl->status === 'Reversed') continue;
-            $comm = floatval($rl->commission_amount);
-            $earned = floatval($rl->earned_amount);
-            $slot_key = ($period_type == 'daily') ? date('H:00', $rl->created_date) : (($period_type == 'yearly') ? date('Y-m', $rl->created_date) : date('Y-m-d', $rl->created_date));
-            if (isset($breakdown[$slot_key])) {
-                $breakdown[$slot_key]['referral_comm'] += $comm;
-            }
-            $total_ref_comm += $comm;
-            $earned_ref_comm += $earned;
-            $pending_ref_comm += ($comm - $earned);
-
-            $ref_id = $rl->referrer_id;
-            $ref_name = !empty($rl->referrer_name) ? $rl->referrer_name : 'Referrer #' . $ref_id;
-            if (!isset($referrer_breakdown[$ref_id])) {
-                $referrer_breakdown[$ref_id] = [
-                    'id' => $ref_id,
-                    'name' => $ref_name,
-                    'patients' => [],
-                    'invoices' => [],
-                    'billing' => 0.00,
-                    'commission' => 0.00
-                ];
-            }
-            if (!empty($rl->patient_id)) {
-                $referrer_breakdown[$ref_id]['patients'][$rl->patient_id] = true;
-            }
-            if (!empty($rl->invoice_id)) {
-                $referrer_breakdown[$ref_id]['invoices'][$rl->invoice_id] = true;
-            }
-            $referrer_breakdown[$ref_id]['billing'] += floatval($rl->item_price);
-            $referrer_breakdown[$ref_id]['commission'] += $comm;
         }
 
         // Referral Wallet Metrics
@@ -2375,9 +2409,12 @@ class Finance_model extends CI_model
         $summary['gross_profit'] = $summary['net_billing'] - $summary['doctor_commission'] - $summary['referral_commission'];
         $summary['net_margin'] = ($summary['net_billing'] > 0) ? round(($summary['net_profit'] / $summary['net_billing']) * 100, 2) : 0.00;
 
-        // Service Performance sorted desc
+        // Service Performance sorted by quantity desc (frequency), then gross desc
         uasort($service_perf, function ($a, $b) {
-            return $b['gross'] <=> $a['gross'];
+            if ($b['qty'] == $a['qty']) {
+                return $b['gross'] <=> $a['gross'];
+            }
+            return $b['qty'] <=> $a['qty'];
         });
 
         // Payment Method Collection List
