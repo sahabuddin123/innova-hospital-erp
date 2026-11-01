@@ -11,6 +11,7 @@ class Finance_model extends CI_model
         parent::__construct();
         $this->load->database();
         $this->ensureExpenseSchema();
+        $this->ensurePaymentSchema();
     }
 
     private function ensureExpenseSchema()
@@ -24,6 +25,21 @@ class Finance_model extends CI_model
             }
             if (!$this->db->field_exists('bill_date', 'expense')) {
                 $this->db->query("ALTER TABLE `expense` ADD COLUMN `bill_date` VARCHAR(100) NULL AFTER `payer_name`");
+            }
+        }
+    }
+
+    private function ensurePaymentSchema()
+    {
+        if ($this->db->table_exists('payment')) {
+            if (!$this->db->field_exists('is_edited', 'payment')) {
+                $this->db->query("ALTER TABLE `payment` ADD COLUMN `is_edited` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`");
+            }
+            if (!$this->db->field_exists('edited_by', 'payment')) {
+                $this->db->query("ALTER TABLE `payment` ADD COLUMN `edited_by` INT(11) NULL AFTER `is_edited`");
+            }
+            if (!$this->db->field_exists('edited_at', 'payment')) {
+                $this->db->query("ALTER TABLE `payment` ADD COLUMN `edited_at` INT(11) NULL AFTER `edited_by`");
             }
         }
     }

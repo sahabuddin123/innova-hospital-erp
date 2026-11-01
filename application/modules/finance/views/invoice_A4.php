@@ -595,7 +595,12 @@ if (!function_exists('invoiceAmountInWords')) {
 
                     <!-- Right: MONEY RECEIPT Title, Barcode & Bill Metadata -->
                     <div class="invoice-header-meta">
-                        <div class="invoice-title-large">MONEY RECEIPT</div>
+                        <div class="invoice-title-large">
+                            MONEY RECEIPT
+                            <?php if (!empty($payment->is_edited)) { ?>
+                                <span style="background-color: #dc3545; color: #ffffff; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 4px; margin-left: 6px; vertical-align: middle; text-transform: uppercase;">EDITED</span>
+                            <?php } ?>
+                        </div>
                         <div class="invoice-type-pill">DIAGNOSTIC SERVICE</div>
                         
                         <div class="invoice-header-barcode">
@@ -606,7 +611,12 @@ if (!function_exists('invoiceAmountInWords')) {
                             <tr>
                                 <td class="lbl">Bill No</td>
                                 <td class="sep">:</td>
-                                <td class="val"><?php echo $vn; ?></td>
+                                <td class="val">
+                                    <span class="<?php echo !empty($payment->is_edited) ? 'text-danger font-weight-bold' : ''; ?>"><?php echo $vn; ?></span>
+                                    <?php if (!empty($payment->is_edited)) { ?>
+                                        <span style="background-color: #dc3545; color: #ffffff; font-weight: 800; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; text-transform: uppercase;">[EDITED]</span>
+                                    <?php } ?>
+                                </td>
                             </tr>
                             <tr>
                                 <td class="lbl">Date</td>
@@ -636,7 +646,12 @@ if (!function_exists('invoiceAmountInWords')) {
                             <td class="val"><?php echo html_escape($age_gender_display); ?></td>
                             <td class="lbl">Bill No (VN)</td>
                             <td class="sep">:</td>
-                            <td class="val font-monospace"><?php echo $vn; ?></td>
+                            <td class="val font-monospace">
+                                <span class="<?php echo !empty($payment->is_edited) ? 'text-danger font-weight-bold' : ''; ?>"><?php echo $vn; ?></span>
+                                <?php if (!empty($payment->is_edited)) { ?>
+                                    <span style="background-color: #dc3545; color: #ffffff; font-weight: 800; font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-left: 4px;">EDITED</span>
+                                <?php } ?>
+                            </td>
                         </tr>
                         <tr>
                             <td class="lbl">Contact Phone</td>

@@ -24,6 +24,9 @@ $can_create_referrer = $this->ion_auth->in_group(array('admin', 'superadmin', 'A
                                 <?php
                                 if (!empty($payment->id)) {
                                     echo lang('edit_invoice') . ' <span class="badge badge-light border ml-1">#' . $payment->id . '</span>';
+                                    if (!empty($payment->is_edited)) {
+                                        echo ' <span class="badge badge-danger ml-1" style="background-color: #dc3545; color: #fff; font-weight: 700; font-size: 11px; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;"><i class="fas fa-edit mr-1"></i>EDITED</span>';
+                                    }
                                 } elseif (!empty($draft->id)) {
                                     echo lang('edit_draft_invoice') . ' <span class="badge badge-warning ml-1">Draft</span>';
                                 } else {
@@ -82,6 +85,33 @@ $can_create_referrer = $this->ion_auth->in_group(array('admin', 'superadmin', 'A
     <!-- Main Content Grid -->
     <section class="content px-2 px-md-3">
         <div class="container-fluid">
+            <?php
+            $is_admin = $this->ion_auth->in_group(array('admin', 'superadmin'));
+            $is_editing_invoice = !empty($payment->id);
+            $original_item_ids = array();
+            if ($is_editing_invoice && !empty($payment->category_name)) {
+                $ex_parts = explode(',', $payment->category_name);
+                foreach ($ex_parts as $exp) {
+                    $subparts = explode('*', $exp);
+                    if (!empty($subparts[0])) {
+                        $original_item_ids[] = intval($subparts[0]);
+                    }
+                }
+            }
+            $original_item_ids = array_values(array_unique($original_item_ids));
+            ?>
+            <?php if (!empty($payment->id) && !empty($payment->is_edited)) { ?>
+                <div class="alert alert-danger font-weight-bold d-flex align-items-center mb-2 shadow-sm" style="background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; border-radius: 8px;">
+                    <i class="fas fa-exclamation-triangle mr-2 fa-lg text-danger"></i>
+                    <span><strong>Edited Invoice Notice:</strong> This invoice has been previously edited/modified. (এই ইনভয়েসটি পূর্বে এডিট করা হয়েছে এবং সিস্টেমে চিহ্নিত রয়েছে।)</span>
+                </div>
+            <?php } ?>
+            <?php if (!empty($payment->id) && !$is_admin) { ?>
+                <div class="alert alert-warning font-weight-bold d-flex align-items-center mb-2 shadow-sm" style="background-color: #fff3cd; border-color: #ffeeba; color: #856404; border-radius: 8px;">
+                    <i class="fas fa-lock mr-2 text-warning"></i>
+                    <span><strong>Item Protection:</strong> Admin ছাড়া কোনো invoice item কেউ delete করতে পারবে না। (Only Admin is permitted to remove invoice items.)</span>
+                </div>
+            <?php } ?>
             <form role="form" id="editPaymentForm" class="clearfix form-row" action="finance/addPayment" method="post" enctype="multipart/form-data">
 
                 <!-- ==========================================
@@ -929,8 +959,11 @@ if (!empty($gateway->publish)) {
 <script src="common/js/moment.min.js"></script>
 <script type="text/javascript">
     var payment_gateway = "<?php echo $settings->payment_gateway; ?>";
+    var is_admin_user = <?php echo $is_admin ? 'true' : 'false'; ?>;
+    var is_editing_invoice = <?php echo $is_editing_invoice ? 'true' : 'false'; ?>;
+    var original_invoice_item_ids = <?php echo json_encode($original_item_ids); ?>;
 </script>
-<script src="common/extranal/js/finance/add_payment_view.js?v=pos-2026-v12"></script>
+<script src="common/extranal/js/finance/add_payment_view.js?v=pos-2026-v13"></script>
 
 <!-- POS UI Reactive Helper Script -->
 <script type="text/javascript">
@@ -951,7 +984,11 @@ $(document).ready(function() {
             $("#empty_cart_placeholder").hide();
             $("#cart_badge").text(itemCount + (itemCount === 1 ? " item" : " items"));
             $("#cart_summary_text").text(itemCount + (itemCount === 1 ? " item selected" : " items selected"));
-            $("#btn_clear_cart").removeClass("d-none");
+            if (typeof is_editing_invoice !== "undefined" && is_editing_invoice && typeof is_admin_user !== "undefined" && !is_admin_user) {
+                $("#btn_clear_cart").addClass("d-none");
+            } else {
+                $("#btn_clear_cart").removeClass("d-none");
+            }
         } else {
             $("#empty_cart_placeholder").show();
             $("#cart_badge").text("0 items");
@@ -1027,7 +1064,20 @@ $(document).ready(function() {
     });
 
     // Clear Cart Button
-    $("#btn_clear_cart").on("click", function() {
+    $("#btn_clear_cart").on("click", function(e) {
+        if (typeof is_editing_invoice !== "undefined" && is_editing_invoice && typeof is_admin_user !== "undefined" && !is_admin_user) {
+            e.preventDefault();
+            if (typeof Swal !== "undefined") {
+                Swal.fire({
+                    icon: "error",
+                    title: "Permission Denied",
+                    text: "Admin ছাড়া কোনো invoice item কেউ delete করতে পারবে না।"
+                });
+            } else {
+                alert("Permission Denied: Only Admin can delete invoice items.");
+            }
+            return false;
+        }
         if (confirm("Are you sure you want to clear all items in the cart?")) {
             clearPOSCartStorage();
             $(".qfloww .remove_attr").each(function() {

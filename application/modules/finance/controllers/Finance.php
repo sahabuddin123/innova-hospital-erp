@@ -296,6 +296,32 @@ class Finance extends MX_Controller
             show_swal(lang('select_an_item'), 'error', lang('error'));
             redirect('finance/addPaymentView');
         } else {
+            // RESTRICTION: Only Admin can delete items from an existing invoice
+            if (!empty($id)) {
+                $is_admin_user = $this->ion_auth->in_group(array('admin', 'superadmin'));
+                if (!$is_admin_user) {
+                    $existing_payment = $this->finance_model->getPaymentById($id);
+                    if (!empty($existing_payment) && !empty($existing_payment->category_name)) {
+                        $existing_items = array();
+                        $ex_parts = explode(',', $existing_payment->category_name);
+                        foreach ($ex_parts as $exp) {
+                            $subparts = explode('*', $exp);
+                            if (!empty($subparts[0])) {
+                                $existing_items[] = intval($subparts[0]);
+                            }
+                        }
+                        $existing_items = array_values(array_unique($existing_items));
+                        $submitted_items = !empty($item_selected) ? array_map('intval', (array)$item_selected) : array();
+                        $missing_items = array_diff($existing_items, $submitted_items);
+                        if (!empty($missing_items)) {
+                            show_swal('Admin ছাড়া কোনো invoice item কেউ delete করতে পারবে না। (Only Admin is authorized to delete items from an invoice.)', 'error', 'Permission Denied');
+                            redirect("finance/editPayment?id=" . $id);
+                            return;
+                        }
+                    }
+                }
+            }
+
             $item_quantity_array = array();
             $item_quantity_array = array_combine($item_selected, $quantity);
         }
@@ -980,7 +1006,10 @@ class Finance extends MX_Controller
                     'remarks' => $remarks,
                     'vat' => $vat,
                     'percent_discount' => $percent_discount,
-                    'vat_amount_percent' => $vat_amount
+                    'vat_amount_percent' => $vat_amount,
+                    'is_edited' => 1,
+                    'edited_by' => $this->ion_auth->get_user_id(),
+                    'edited_at' => time()
                 );
                 $data_logs = array(
                     'date_time' => date('d-m-Y H:i'),
@@ -2941,7 +2970,13 @@ class Finance extends MX_Controller
             if ($this->ion_auth->in_group(array('admin', 'superadmin'))) {
                 $chk_html = '<input type="checkbox" class="invoice-checkbox mr-2" value="' . $payment->id . '" style="cursor:pointer; width: 16px; height: 16px; vertical-align: middle;">';
             }
-            $invoice_id_display = '<div class="d-inline-flex align-items-center">' . $chk_html . '<span>#' . $payment->id . '</span></div>';
+            $is_edited = !empty($payment->is_edited);
+            $edited_badge = '';
+            if ($is_edited) {
+                $edited_badge = ' <span class="badge badge-danger ml-1" style="background-color: #dc3545; color: #ffffff; font-weight: 700; font-size: 10px; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-edit mr-1"></i>Edited</span>';
+            }
+            $inv_id_class = $is_edited ? 'text-danger font-weight-bold' : '';
+            $invoice_id_display = '<div class="d-inline-flex align-items-center">' . $chk_html . '<span class="' . $inv_id_class . '">#' . $payment->id . '</span>' . $edited_badge . '</div>';
 
             $info[] = array(
                 $invoice_id_display,
@@ -3268,7 +3303,10 @@ class Finance extends MX_Controller
             'gross_total' => $new_gross_total,
             'hospital_amount' => $hospital_amount,
             'doctor_amount' => $doctor_amount,
-            'referral_amount' => $referral_amount
+            'referral_amount' => $referral_amount,
+            'is_edited' => 1,
+            'edited_by' => $this->ion_auth->get_user_id(),
+            'edited_at' => time()
         );
 
         if (!empty($remarks)) {
@@ -4582,6 +4620,11 @@ class Finance extends MX_Controller
 
 
 
+            $is_edited = !empty($payment->is_edited);
+            $due_id_display = $is_edited 
+                ? '<span class="text-danger font-weight-bold">#' . $payment->id . '</span> <span class="badge badge-danger ml-1" style="background-color: #dc3545; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; text-transform: uppercase;"><i class="fas fa-edit mr-1"></i>Edited</span>' 
+                : '#' . $payment->id;
+
             if (($payment->gross_total - $this->finance_model->getDepositAmountByPaymentId($payment->id)) > 0) {
                 $amount[] = $payment->amount;
                 $discount_amount[] = $discount;
@@ -4590,7 +4633,7 @@ class Finance extends MX_Controller
                 $due_money[] = ($payment->gross_total - $this->finance_model->getDepositAmountByPaymentId($payment->id));
 
                 $info[] = array(
-                    $payment->id,
+                    $due_id_display,
                     $patient_details,
                     $doctor,
                     $date,
@@ -4606,7 +4649,7 @@ class Finance extends MX_Controller
                 $count++;
             } else {
                 $info1[] = array(
-                    $payment->id,
+                    $due_id_display,
                     $patient_details,
                     $doctor,
                     $date,

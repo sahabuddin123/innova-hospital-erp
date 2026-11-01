@@ -108,8 +108,24 @@ $(document).ready(function (e) {
     updateCommissionSummary();
   });
 
-  $(document).on("click", ".remove_attr", function () {
+  $(document).on("click", ".remove_attr", function (e) {
     var idd = $(this).attr("id").replace("id-remove-", "");
+    if (typeof is_editing_invoice !== "undefined" && is_editing_invoice && typeof is_admin_user !== "undefined" && !is_admin_user) {
+      if (typeof original_invoice_item_ids !== "undefined" && original_invoice_item_ids.indexOf(parseInt(idd)) !== -1) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (typeof Swal !== "undefined") {
+          Swal.fire({
+            icon: "error",
+            title: "Permission Denied",
+            text: "Admin ছাড়া কোনো invoice item কেউ delete করতে পারবে না। (Only Admin can delete invoice items.)"
+          });
+        } else {
+          alert("Permission Denied: Only Admin can delete invoice items.");
+        }
+        return false;
+      }
+    }
     $("#id-div" + idd).remove();
     $("#idinput-" + idd).remove();
     $("#categoryinput-" + idd).remove();
@@ -130,9 +146,25 @@ $(document).ready(function (e) {
     e.preventDefault;
   });
   var tot = 0;
-  $(".ms-list").on("click", ".ms-selected", function () {
+  $(".ms-list").on("click", ".ms-selected", function (e) {
     "use strict";
     var idd = $(this).data("idd");
+    if (typeof is_editing_invoice !== "undefined" && is_editing_invoice && typeof is_admin_user !== "undefined" && !is_admin_user) {
+      if (typeof original_invoice_item_ids !== "undefined" && original_invoice_item_ids.indexOf(parseInt(idd)) !== -1) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (typeof Swal !== "undefined") {
+          Swal.fire({
+            icon: "error",
+            title: "Permission Denied",
+            text: "Admin ছাড়া কোনো invoice item কেউ delete করতে পারবে না। (Only Admin can delete invoice items.)"
+          });
+        } else {
+          alert("Permission Denied: Only Admin can delete invoice items.");
+        }
+        return false;
+      }
+    }
     $("#id-div" + idd).remove();
     $("#idinput-" + idd).remove();
     $("#categoryinput-" + idd).remove();
@@ -148,10 +180,15 @@ $(document).ready(function (e) {
     } else {
       if ($("#id-div" + idd).length) {
       } else {
+        var is_orig_locked = (typeof is_editing_invoice !== "undefined" && is_editing_invoice && typeof is_admin_user !== "undefined" && !is_admin_user && typeof original_invoice_item_ids !== "undefined" && original_invoice_item_ids.indexOf(parseInt(idd)) !== -1);
+        var del_btn_markup = is_orig_locked
+          ? '<button type="button" class="btn-cart-del remove_attr" id="id-remove-' + idd + '" title="Only Admin can delete original invoice items" style="opacity: 0.4; cursor: not-allowed; background: #e9ecef; border-color: #ced4da;"><i class="fas fa-lock text-danger" style="font-size: 10px;"></i></button>'
+          : '<button type="button" class="btn-cart-del remove_attr" id="id-remove-' + idd + '" title="Remove item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><i class="fas fa-times d-none"></i></button>';
+
         $("#editPaymentForm .qfloww").append(
           '<div class="cart-item-row remove1" id="id-div' + idd + '">' +
             '<div class="cart-item-left">' +
-              '<button type="button" class="btn-cart-del remove_attr" id="id-remove-' + idd + '" title="Remove item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><i class="fas fa-times d-none"></i></button>' +
+              del_btn_markup +
               '<span class="cart-item-title">' + $(this).data("cat_name") + '</span>' +
               ' <span class="cart-item-price">- ' + currency + $(this).data("id") + '</span>' +
             '</div>' +
