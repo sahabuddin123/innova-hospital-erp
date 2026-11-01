@@ -767,6 +767,92 @@ class Finance_model extends CI_model
         $this->db->delete('payment');
     }
 
+    /**
+     * Permanently deletes an invoice and safely reverses all collections, deposits,
+     * payment items, lab tests, and referral commissions.
+     */
+    function deleteInvoicePermanently($id, $hospital_id = null)
+    {
+        if (empty($hospital_id)) {
+            $hospital_id = $this->session->userdata('hospital_id');
+        }
+
+        $payment = $this->db->where('id', $id)
+            ->where('hospital_id', $hospital_id)
+            ->get('payment')
+            ->row();
+
+        if (empty($payment)) {
+            return false;
+        }
+
+        $this->db->trans_start();
+
+        // 1. Safely reverse referral commissions (deduct from wallet balance & cancel ledger)
+        if (!empty($payment->referrer)) {
+            if (!isset($this->referral_model)) {
+                $this->load->model('referral/referral_model');
+            }
+            $this->referral_model->reverseCommissionOnInvoiceCancellation($id, $hospital_id, 'Invoice deleted: #' . $id);
+        }
+        // Remove ledger records for this invoice
+        $this->db->where('invoice_id', $id)
+            ->where('hospital_id', $hospital_id)
+            ->delete('referral_commission_ledger');
+
+        // 2. Remove all deposits / collections associated with this invoice (patient_deposit)
+        $this->db->where('payment_id', $id)
+            ->where('hospital_id', $hospital_id)
+            ->delete('patient_deposit');
+
+        // 3. Remove all diagnostic lab test records created under this invoice
+        $this->db->where('invoice_id', $id)
+            ->where('hospital_id', $hospital_id)
+            ->delete('lab');
+
+        // 4. Remove all payment items (tests/services line items)
+        $this->db->where('payment_id', $id)
+            ->where('hospital_id', $hospital_id)
+            ->delete('payment_items');
+
+        // 5. Unlink any appointments tied to this payment
+        $this->db->where('payment_id', $id)
+            ->where('hospital_id', $hospital_id)
+            ->set('payment_id', null)
+            ->set('payment_status', 'unpaid')
+            ->update('appointment');
+
+        // 6. Unlink IPD bed diagnostic / medicine / service records if applicable
+        $this->db->where('payment_id', $id)->where('hospital_id', $hospital_id)->set('payment_id', null)->update('bed_diagnostic');
+        $this->db->where('payment_id', $id)->where('hospital_id', $hospital_id)->set('payment_id', null)->update('bed_medicine');
+        $this->db->where('payment_id', $id)->where('hospital_id', $hospital_id)->set('payment_id', null)->update('bed_service');
+
+        // 7. Log the permanent deletion in transaction logs
+        if (!isset($this->logs_model)) {
+            $this->load->model('logs/logs_model');
+        }
+        $data_logs = array(
+            'date_time' => date('d-m-Y H:i'),
+            'patientname' => !empty($payment->patient_name) ? $payment->patient_name : '',
+            'invoice_id' => $payment->id,
+            'action' => 'Deleted Invoice',
+            'deposit_type' => !empty($payment->deposit_type) ? $payment->deposit_type : '',
+            'user' => $this->ion_auth->get_user_id(),
+            'amount' => !empty($payment->amount_received) ? $payment->amount_received : 0,
+            'hospital_id' => $hospital_id
+        );
+        $this->logs_model->insertTransactionLogs($data_logs);
+
+        // 8. Delete the payment record itself
+        $this->db->where('id', $id)
+            ->where('hospital_id', $hospital_id)
+            ->delete('payment');
+
+        $this->db->trans_complete();
+
+        return ($this->db->trans_status() !== FALSE);
+    }
+
     function deletePaymentCategory($id)
     {
         $this->db->where('id', $id);

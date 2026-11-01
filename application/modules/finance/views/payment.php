@@ -34,18 +34,32 @@
                         </div> -->
 
                         <div class="card-body bg-light p-4">
-                            <div class="col-md-4 mb-4">
-                                <div class="input-group input-large" data-date="13/07/2013" data-date-format="mm/dd/yyyy">
-                                    <input type="text" class="form-control form-control-lg shadow-sm default-date-picker" name="date_from" id="date_from" value="" placeholder="<?php echo lang('date_from'); ?>" readonly="">
-                                    <span class="input-group-addon mx-2"></span>
-                                    <input type="text" class="form-control form-control-lg shadow-sm default-date-picker" name="date_to" id="date_to" value="" placeholder="<?php echo lang('date_to'); ?>" readonly="">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+                                <div class="d-flex align-items-center flex-wrap">
+                                    <div class="input-group input-large mr-3" data-date="13/07/2013" data-date-format="mm/dd/yyyy" style="max-width: 320px;">
+                                        <input type="text" class="form-control form-control-sm shadow-sm default-date-picker" name="date_from" id="date_from" value="" placeholder="<?php echo lang('date_from'); ?>" readonly="">
+                                        <span class="input-group-addon mx-2 text-muted">-</span>
+                                        <input type="text" class="form-control form-control-sm shadow-sm default-date-picker" name="date_to" id="date_to" value="" placeholder="<?php echo lang('date_to'); ?>" readonly="">
+                                    </div>
+
+                                    <?php if ($this->ion_auth->in_group(array('admin', 'superadmin'))) { ?>
+                                        <button type="button" class="btn btn-danger btn-sm shadow-sm" id="btnBulkDeleteInvoices" style="display: none;">
+                                            <i class="fas fa-trash-alt mr-1"></i> Delete Selected (<span id="selectedInvoiceCount">0</span>)
+                                        </button>
+                                    <?php } ?>
                                 </div>
+                                <div class="custom_buttons mt-2 mt-md-0"></div>
                             </div>
 
                             <table class="table table-hover datatables text-sm" id="editable-sample3" width="100%">
                                 <thead>
                                     <tr class="bg-light">
-                                        <th class="font-weight-bold"><?php echo lang(''); ?> #</th>
+                                        <th class="font-weight-bold" style="white-space: nowrap; width: 85px;">
+                                            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin'))) { ?>
+                                                <input type="checkbox" id="checkAllInvoices" class="mr-2" style="cursor: pointer; width: 16px; height: 16px; vertical-align: middle;" title="Select All">
+                                            <?php } ?>
+                                            #
+                                        </th>
                                         <th class="font-weight-bold"><?php echo lang('patient'); ?></th>
                                         <!-- <th class="font-weight-bold"><?php echo lang('doctor'); ?></th> -->
                                         <th class="font-weight-bold"><?php echo lang('date'); ?></th>
@@ -755,6 +769,204 @@
                     }
                 }
             });
+        });
+
+        // ==========================================
+        // Invoice Selection & Bulk Deletion Logic
+        // ==========================================
+        function updateSelectedInvoiceCount() {
+            var checkedCount = $('.invoice-checkbox:checked').length;
+            var totalCount = $('.invoice-checkbox').length;
+
+            $('#selectedInvoiceCount').text(checkedCount);
+            if (checkedCount > 0) {
+                $('#btnBulkDeleteInvoices').fadeIn(150);
+            } else {
+                $('#btnBulkDeleteInvoices').fadeOut(150);
+            }
+
+            if (totalCount > 0 && checkedCount === totalCount) {
+                $('#checkAllInvoices').prop('checked', true);
+            } else {
+                $('#checkAllInvoices').prop('checked', false);
+            }
+        }
+
+        // Select All toggle
+        $(document).on('change', '#checkAllInvoices', function() {
+            var isChecked = $(this).is(':checked');
+            $('.invoice-checkbox').prop('checked', isChecked);
+            updateSelectedInvoiceCount();
+        });
+
+        // Individual checkbox change
+        $(document).on('change', '.invoice-checkbox', function(e) {
+            e.stopPropagation();
+            updateSelectedInvoiceCount();
+        });
+
+        // Prevent clicking checkbox from triggering row events
+        $(document).on('click', '.invoice-checkbox', function(e) {
+            e.stopPropagation();
+        });
+
+        // When DataTable redraws (search, paginate, filter), reset select all
+        $(document).on('draw.dt', '#editable-sample3', function() {
+            $('#checkAllInvoices').prop('checked', false);
+            updateSelectedInvoiceCount();
+        });
+
+        // Bulk Delete Action
+        $('#btnBulkDeleteInvoices').on('click', function(e) {
+            e.preventDefault();
+            var selectedIds = [];
+            $('.invoice-checkbox:checked').each(function() {
+                selectedIds.push($(this).val());
+            });
+
+            if (selectedIds.length === 0) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('No Selection', 'Please select at least one invoice to delete.', 'info');
+                } else {
+                    alert('Please select at least one invoice to delete.');
+                }
+                return;
+            }
+
+            var confirmHtml = 'Are you sure you want to permanently delete <strong>' + selectedIds.length + '</strong> selected invoices?<br><br>' +
+                              '<div class="alert alert-warning text-left p-2 small mb-0">' +
+                              '<i class="fas fa-exclamation-triangle text-danger mr-1"></i> ' +
+                              '<strong>Warning:</strong> All collections, deposits, and referral commissions associated with these invoices will be automatically reversed and deducted.' +
+                              '</div>';
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Delete ' + selectedIds.length + ' Invoices?',
+                    html: confirmHtml,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-trash-alt mr-1"></i> Yes, Delete All',
+                    cancelButtonText: 'Cancel'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Deleting invoices...',
+                            text: 'Reversing collections, deposits, and referral commissions...',
+                            allowOutsideClick: false,
+                            didOpen: function() { Swal.showLoading(); }
+                        });
+
+                        $.ajax({
+                            url: 'finance/deleteMultipleInvoices',
+                            type: 'POST',
+                            data: { invoice_ids: selectedIds },
+                            dataType: 'json',
+                            success: function(res) {
+                                if (res.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Deleted!',
+                                        text: res.message,
+                                        timer: 2500
+                                    });
+                                    $('#checkAllInvoices').prop('checked', false);
+                                    $('#btnBulkDeleteInvoices').hide();
+                                    if ($.fn.DataTable.isDataTable('#editable-sample3')) {
+                                        $('#editable-sample3').DataTable().ajax.reload(null, false);
+                                    }
+                                } else {
+                                    Swal.fire('Error', res.message || 'Failed to delete invoices.', 'error');
+                                }
+                            },
+                            error: function() {
+                                Swal.fire('Error', 'Server communication error while deleting.', 'error');
+                            }
+                        });
+                    }
+                });
+            } else {
+                if (confirm('Are you sure you want to delete ' + selectedIds.length + ' selected invoices? All collections, deposits, and referral commissions will be reversed and deducted.')) {
+                    $.ajax({
+                        url: 'finance/deleteMultipleInvoices',
+                        type: 'POST',
+                        data: { invoice_ids: selectedIds },
+                        dataType: 'json',
+                        success: function(res) {
+                            alert(res.message);
+                            window.location.reload();
+                        },
+                        error: function() {
+                            alert('Server communication error.');
+                        }
+                    });
+                }
+            }
+        });
+
+        // Single Row Delete Action
+        $(document).on('click', '.btn-delete-single-invoice', function(e) {
+            e.preventDefault();
+            var invoiceId = $(this).data('id');
+            if (!invoiceId) return;
+
+            var confirmHtml = 'Are you sure you want to permanently delete Invoice <strong>#' + invoiceId + '</strong>?<br><br>' +
+                              '<div class="alert alert-warning text-left p-2 small mb-0">' +
+                              '<i class="fas fa-exclamation-triangle text-danger mr-1"></i> ' +
+                              '<strong>Warning:</strong> All collections, deposits, and referral commissions associated with this invoice will be automatically reversed and deducted.' +
+                              '</div>';
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Delete Invoice #' + invoiceId + '?',
+                    html: confirmHtml,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-trash-alt mr-1"></i> Yes, Delete',
+                    cancelButtonText: 'Cancel'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Deleting invoice...',
+                            text: 'Reversing collections, deposits, and referral commissions...',
+                            allowOutsideClick: false,
+                            didOpen: function() { Swal.showLoading(); }
+                        });
+
+                        $.ajax({
+                            url: 'finance/delete',
+                            type: 'POST',
+                            data: { id: invoiceId },
+                            dataType: 'json',
+                            success: function(res) {
+                                if (res.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Deleted!',
+                                        text: res.message,
+                                        timer: 2500
+                                    });
+                                    if ($.fn.DataTable.isDataTable('#editable-sample3')) {
+                                        $('#editable-sample3').DataTable().ajax.reload(null, false);
+                                    }
+                                } else {
+                                    Swal.fire('Error', res.message || 'Failed to delete invoice.', 'error');
+                                }
+                            },
+                            error: function() {
+                                window.location.href = 'finance/delete?id=' + invoiceId;
+                            }
+                        });
+                    }
+                });
+            } else {
+                if (confirm('Are you sure you want to delete invoice #' + invoiceId + '? All collections, deposits, and referral commissions will be reversed and deducted.')) {
+                    window.location.href = 'finance/delete?id=' + invoiceId;
+                }
+            }
         });
     });
 </script>

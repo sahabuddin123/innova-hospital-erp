@@ -1125,53 +1125,87 @@ class Finance extends MX_Controller
     function delete()
     {
         if (!$this->ion_auth->in_group(array('admin', 'superadmin'))) {
+            if ($this->input->is_ajax_request()) {
+                echo json_encode(array('success' => false, 'message' => 'Permission denied.'));
+                return;
+            }
             redirect('home/permission');
         }
 
         $id = $this->input->get('id');
+        if (empty($id)) {
+            $id = $this->input->post('id');
+        }
 
         if (!empty($id)) {
-            $payment_details = $this->finance_model->getPaymentById($id);
-            if (empty($payment_details) || $payment_details->hospital_id != $this->session->userdata('hospital_id')) {
-                redirect('home/permission');
+            $hospital_id = $this->session->userdata('hospital_id');
+            $status = $this->finance_model->deleteInvoicePermanently($id, $hospital_id);
+
+            if ($this->input->is_ajax_request()) {
+                if ($status) {
+                    echo json_encode(array(
+                        'success' => true,
+                        'message' => 'Invoice #' . $id . ' and all associated collections, deposits, and referral commissions have been permanently deleted.'
+                    ));
+                } else {
+                    echo json_encode(array(
+                        'success' => false,
+                        'message' => 'Failed to delete invoice #' . $id . '. Transaction rolled back.'
+                    ));
+                }
+                return;
             }
 
-            $this->db->trans_start();
-
-            // 1. Soft cancellation: mark payment status = 'cancelled' (preserve invoice record)
-            $this->db->where('id', $id)
-                ->where('hospital_id', $this->session->userdata('hospital_id'))
-                ->update('payment', array('status' => 'cancelled'));
-
-            // 2. Mark any related lab records as cancelled (preserve lab history)
-            $this->db->where('invoice_id', $id)
-                ->where('hospital_id', $this->session->userdata('hospital_id'))
-                ->update('lab', array('test_status' => 'cancelled'));
-
-            // 3. Reverse commissions and adjust referral wallet safely
-            $this->referral_model->reverseCommissionOnInvoiceCancellation($id, $this->session->userdata('hospital_id'), 'Invoice cancelled: #' . $id);
-
-            // 4. Log transaction
-            $data_logs = array(
-                'date_time' => date('d-m-Y H:i'),
-                'patientname' => $payment_details->patient_name,
-                'invoice_id' => $payment_details->id,
-                'action' => 'Cancelled',
-                'deposit_type' => $payment_details->deposit_type,
-                'user' => $this->ion_auth->get_user_id(),
-                'amount' => $payment_details->amount_received
-            );
-            $this->logs_model->insertTransactionLogs($data_logs);
-
-            $this->db->trans_complete();
-
-            if ($this->db->trans_status() === FALSE) {
-                show_swal('Failed to cancel invoice. Transaction rolled back.', 'error', lang('error'));
+            if ($status) {
+                show_swal('Invoice #' . $id . ' has been permanently deleted.', 'success', 'Deleted');
             } else {
-                show_swal('Invoice has been cancelled successfully.', 'success', 'Cancelled');
+                show_swal('Failed to delete invoice #' . $id . '. Transaction rolled back.', 'error', lang('error'));
             }
         }
         redirect('finance/payment');
+    }
+
+    function deleteMultipleInvoices()
+    {
+        if (!$this->ion_auth->in_group(array('admin', 'superadmin'))) {
+            echo json_encode(array('success' => false, 'message' => 'Permission denied.'));
+            return;
+        }
+
+        $invoice_ids = $this->input->post('invoice_ids');
+        if (empty($invoice_ids) || !is_array($invoice_ids)) {
+            echo json_encode(array('success' => false, 'message' => 'No invoices selected.'));
+            return;
+        }
+
+        $hospital_id = $this->session->userdata('hospital_id');
+        $deleted_count = 0;
+        $failed_ids = array();
+
+        foreach ($invoice_ids as $id) {
+            $id = intval($id);
+            if ($id > 0) {
+                $status = $this->finance_model->deleteInvoicePermanently($id, $hospital_id);
+                if ($status) {
+                    $deleted_count++;
+                } else {
+                    $failed_ids[] = $id;
+                }
+            }
+        }
+
+        if ($deleted_count > 0) {
+            echo json_encode(array(
+                'success' => true,
+                'deleted_count' => $deleted_count,
+                'message' => $deleted_count . ' invoice(s) and all associated collections, deposits, and referral commissions have been permanently deleted.'
+            ));
+        } else {
+            echo json_encode(array(
+                'success' => false,
+                'message' => 'Failed to delete selected invoices.'
+            ));
+        }
     }
 
     public function otPayment()
@@ -2768,16 +2802,8 @@ class Finance extends MX_Controller
             if ($this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) {
                 $options5 = '<a class="dropdown-item add_discount_btn text-primary font-weight-bold" href="javascript:void(0)" data-id="' . $payment->id . '"><i class="fa fa-percent mr-2 text-warning"></i>' . (lang('add_discount') ?: 'Add Discount') . '</a>';
             }
-            if ($this->ion_auth->in_group(array('admin', 'Accountant'))) {
-                if ($payment->payment_from == 'payment' || empty($payment->payment_from)) {
-                    if (count($lab_reports_previous) == count($lab_pending) || empty($lab_reports_previous)) {
-                        $options3 = '<a class="btn btn-danger btn-sm delete_button mr-1 mt-1" title="' . lang('delete') . '" href="finance/delete?id=' . $payment->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash"></i> ' . lang('') . '</a>';
-                    } else {
-                        $options3 = '';
-                    }
-                } else {
-                    $options3 = '';
-                }
+            if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) {
+                $options3 = '<a class="dropdown-item text-danger btn-delete-single-invoice" href="javascript:void(0)" data-id="' . $payment->id . '"><i class="fa fa-trash mr-2"></i>' . lang('delete') . '</a>';
             }
 
             if (empty($options1)) {
@@ -2836,12 +2862,18 @@ class Finance extends MX_Controller
                     ' . ($options2 ? '<a class="dropdown-item" href="' . site_url("finance/invoice?id=" . $payment->id) . '"><i class="fa fa-file-invoice mr-2"></i>' . lang('invoice') . '</a>' : '') . '
                     ' . ($options4 ? '<a class="dropdown-item" href="' . site_url("finance/printInvoice?id=" . $payment->id) . '" target="_blank"><i class="fa fa-print mr-2"></i>' . lang('print') . '</a>' : '') . '
                     ' . $options5 . '
-                    ' . ($options3 ? '<div class="dropdown-divider"></div><a class="dropdown-item text-danger" href="' . site_url("finance/delete?id=" . $payment->id) . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash mr-2"></i>' . lang('delete') . '</a>' : '') . '
+                    ' . ($options3 ? '<div class="dropdown-divider"></div>' . $options3 : '') . '
                 </div>
             </div>';
 
+            $chk_html = '';
+            if ($this->ion_auth->in_group(array('admin', 'superadmin'))) {
+                $chk_html = '<input type="checkbox" class="invoice-checkbox mr-2" value="' . $payment->id . '" style="cursor:pointer; width: 16px; height: 16px; vertical-align: middle;">';
+            }
+            $invoice_id_display = '<div class="d-inline-flex align-items-center">' . $chk_html . '<span>#' . $payment->id . '</span></div>';
+
             $info[] = array(
-                '#' . $payment->id,
+                $invoice_id_display,
                 $patient_details,
                 // $doctor,
                 $date,
