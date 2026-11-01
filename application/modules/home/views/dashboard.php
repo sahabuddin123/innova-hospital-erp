@@ -232,9 +232,6 @@
           <button type="button" id="pwa_camera_scanner_btn" class="btn btn-xs btn-outline-secondary mr-1 shadow-sm" title="Scan Barcode / QR with Camera">
             <i class="fas fa-camera mr-1"></i> <span class="d-none d-lg-inline">Scan</span>
           </button>
-          <button type="button" id="pwa_fullscreen_btn" class="btn btn-xs btn-outline-secondary mr-1 shadow-sm" title="Toggle Fullscreen POS Mode">
-            <i class="fas fa-expand"></i>
-          </button>
           <button type="button" id="pwa_install_btn" class="btn btn-xs btn-outline-primary d-none shadow-sm" title="Install LifeCare as Desktop/Mobile App">
             <i class="fas fa-download mr-1"></i> Install App
           </button>
