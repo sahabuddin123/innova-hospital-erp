@@ -1,2 +1,4 @@
 application/cache/sessions/ci_session*
 application/cache/ci_session*
+scratch/
+scratch/*
