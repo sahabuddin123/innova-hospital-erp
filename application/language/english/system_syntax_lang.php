@@ -2608,3 +2608,6 @@ $lang['discount_added_successfully'] = 'Discount added successfully!';
 $lang['withdrawal_slip'] = 'Withdrawal Slip';
 $lang['print_withdrawal_slip'] = 'Print Withdrawal Slip';
 $lang['download_withdrawal_slip'] = 'Download Withdrawal Slip';
+$lang['expense_id'] = 'Expense ID';
+$lang['payer'] = 'Payer';
+$lang['receiver'] = 'Receiver';

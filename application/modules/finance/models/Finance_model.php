@@ -933,6 +933,10 @@ class Finance_model extends CI_model
                 ->or_like('amount', $search)
                 ->or_like('datestring', $search)
                 ->or_like('category', $search)
+                ->or_like('pay_to', $search)
+                ->or_like('payer_name', $search)
+                ->or_like('note', $search)
+                ->or_like('bill_date', $search)
             ->group_end();
         $query = $this->db->get();
         return $query->result();
@@ -967,6 +971,10 @@ class Finance_model extends CI_model
                 ->or_like('amount', $search)
                 ->or_like('datestring', $search)
                 ->or_like('category', $search)
+                ->or_like('pay_to', $search)
+                ->or_like('payer_name', $search)
+                ->or_like('note', $search)
+                ->or_like('bill_date', $search)
             ->group_end();
         $query = $this->db->get();
         return $query->result();

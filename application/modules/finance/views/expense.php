@@ -38,11 +38,14 @@
                             <table class="table table-hover datatables" id="editable-sample" width="100%">
                                 <thead>
                                     <tr class="bg-light">
+                                        <th class="font-weight-bold text-uppercase" style="width: 65px;">#</th>
                                         <th class="font-weight-bold text-uppercase"><?php echo lang('category'); ?></th>
                                         <th class="font-weight-bold text-uppercase"><?php echo lang('date'); ?></th>
+                                        <th class="font-weight-bold text-uppercase"><?php echo !empty(lang('payer')) ? lang('payer') : 'Payer'; ?></th>
+                                        <th class="font-weight-bold text-uppercase"><?php echo !empty(lang('receiver')) ? lang('receiver') : 'Receiver'; ?></th>
                                         <th class="font-weight-bold text-uppercase"><?php echo lang('note'); ?></th>
                                         <th class="font-weight-bold text-uppercase"><?php echo lang('amount'); ?></th>
-                                        <th class="font-weight-bold text-uppercase no-print"><?php echo lang('options'); ?></th>
+                                        <th class="font-weight-bold text-uppercase no-print" style="width: 95px;"><?php echo lang('options'); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>

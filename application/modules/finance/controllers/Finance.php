@@ -3575,7 +3575,12 @@ class Finance extends MX_Controller
         $order = $this->input->post("order");
         $columns_valid = array(
             "0" => "id",
-            "1" => "date",
+            "1" => "category",
+            "2" => "date",
+            "3" => "payer_name",
+            "4" => "pay_to",
+            "5" => "note",
+            "6" => "amount",
         );
         $values = $this->settings_model->getColumnOrder($order, $columns_valid);
         $dir = $values[0];
@@ -3595,79 +3600,58 @@ class Finance extends MX_Controller
             }
         }
 
-
+        $info = array();
         foreach ($data['expenses'] as $expense) {
 
-
+            $options1 = '';
             if ($this->ion_auth->in_group(array('admin'))) {
-                $options1 = ' <a class="btn btn-primary btn-sm editbutton" title="' . lang('edit') . '" href="finance/editExpense?id=' . $expense->id . '"><i class="fa fa-edit"> </i></a>';
+                $options1 = '<a class="btn btn-primary btn-sm editbutton" title="' . lang('edit') . '" href="finance/editExpense?id=' . $expense->id . '"><i class="fa fa-edit"></i></a>';
             }
 
-            $options2 = '<a class="btn btn-success btn-sm invoicebutton" title="' . lang('invoice') . '" href="finance/expenseInvoice?id=' . $expense->id . '"><i class="fa fa-file-invoice"></i> </a>';
+            $options2 = '<a class="btn btn-success btn-sm invoicebutton" title="' . lang('invoice') . '" href="finance/expenseInvoice?id=' . $expense->id . '"><i class="fa fa-file-invoice"></i></a>';
 
+            $options3 = '';
             if ($this->ion_auth->in_group(array('admin'))) {
-                $options3 = '<a class="btn btn-danger btn-sm delete_button" title="' . lang('delete') . '" href="finance/deleteExpense?id=' . $expense->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash"></i> </a>';
+                $options3 = '<a class="btn btn-danger btn-sm delete_button" title="' . lang('delete') . '" href="finance/deleteExpense?id=' . $expense->id . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"><i class="fa fa-trash"></i></a>';
             }
 
-            if (empty($options1)) {
-                $options1 = '';
-            }
+            $id_html = '<a href="finance/expenseInvoice?id=' . $expense->id . '" class="font-weight-bold text-primary" title="' . lang('invoice') . '">#' . $expense->id . '</a>';
+            $category_html = '<span class="badge badge-light border text-dark font-weight-bold px-2 py-1"><i class="fas fa-tag text-secondary mr-1"></i>' . html_escape($expense->category) . '</span>';
+            $display_date = !empty($expense->bill_date) ? (is_numeric($expense->bill_date) ? date('d/m/Y', $expense->bill_date) : date('d/m/Y', strtotime($expense->bill_date))) : date('d/m/Y', $expense->date);
+            $date_html = '<span class="text-nowrap text-secondary font-weight-500">' . $display_date . '</span>';
 
-            if (empty($options3)) {
-                $options3 = '';
-            }
-
-
-            $dropdownOptions = '';
-            $dropdownOptions = '
-            <div class="btn-group">
-            <button type="button" class="btn btn-info btn-sm label-primary dropdown-toggle action_button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="">
-            <i class="fas fa-bars"></i> ' . lang('actions') . ' <span class="caret"></span>
-        </button>
-                <ul class="dropdown-menu">
-                    ' . ($options1 ? '<li><a class="editbutton" title="' . lang('edit') . '" href="finance/editExpense?id=' . $expense->id . '">  <i class="fa fa-edit"></i> ' . lang('edit') . '</a></li>' : '') . '
-                    ' . ($options2 ? '<li><a href="finance/expenseInvoice?id=' . $expense->id . '" > <i class="fa fa-book"></i> ' . lang('invoice') . ' </a></li>' : '') . '
-                    ' . ($options3 ? '<li><a href="' . site_url("finance/deleteExpense?id=" . $expense->id) . '" onclick="return confirm(\'Are you sure you want to delete this item?\');"> <i class="fa fa-trash"></i> ' . lang('delete') . ' </a></li>' : '') . '
-
-                </ul>
-            </div>';
-
-
-            $display_date = !empty($expense->bill_date) ? (is_numeric($expense->bill_date) ? date('d/m/Y', $expense->bill_date) : date('d/m/Y', strtotime($expense->bill_date))) : date('d/m/y', $expense->date);
-            $note_html = '';
-            if (!empty($expense->pay_to)) {
-                $note_html .= '<span class="badge badge-info mr-1" title="Pay To (Receiver)"><i class="fas fa-hand-holding-usd mr-1"></i>' . html_escape($expense->pay_to) . '</span><br>';
-            }
-            if (!empty($expense->payer_name)) {
-                $note_html .= '<small class="text-muted font-weight-bold mr-1" title="Payer (Purchaser)"><i class="fas fa-user-circle mr-1 text-primary"></i>' . html_escape($expense->payer_name) . '</small><br>';
-            }
-            if (!empty($expense->note)) {
-                $note_html .= html_escape($expense->note);
-            }
+            $payer_html = !empty($expense->payer_name) ? '<span class="font-weight-bold text-dark text-nowrap"><i class="fas fa-user-circle text-primary mr-1"></i>' . html_escape($expense->payer_name) . '</span>' : '<span class="text-muted">-</span>';
+            $receiver_html = !empty($expense->pay_to) ? '<span class="badge badge-info px-2 py-1 font-weight-bold"><i class="fas fa-hand-holding-usd mr-1"></i>' . html_escape($expense->pay_to) . '</span>' : '<span class="text-muted">-</span>';
+            $note_html = !empty($expense->note) ? '<span class="text-secondary small">' . nl2br(html_escape($expense->note)) . '</span>' : '<span class="text-muted">-</span>';
+            $amount_html = '<strong class="text-dark font-weight-bold text-nowrap">' . ($settings->currency ?? '৳') . ' ' . number_format((float)$expense->amount, 2) . '</strong>';
+            $actions_html = '<div class="d-flex align-items-center" style="gap: 4px;">' . $options1 . ' ' . $options2 . ' ' . $options3 . '</div>';
 
             $info[] = array(
-                $expense->category,
-                $display_date,
+                $id_html,
+                $category_html,
+                $date_html,
+                $payer_html,
+                $receiver_html,
                 $note_html,
-                $settings->currency . '' . $expense->amount,
-                // $dropdownOptions
-                $options1 . ' ' . $options2 . ' ' . $options3,
+                $amount_html,
+                $actions_html,
             );
         }
 
-
+        $total_expenses = count($this->finance_model->getExpense());
+        $filtered_expenses = !empty($search) ? count($this->finance_model->getExpenseBySearch($search, $order, $dir)) : $total_expenses;
 
         if (!empty($data['expenses'])) {
             $output = array(
                 "draw" => intval($requestData['draw']),
-                "recordsTotal" => count($this->finance_model->getExpense()),
-                "recordsFiltered" => count($this->finance_model->getExpense()),
+                "recordsTotal" => $total_expenses,
+                "recordsFiltered" => $filtered_expenses,
                 "data" => $info
             );
         } else {
             $output = array(
-                // "draw" => 1,
-                "recordsTotal" => 0,
+                "draw" => intval($requestData['draw']),
+                "recordsTotal" => $total_expenses,
                 "recordsFiltered" => 0,
                 "data" => []
             );

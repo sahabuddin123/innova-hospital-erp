@@ -20,11 +20,11 @@ $(document).ready(function () {
                     "<'row'<'col-sm-5'i><'col-sm-7'p>>",
          
              buttons: [
-                {extend: 'copyHtml5', exportOptions: {columns: [0,1,2,3], }},
-                {extend: 'excelHtml5', exportOptions: {columns: [0,1,2,3], }},
-                {extend: 'csvHtml5', exportOptions: {columns: [0,1,2,3], }},
-                {extend: 'pdfHtml5', exportOptions: {columns: [0,1,2,3], }},
-                {extend: 'print', exportOptions: {columns: [0,1,2,3], }},
+                {extend: 'copyHtml5', exportOptions: {columns: [0, 1, 2, 3, 4, 5, 6], }},
+                {extend: 'excelHtml5', exportOptions: {columns: [0, 1, 2, 3, 4, 5, 6], }},
+                {extend: 'csvHtml5', exportOptions: {columns: [0, 1, 2, 3, 4, 5, 6], }},
+                {extend: 'pdfHtml5', exportOptions: {columns: [0, 1, 2, 3, 4, 5, 6], }},
+                {extend: 'print', exportOptions: {columns: [0, 1, 2, 3, 4, 5, 6], }},
             ],
 
             aLengthMenu: [
@@ -34,6 +34,9 @@ $(document).ready(function () {
             iDisplayLength: 100,
 
             "order": [[0, "desc"]],
+            "columnDefs": [
+                { "orderable": false, "targets": [7] }
+            ],
 
             "language": {
                 "lengthMenu": "_MENU_",
