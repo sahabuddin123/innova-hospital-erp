@@ -51,7 +51,8 @@
                             <form role="form" action="finance/pharmacy/addExpense" method="post" enctype="multipart/form-data">
                                 <div class="form-group">
                                     <label class="text-uppercase font-weight-bold text-muted"><?php echo lang('category'); ?> <span class="text-danger">*</span></label>
-                                    <select class="form-control form-control-lg shadow-sm" name="category" value='' required>
+                                    <select class="form-control form-control-lg shadow-sm select2" name="category" id="pharmacy_category_select" required style="width: 100%;">
+                                        <option value="" disabled <?php echo empty($expense->category) ? 'selected' : ''; ?>>-- Search or Select Category --</option>
                                         <?php foreach ($categories as $category) { ?>
                                             <option value="<?php echo $category->category; ?>" <?php
                                                                                                 if (!empty($expense->category)) {
@@ -93,6 +94,24 @@
     </section>
     <!-- /.content -->
 </div>
+
+<script>
+    $(document).ready(function() {
+        function initPharmacyCategorySelect2() {
+            if (typeof $.fn.select2 !== 'undefined') {
+                $('#pharmacy_category_select').select2({
+                    theme: 'bootstrap4',
+                    placeholder: '-- Search or Select Category --',
+                    allowClear: true,
+                    width: '100%'
+                });
+            } else {
+                setTimeout(initPharmacyCategorySelect2, 100);
+            }
+        }
+        initPharmacyCategorySelect2();
+    });
+</script>
 
 <!--main content end-->
 <!--footer start-->

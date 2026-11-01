@@ -54,13 +54,13 @@
                                     <div class="col-md-6">
                                         <div class="form-group mb-4">
                                             <label class="font-weight-bold text-uppercase text-xs text-muted mb-2"><?php echo lang('category'); ?> <span class="text-danger">*</span></label>
-                                            <select class="form-control form-control-lg select2" name="category" required style="width: 100%;">
+                                            <select class="form-control form-control-lg select2" name="category" id="category_select" required style="width: 100%;">
+                                                <option value="" disabled <?php echo (empty($expense->category) && empty(set_value('category'))) ? 'selected' : ''; ?>>-- Search or Select Category --</option>
                                                 <?php foreach ($categories as $category) { ?>
                                                     <option value="<?php echo html_escape($category->category); ?>" <?php
                                                         if (!empty($setval) && $category->category == set_value('category')) {
                                                             echo 'selected';
-                                                        }
-                                                        if (!empty($expense->category) && $category->category == $expense->category) {
+                                                        } elseif (!empty($expense->category) && $category->category == $expense->category) {
                                                             echo 'selected';
                                                         }
                                                     ?>> <?php echo html_escape($category->category); ?> </option>
@@ -171,6 +171,77 @@
         </div>
     </section>
 </div>
+
+<style>
+    /* Match select2 height and font with form-control-lg */
+    .select2-container--bootstrap4 .select2-selection--single {
+        height: calc(2.875rem + 2px) !important;
+        padding: 0.5rem 1rem !important;
+        font-size: 1rem !important;
+        line-height: 1.5 !important;
+        border-radius: 0.3rem !important;
+        border: 1px solid #ced4da !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+        padding-left: 0 !important;
+        padding-right: 20px !important;
+        color: #495057 !important;
+        font-weight: 600 !important;
+        line-height: normal !important;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        right: 12px !important;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__clear {
+        margin-right: 25px !important;
+        font-size: 18px !important;
+        color: #adb5bd !important;
+    }
+    .select2-container--bootstrap4 .select2-dropdown {
+        border-radius: 8px !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12) !important;
+        border: 1px solid #ced4da !important;
+        overflow: hidden;
+    }
+    .select2-container--bootstrap4 .select2-search--dropdown {
+        padding: 8px !important;
+    }
+    .select2-container--bootstrap4 .select2-search--dropdown .select2-search__field {
+        border-radius: 6px !important;
+        padding: 8px 12px !important;
+        border: 1px solid #ced4da !important;
+    }
+    .select2-container--bootstrap4 .select2-results__option {
+        padding: 8px 14px !important;
+        font-size: 0.95rem !important;
+    }
+    .select2-container--bootstrap4 .select2-results__option--highlighted[aria-selected] {
+        background-color: #007bff !important;
+        color: #fff !important;
+    }
+</style>
+
+<script>
+    $(document).ready(function() {
+        function initCategorySelect2() {
+            if (typeof $.fn.select2 !== 'undefined') {
+                $('#category_select').select2({
+                    theme: 'bootstrap4',
+                    placeholder: '-- Search or Select Category --',
+                    allowClear: true,
+                    width: '100%'
+                });
+            } else {
+                setTimeout(initCategorySelect2, 100);
+            }
+        }
+        initCategorySelect2();
+    });
+</script>
 
 <!--main content end-->
 <!--footer start-->
