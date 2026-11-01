@@ -3407,40 +3407,7 @@ class Finance extends MX_Controller
 
     function daily()
     {
-        $data = array();
-        $year = $this->input->get('year');
-        $month = $this->input->get('month');
-
-        if (empty($year)) {
-            $year = date('Y');
-        }
-        if (empty($month)) {
-            $month = date('m');
-        }
-
-        $first_minute = mktime(0, 0, 0, $month, 1, $year);
-        $last_minute = mktime(23, 59, 59, $month, date("t", $first_minute), $year);
-
-        $payments = $this->finance_model->getPaymentByDate($first_minute, $last_minute);
-        $all_payments = array();
-        foreach ($payments as $payment) {
-            $date = date('D d-m-y', $payment->date);
-            if (array_key_exists($date, $all_payments)) {
-                $all_payments[$date] = $all_payments[$date] + $payment->gross_total;
-            } else {
-                $all_payments[$date] = $payment->gross_total;
-            }
-        }
-
-        $data['year'] = $year;
-        $data['month'] = $month;
-        $data['first_minute'] = $first_minute;
-        $data['last_minute'] = $last_minute;
-        $data['all_payments'] = $all_payments;
-
-        $this->load->view('home/dashboard', $data);
-        $this->load->view('daily', $data);
-        $this->load->view('home/footer');
+        $this->dailyCollectionReport();
     }
 
     function dailyExpense()
@@ -3488,36 +3455,7 @@ class Finance extends MX_Controller
 
     function monthly()
     {
-        $data = array();
-        $year = $this->input->get('year');
-
-        if (empty($year)) {
-            $year = date('Y');
-        }
-
-
-        $first_minute = mktime(0, 0, 0, 1, 1, $year);
-        $last_minute = mktime(23, 59, 59, 12, 31, $year);
-
-        $payments = $this->finance_model->getPaymentByDate($first_minute, $last_minute);
-        $all_payments = array();
-        foreach ($payments as $payment) {
-            $month = date('m-Y', $payment->date);
-            if (array_key_exists($month, $all_payments)) {
-                $all_payments[$month] = $all_payments[$month] + $payment->gross_total;
-            } else {
-                $all_payments[$month] = $payment->gross_total;
-            }
-        }
-
-        $data['year'] = $year;
-        $data['first_minute'] = $first_minute;
-        $data['last_minute'] = $last_minute;
-        $data['all_payments'] = $all_payments;
-
-        $this->load->view('home/dashboard', $data);
-        $this->load->view('monthly', $data);
-        $this->load->view('home/footer');
+        $this->monthlySalesReport();
     }
 
     function monthlyExpense()
@@ -5269,7 +5207,371 @@ class Finance extends MX_Controller
 
         $this->load->view('finance/financial_performance_excel', $data);
     }
-}
 
-/* End of file finance.php */
-/* Location: ./application/modules/finance/controllers/finance.php */
+    /**
+     * =========================================================================
+     * PHASE 2 — INCOME & COLLECTION REPORTS CONTROLLERS
+     * Lifecare Diagnostic Center
+     * =========================================================================
+     */
+
+    /**
+     * 1. Daily Collection Report
+     */
+    public function dailyCollectionReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'today';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $cashier_id = $this->input->get_post('cashier_id');
+        $deposit_type = $this->input->get_post('deposit_type');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getDailyCollectionReport($period['start_time'], $period['end_time'], $cashier_id, $deposit_type);
+
+        // Fetch distinct cashiers for filter dropdown
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $cashiers = $this->db->query("SELECT DISTINCT u.id, u.username, u.first_name, u.last_name 
+                                      FROM patient_deposit pd 
+                                      JOIN users u ON u.id = pd.user 
+                                      WHERE pd.hospital_id = '$hospital_id' 
+                                      ORDER BY u.username ASC")->result();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['cashiers'] = $cashiers;
+        $data['selected_cashier'] = $cashier_id;
+        $data['selected_deposit_type'] = $deposit_type;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'daily_collection';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/daily_collection_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 2. Monthly Sales Report
+     */
+    public function monthlySalesReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_year';
+        $year = $this->input->get_post('year') ?: date('Y');
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date ?: ($year . '-01-01'));
+        $result = $this->finance_model->getMonthlySalesReport($year, $period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['year'] = $year;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'monthly_sales';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/monthly_sales_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 3. Payment Method Report
+     */
+    public function paymentMethodReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getPaymentMethodReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['chart_data'] = $result['chart_data'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'payment_methods';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/payment_method_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 4. Outstanding / Due Report
+     */
+    public function dueReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'all';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $aging_bucket = $this->input->get_post('aging_bucket') ?: 'all';
+        $patient_id = $this->input->get_post('patient_id');
+
+        $start_time = null;
+        $end_time = null;
+        if (!empty($date_from) && !empty($date_to)) {
+            $period = $this->finance_model->resolveReportPeriod('custom', $date_from, $date_to);
+            $start_time = $period['start_time'];
+            $end_time = $period['end_time'];
+        }
+
+        $result = $this->finance_model->getOutstandingDueReport($start_time, $end_time, $aging_bucket, $patient_id);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['selected_aging'] = $aging_bucket;
+        $data['date_from'] = $date_from;
+        $data['date_to'] = $date_to;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'due_report';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/due_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 5. Partial Payment Ledger
+     */
+    public function partialPaymentReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $invoice_id = $this->input->get_post('invoice_id');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getPartialPaymentReport($period['start_time'], $period['end_time'], $invoice_id);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['invoice_id'] = $invoice_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'partial_payment';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/partial_payment_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 6. Advance Payment Report
+     */
+    public function advancePaymentReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getAdvancePaymentReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'advance_payment';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/advance_payment_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 7. Refund Report
+     */
+    public function refundReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getRefundReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'refund_report';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/refund_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 8. Discount Report (Discount Audit Report)
+     */
+    public function discountReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $user_id = $this->input->get_post('user_id');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getDiscountReport($period['start_time'], $period['end_time'], $user_id);
+
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $cashiers = $this->db->query("SELECT DISTINCT u.id, u.username FROM payment p JOIN users u ON u.id = p.user WHERE p.hospital_id = '$hospital_id' ORDER BY u.username ASC")->result();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['cashiers'] = $cashiers;
+        $data['selected_user'] = $user_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'discount_report';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/discount_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 9. Cashier-wise Collection Report
+     */
+    public function cashierReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $user_id = $this->input->get_post('user_id');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getCashierCollectionReport($period['start_time'], $period['end_time'], $user_id);
+
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $cashiers = $this->db->query("SELECT DISTINCT u.id, u.username FROM patient_deposit pd JOIN users u ON u.id = pd.user WHERE pd.hospital_id = '$hospital_id' ORDER BY u.username ASC")->result();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['cashiers'] = $cashiers;
+        $data['selected_user'] = $user_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'cashier_report';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/cashier_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 10. Collection Summary Report
+     */
+    public function collectionSummaryReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getCollectionSummaryReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'collection_summary';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/collection_summary_report', $data);
+        $this->load->view('home/footer');
+    }
+
+}

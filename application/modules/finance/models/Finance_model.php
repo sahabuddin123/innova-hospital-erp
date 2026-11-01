@@ -2639,4 +2639,904 @@ class Finance_model extends CI_model
             ]
         ];
     }
+
+    /**
+     * =========================================================================
+     * PHASE 2 — INCOME & COLLECTION REPORTING ENGINE
+     * Lifecare Diagnostic Center
+     * =========================================================================
+     */
+
+    /**
+     * Resolve date range and period labels uniformly
+     */
+    public function resolveReportPeriod($period_type = 'this_month', $date_from = null, $date_to = null, $selected_date = null)
+    {
+        $norm = strtolower(trim($period_type ?: 'this_month'));
+        $today_str = date('Y-m-d');
+        if (empty($selected_date)) {
+            $selected_date = $today_str;
+        }
+
+        if ($norm === 'today' || $norm === 'daily') {
+            $target_d = (!empty($selected_date) && $norm === 'daily') ? date('Y-m-d', strtotime($selected_date)) : $today_str;
+            $start_time = strtotime($target_d . ' 00:00:00');
+            $end_time = strtotime($target_d . ' 23:59:59');
+            $label = 'Today (' . date('d M Y', $start_time) . ')';
+            $period_type = 'today';
+        } elseif ($norm === 'yesterday') {
+            $start_time = strtotime(date('Y-m-d 00:00:00', strtotime('-1 day')));
+            $end_time = strtotime(date('Y-m-d 23:59:59', strtotime('-1 day')));
+            $label = 'Yesterday (' . date('d M Y', $start_time) . ')';
+            $period_type = 'yesterday';
+        } elseif ($norm === 'this_week' || $norm === 'weekly') {
+            $ts = strtotime($selected_date);
+            $w_start = strtotime('monday this week', $ts);
+            if ($w_start > $ts) {
+                $w_start = strtotime('-7 days', $w_start);
+            }
+            $start_time = strtotime(date('Y-m-d 00:00:00', $w_start));
+            $end_time = $start_time + (7 * 86400) - 1;
+            $label = 'This Week (' . date('d M', $start_time) . ' - ' . date('d M Y', $end_time) . ')';
+            $period_type = 'this_week';
+        } elseif ($norm === 'last_month') {
+            $first_day_last_month = date('Y-m-01', strtotime('first day of last month'));
+            $ts = strtotime($first_day_last_month);
+            $start_time = strtotime(date('Y-m-01 00:00:00', $ts));
+            $end_time = strtotime(date('Y-m-t 23:59:59', $ts));
+            $label = 'Last Month (' . date('F Y', $start_time) . ')';
+            $period_type = 'last_month';
+        } elseif ($norm === 'this_year' || $norm === 'yearly') {
+            $year = date('Y', strtotime($selected_date));
+            $start_time = strtotime($year . '-01-01 00:00:00');
+            $end_time = strtotime($year . '-12-31 23:59:59');
+            $label = 'Year ' . $year;
+            $period_type = 'this_year';
+        } elseif ($norm === 'custom' || (!empty($date_from) && !empty($date_to))) {
+            $d_from = preg_replace('/(\\d{2})\\/(\\d{2})\\/(\\d{4})/', '$3-$2-$1', $date_from);
+            $d_to = preg_replace('/(\\d{2})\\/(\\d{2})\\/(\\d{4})/', '$3-$2-$1', $date_to);
+            $start_time = strtotime(date('Y-m-d 00:00:00', strtotime($d_from)));
+            $end_time = strtotime(date('Y-m-d 23:59:59', strtotime($d_to)));
+            if ($end_time < $start_time) {
+                $tmp = $start_time;
+                $start_time = $end_time;
+                $end_time = $tmp + 86399;
+            }
+            $label = date('d M Y', $start_time) . ' - ' . date('d M Y', $end_time);
+            $period_type = 'custom';
+        } else {
+            // this_month (default)
+            $ts = strtotime($selected_date);
+            $start_time = strtotime(date('Y-m-01 00:00:00', $ts));
+            $end_time = strtotime(date('Y-m-t 23:59:59', $ts));
+            $label = date('F Y', $start_time);
+            $period_type = 'this_month';
+        }
+
+        return [
+            'start_time' => $start_time,
+            'end_time' => $end_time,
+            'period_label' => $label,
+            'period_type' => $period_type,
+            'date_from' => date('Y-m-d', $start_time),
+            'date_to' => date('Y-m-d', $end_time),
+            'date_from_formatted' => date('d/m/Y', $start_time),
+            'date_to_formatted' => date('d/m/Y', $end_time)
+        ];
+    }
+
+    /**
+     * Resolve hospital ID safely with multi-tenant fallback
+     */
+    public function resolveHospitalId($hospital_id = null)
+    {
+        if (empty($hospital_id)) {
+            $hospital_id = $this->session->userdata('hospital_id');
+        }
+        if (empty($hospital_id)) {
+            $h_row = $this->db->select('id')->order_by('id', 'ASC')->limit(1)->get('hospital')->row();
+            $hospital_id = $h_row ? $h_row->id : 1;
+        }
+        return $hospital_id;
+    }
+
+    /**
+     * 1. DAILY COLLECTION REPORT
+     * Real-time cash & digital collections from actual payment receipts
+     */
+    public function getDailyCollectionReport($start_time, $end_time, $cashier_id = null, $deposit_type = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("pd.*, p.id as invoice_no, p.patient_name as p_name, p.patient_phone as p_phone, 
+                           pt.name as pt_name, pt.phone as pt_phone, pt.patient_id as pt_code, 
+                           COALESCE(u.username, CONCAT('User #', pd.user)) as cashier_name, u.first_name, u.last_name");
+        $this->db->from('patient_deposit pd');
+        $this->db->join('payment p', 'p.id = pd.payment_id', 'left');
+        $this->db->join('patient pt', 'pt.id = COALESCE(pd.patient, p.patient)', 'left');
+        $this->db->join('users u', 'u.id = pd.user', 'left');
+        $this->db->where("(pd.hospital_id = '$hospital_id' OR p.hospital_id = '$hospital_id')", NULL, FALSE);
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+
+        if (!empty($cashier_id)) {
+            $this->db->where('pd.user', $cashier_id);
+        }
+        if (!empty($deposit_type) && $deposit_type !== 'all') {
+            if (strtolower($deposit_type) === 'online') {
+                $this->db->where_in('pd.deposit_type', ['Bkash', 'bKash', 'Nagad', 'Rocket', 'Card', 'Online']);
+            } else {
+                $this->db->where('pd.deposit_type', $deposit_type);
+            }
+        }
+
+        $this->db->order_by('pd.date', 'DESC');
+        $this->db->order_by('pd.id', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_transactions = count($rows);
+        $cash_collection = 0.00;
+        $online_collection = 0.00;
+        $bank_collection = 0.00;
+        $other_collection = 0.00;
+        $total_collection = 0.00;
+
+        foreach ($rows as $r) {
+            $amt = floatval($r->deposited_amount);
+            $total_collection += $amt;
+            $dtype = !empty($r->deposit_type) ? trim($r->deposit_type) : 'Cash';
+
+            if (strcasecmp($dtype, 'Cash') === 0) {
+                $cash_collection += $amt;
+            } elseif (in_array(strtolower($dtype), ['bkash', 'nagad', 'rocket', 'card', 'online'])) {
+                $online_collection += $amt;
+            } elseif (strcasecmp($dtype, 'Bank') === 0) {
+                $bank_collection += $amt;
+            } else {
+                $other_collection += $amt;
+            }
+        }
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_transactions' => $total_transactions,
+                'cash_collection' => $cash_collection,
+                'online_collection' => $online_collection,
+                'bank_collection' => $bank_collection,
+                'other_collection' => $other_collection,
+                'total_collection' => $total_collection
+            ]
+        ];
+    }
+
+    /**
+     * 2. MONTHLY SALES REPORT
+     * Comprehensive monthly breakdown: Invoices, Gross, Discounts, Net Payable, Collections, Due, Refunds
+     */
+    public function getMonthlySalesReport($year = null, $start_time = null, $end_time = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        if (empty($year)) {
+            $year = date('Y');
+        }
+
+        // If specific start and end time provided, use them; else full year
+        if (empty($start_time) || empty($end_time)) {
+            $start_time = strtotime($year . '-01-01 00:00:00');
+            $end_time = strtotime($year . '-12-31 23:59:59');
+        }
+
+        // Fetch all invoices in period
+        $this->db->select('*');
+        $this->db->from('payment');
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->where('date >=', $start_time);
+        $this->db->where('date <=', $end_time);
+        $payments = $this->db->get()->result();
+
+        // Fetch all collections in period
+        $this->db->reset_query();
+        $this->db->select('pd.*, p.date as invoice_date');
+        $this->db->from('patient_deposit pd');
+        $this->db->join('payment p', 'p.id = pd.payment_id', 'left');
+        $this->db->where("(pd.hospital_id = '$hospital_id' OR p.hospital_id = '$hospital_id')", NULL, FALSE);
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+        $deposits = $this->db->get()->result();
+
+        // Group into monthly rows
+        $months = [];
+        $cur_m = strtotime(date('Y-m-01', $start_time));
+        while ($cur_m <= $end_time) {
+            $m_key = date('Y-m', $cur_m);
+            $months[$m_key] = [
+                'key' => $m_key,
+                'month_name' => date('F Y', $cur_m),
+                'invoice_count' => 0,
+                'gross_billing' => 0.00,
+                'total_discount' => 0.00,
+                'net_payable' => 0.00,
+                'total_collection' => 0.00,
+                'outstanding_due' => 0.00,
+                'refund_amount' => 0.00,
+                'net_collection' => 0.00
+            ];
+            $cur_m = strtotime('+1 month', $cur_m);
+        }
+
+        $grand_invoices = 0;
+        $grand_gross = 0.00;
+        $grand_discount = 0.00;
+        $grand_net_payable = 0.00;
+        $grand_collection = 0.00;
+        $grand_due = 0.00;
+        $grand_refund = 0.00;
+
+        foreach ($payments as $p) {
+            $m_key = date('Y-m', $p->date);
+            if (!isset($months[$m_key])) continue;
+
+            $is_cancelled = (strtolower(trim($p->status)) === 'cancelled');
+            if ($is_cancelled) {
+                $ref_amt = floatval($p->amount_received);
+                $months[$m_key]['refund_amount'] += $ref_amt;
+                $grand_refund += $ref_amt;
+                continue;
+            }
+
+            $disc = 0.00;
+            if (isset($p->flat_discount) && is_numeric($p->flat_discount) && floatval($p->flat_discount) > 0) {
+                $disc = floatval($p->flat_discount);
+            } elseif (isset($p->discount) && is_numeric($p->discount) && floatval($p->discount) > 0) {
+                $disc = floatval($p->discount);
+            }
+
+            $gross = floatval($p->amount);
+            if ($gross <= 0) {
+                $gross = floatval($p->gross_total) + $disc;
+            }
+            $net = $gross - $disc;
+
+            $months[$m_key]['invoice_count']++;
+            $months[$m_key]['gross_billing'] += $gross;
+            $months[$m_key]['total_discount'] += $disc;
+            $months[$m_key]['net_payable'] += $net;
+
+            $grand_invoices++;
+            $grand_gross += $gross;
+            $grand_discount += $disc;
+            $grand_net_payable += $net;
+        }
+
+        foreach ($deposits as $d) {
+            $m_key = date('Y-m', $d->date);
+            if (!isset($months[$m_key])) continue;
+            $amt = floatval($d->deposited_amount);
+            $months[$m_key]['total_collection'] += $amt;
+            $grand_collection += $amt;
+        }
+
+        foreach ($months as $k => &$m_row) {
+            $m_row['outstanding_due'] = max(0.00, $m_row['net_payable'] - $m_row['total_collection']);
+            $m_row['net_collection'] = max(0.00, $m_row['total_collection'] - $m_row['refund_amount']);
+            $grand_due += $m_row['outstanding_due'];
+        }
+        unset($m_row);
+
+        $grand_net_collection = max(0.00, $grand_collection - $grand_refund);
+
+        return [
+            'records' => array_values($months),
+            'summary' => [
+                'invoice_count' => $grand_invoices,
+                'gross_billing' => $grand_gross,
+                'total_discount' => $grand_discount,
+                'net_payable' => $grand_net_payable,
+                'total_collection' => $grand_collection,
+                'outstanding_due' => $grand_due,
+                'refund_amount' => $grand_refund,
+                'net_collection' => $grand_net_collection
+            ]
+        ];
+    }
+
+    /**
+     * 3. PAYMENT METHOD REPORT
+     * Breakdown by Cash, bKash, Nagad, Rocket, Bank, Card, Others with distribution chart data
+     */
+    public function getPaymentMethodReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("COALESCE(deposit_type, 'Cash') as raw_method, COUNT(*) as tx_count, SUM(deposited_amount) as total_amount");
+        $this->db->from('patient_deposit');
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->where('date >=', $start_time);
+        $this->db->where('date <=', $end_time);
+        $this->db->group_by("COALESCE(deposit_type, 'Cash')");
+        $rows = $this->db->get()->result();
+
+        $methods = [];
+        $total_collection = 0.00;
+        $total_transactions = 0;
+
+        foreach ($rows as $r) {
+            $name = trim($r->raw_method);
+            if (empty($name)) $name = 'Cash';
+            if (strcasecmp($name, 'bkash') === 0) $name = 'bKash';
+            elseif (strcasecmp($name, 'nagad') === 0) $name = 'Nagad';
+            elseif (strcasecmp($name, 'rocket') === 0) $name = 'Rocket';
+            elseif (strcasecmp($name, 'bank') === 0) $name = 'Bank';
+            elseif (strcasecmp($name, 'card') === 0) $name = 'Card';
+            elseif (strcasecmp($name, 'cash') === 0) $name = 'Cash';
+
+            $amt = floatval($r->total_amount);
+            $cnt = intval($r->tx_count);
+
+            if (!isset($methods[$name])) {
+                $methods[$name] = ['method' => $name, 'tx_count' => 0, 'total_amount' => 0.00, 'percentage' => 0.0];
+            }
+            $methods[$name]['tx_count'] += $cnt;
+            $methods[$name]['total_amount'] += $amt;
+            $total_collection += $amt;
+            $total_transactions += $cnt;
+        }
+
+        foreach ($methods as &$m) {
+            $m['percentage'] = ($total_collection > 0) ? round(($m['total_amount'] / $total_collection) * 100, 1) : 0.0;
+        }
+        unset($m);
+
+        usort($methods, function($a, $b) {
+            return $b['total_amount'] <=> $a['total_amount'];
+        });
+
+        return [
+            'records' => $methods,
+            'summary' => [
+                'total_collection' => $total_collection,
+                'total_transactions' => $total_transactions,
+                'method_count' => count($methods)
+            ],
+            'chart_data' => [
+                'labels' => array_column($methods, 'method'),
+                'data' => array_column($methods, 'total_amount'),
+                'percentages' => array_column($methods, 'percentage')
+            ]
+        ];
+    }
+
+    /**
+     * 4. OUTSTANDING / DUE REPORT
+     * Invoices with unpaid balances, including aging breakdown (0-15, 16-30, 31-60, 61+ days)
+     */
+    public function getOutstandingDueReport($start_time = null, $end_time = null, $aging_bucket = null, $patient_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("p.*, pt.name as pt_name, pt.phone as pt_phone, pt.patient_id as pt_code");
+        $this->db->from('payment p');
+        $this->db->join('patient pt', 'pt.id = p.patient', 'left');
+        $this->db->where('p.hospital_id', $hospital_id);
+        $this->db->where("LOWER(TRIM(COALESCE(p.status, ''))) !=", 'cancelled');
+        $this->db->where('(p.gross_total - COALESCE(p.amount_received, 0)) >', 0.01);
+
+        if (!empty($start_time) && !empty($end_time)) {
+            $this->db->where('p.date >=', $start_time);
+            $this->db->where('p.date <=', $end_time);
+        }
+        if (!empty($patient_id)) {
+            $this->db->where('p.patient', $patient_id);
+        }
+
+        $this->db->order_by('p.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $now = time();
+        $filtered_records = [];
+        $total_due = 0.00;
+        $total_gross = 0.00;
+        $total_paid = 0.00;
+        $bucket_0_15 = 0.00;
+        $bucket_16_30 = 0.00;
+        $bucket_31_60 = 0.00;
+        $bucket_61_plus = 0.00;
+
+        foreach ($rows as $r) {
+            $net = floatval($r->gross_total);
+            $paid = floatval($r->amount_received);
+            $due = max(0.00, round($net - $paid, 2));
+            if ($due <= 0.00) continue;
+
+            $age_days = max(0, floor(($now - $r->date) / 86400));
+            if ($age_days <= 15) {
+                $bucket = '0-15 Days';
+                $bucket_0_15 += $due;
+            } elseif ($age_days <= 30) {
+                $bucket = '16-30 Days';
+                $bucket_16_30 += $due;
+            } elseif ($age_days <= 60) {
+                $bucket = '31-60 Days';
+                $bucket_31_60 += $due;
+            } else {
+                $bucket = '61+ Days';
+                $bucket_61_plus += $due;
+            }
+
+            if (!empty($aging_bucket) && $aging_bucket !== 'all' && $aging_bucket !== $bucket) {
+                continue;
+            }
+
+            $r->due_amount = $due;
+            $r->age_days = $age_days;
+            $r->aging_bucket = $bucket;
+
+            $disc = 0.00;
+            if (isset($r->flat_discount) && is_numeric($r->flat_discount) && floatval($r->flat_discount) > 0) {
+                $disc = floatval($r->flat_discount);
+            } elseif (isset($r->discount) && is_numeric($r->discount) && floatval($r->discount) > 0) {
+                $disc = floatval($r->discount);
+            }
+            $r->calculated_discount = $disc;
+
+            $filtered_records[] = $r;
+            $total_due += $due;
+            $total_gross += floatval($r->amount);
+            $total_paid += $paid;
+        }
+
+        return [
+            'records' => $filtered_records,
+            'summary' => [
+                'total_invoices' => count($filtered_records),
+                'total_gross' => $total_gross,
+                'total_paid' => $total_paid,
+                'total_due' => $total_due,
+                'bucket_0_15' => $bucket_0_15,
+                'bucket_16_30' => $bucket_16_30,
+                'bucket_31_60' => $bucket_31_60,
+                'bucket_61_plus' => $bucket_61_plus
+            ]
+        ];
+    }
+
+    /**
+     * 5. PARTIAL PAYMENT / INSTALLMENT REPORT
+     * Complete installment ledger showing each deposit, prior due, payment, and remaining balance
+     */
+    public function getPartialPaymentReport($start_time, $end_time, $invoice_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("pd.*, p.gross_total as invoice_net, p.date as invoice_date, p.patient_name as p_name,
+                           pt.name as pt_name, pt.patient_id as pt_code,
+                           COALESCE(u.username, CONCAT('Cashier #', pd.user)) as cashier_name");
+        $this->db->from('patient_deposit pd');
+        $this->db->join('payment p', 'p.id = pd.payment_id', 'inner');
+        $this->db->join('patient pt', 'pt.id = COALESCE(pd.patient, p.patient)', 'left');
+        $this->db->join('users u', 'u.id = pd.user', 'left');
+        $this->db->where("(pd.hospital_id = '$hospital_id' OR p.hospital_id = '$hospital_id')", NULL, FALSE);
+        $this->db->where('pd.payment_id IS NOT NULL');
+        $this->db->where('pd.payment_id !=', '');
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+
+        if (!empty($invoice_id)) {
+            $this->db->where('pd.payment_id', $invoice_id);
+        }
+
+        $this->db->order_by('pd.date', 'DESC');
+        $this->db->order_by('pd.id', 'DESC');
+        $rows = $this->db->get()->result();
+
+        // Calculate installment sequences and remaining dues
+        $payment_ids = array_unique(array_filter(array_column($rows, 'payment_id')));
+        $all_deposits_by_inv = [];
+        if (!empty($payment_ids)) {
+            $this->db->reset_query();
+            $this->db->select('*')->from('patient_deposit')->where_in('payment_id', $payment_ids)->order_by('date ASC, id ASC');
+            $all_raw = $this->db->get()->result();
+            foreach ($all_raw as $raw_d) {
+                $all_deposits_by_inv[$raw_d->payment_id][] = $raw_d;
+            }
+        }
+
+        $total_installment_coll = 0.00;
+        foreach ($rows as &$r) {
+            $inv_net = floatval($r->invoice_net);
+            $inv_deps = isset($all_deposits_by_inv[$r->payment_id]) ? $all_deposits_by_inv[$r->payment_id] : [];
+
+            $paid_before = 0.00;
+            $inst_num = 1;
+            foreach ($inv_deps as $idx => $d_step) {
+                if ($d_step->id == $r->id) {
+                    $inst_num = $idx + 1;
+                    break;
+                }
+                $paid_before += floatval($d_step->deposited_amount);
+            }
+
+            $amt_rec = floatval($r->deposited_amount);
+            $r->installment_no = $inst_num;
+            $r->previous_due = max(0.00, round($inv_net - $paid_before, 2));
+            $r->remaining_due = max(0.00, round($r->previous_due - $amt_rec, 2));
+            $total_installment_coll += $amt_rec;
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_installments' => count($rows),
+                'total_amount' => $total_installment_coll,
+                'invoices_count' => count($payment_ids),
+                'average_installment' => count($rows) > 0 ? round($total_installment_coll / count($rows), 2) : 0.00
+            ]
+        ];
+    }
+
+    /**
+     * 6. ADVANCE PAYMENT REPORT
+     * Patient advance deposits, adjustments, and remaining balances
+     */
+    public function getAdvancePaymentReport($start_time, $end_time, $patient_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        // Advances: Deposits without immediate invoice allocation OR tagged as advance
+        $this->db->select("pd.*, pt.name as pt_name, pt.phone as pt_phone, pt.patient_id as pt_code,
+                           COALESCE(u.username, CONCAT('Cashier #', pd.user)) as cashier_name");
+        $this->db->from('patient_deposit pd');
+        $this->db->join('patient pt', 'pt.id = pd.patient', 'left');
+        $this->db->join('users u', 'u.id = pd.user', 'left');
+        $this->db->where('pd.hospital_id', $hospital_id);
+        $this->db->group_start();
+        $this->db->where('pd.payment_id IS NULL');
+        $this->db->or_where('pd.payment_id', '');
+        $this->db->or_where('pd.payment_id', 0);
+        $this->db->or_where('pd.payment_from', 'advance');
+        $this->db->group_end();
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+
+        if (!empty($patient_id)) {
+            $this->db->where('pd.patient', $patient_id);
+        }
+
+        $this->db->order_by('pd.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_advance = 0.00;
+        $total_utilized = 0.00;
+        $total_remaining = 0.00;
+
+        foreach ($rows as &$r) {
+            $dep_amt = floatval($r->deposited_amount);
+            // Check if patient has utilized this against invoices
+            $r->utilized_amount = 0.00;
+            $r->remaining_advance = $dep_amt;
+
+            $total_advance += $dep_amt;
+            $total_remaining += $r->remaining_advance;
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_advances' => count($rows),
+                'total_advance_amount' => $total_advance,
+                'total_utilized' => $total_utilized,
+                'total_remaining' => $total_remaining
+            ]
+        ];
+    }
+
+    /**
+     * 7. REFUND REPORT
+     * Invoices cancelled and amount refunded to patients
+     */
+    public function getRefundReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        // Query cancelled invoices where payments were previously taken
+        $this->db->select("p.*, pt.name as pt_name, pt.phone as pt_phone, pt.patient_id as pt_code,
+                           COALESCE(u.username, CONCAT('User #', p.user)) as processed_by_name");
+        $this->db->from('payment p');
+        $this->db->join('patient pt', 'pt.id = p.patient', 'left');
+        $this->db->join('users u', 'u.id = p.user', 'left');
+        $this->db->where('p.hospital_id', $hospital_id);
+        $this->db->where("LOWER(TRIM(p.status))", 'cancelled');
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        $this->db->order_by('p.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_refund_amount = 0.00;
+        $refund_count = count($rows);
+        $cash_refunds = 0.00;
+        $digital_refunds = 0.00;
+
+        foreach ($rows as &$r) {
+            $amt = floatval($r->amount_received);
+            $r->refund_amount = $amt;
+            $r->refund_reason = !empty($r->remarks) ? $r->remarks : 'Invoice Cancellation / Test Unavailable';
+            $r->refund_method = !empty($r->deposit_type) ? $r->deposit_type : 'Cash';
+
+            $total_refund_amount += $amt;
+            if (strcasecmp($r->refund_method, 'Cash') === 0) {
+                $cash_refunds += $amt;
+            } else {
+                $digital_refunds += $amt;
+            }
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'refund_count' => $refund_count,
+                'total_refund_amount' => $total_refund_amount,
+                'cash_refunds' => $cash_refunds,
+                'digital_refunds' => $digital_refunds
+            ]
+        ];
+    }
+
+    /**
+     * 8. DISCOUNT REPORT (Discount Audit Report)
+     * Invoices with discounts granted, including absorption rule (Referrer vs Hospital)
+     */
+    public function getDiscountReport($start_time, $end_time, $user_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("p.*, pt.name as pt_name, pt.phone as pt_phone, pt.patient_id as pt_code,
+                           r.name as ref_name, COALESCE(u.username, CONCAT('Cashier #', p.user)) as cashier_name");
+        $this->db->from('payment p');
+        $this->db->join('patient pt', 'pt.id = p.patient', 'left');
+        $this->db->join('referrer r', 'r.id = p.referrer', 'left');
+        $this->db->join('users u', 'u.id = p.user', 'left');
+        $this->db->where('p.hospital_id', $hospital_id);
+        $this->db->where("LOWER(TRIM(COALESCE(p.status, ''))) !=", 'cancelled');
+        $this->db->where("(p.flat_discount > 0 OR p.discount > 0)", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+
+        if (!empty($user_id)) {
+            $this->db->where('p.user', $user_id);
+        }
+
+        $this->db->order_by('p.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_invoices = count($rows);
+        $total_gross = 0.00;
+        $total_discount = 0.00;
+        $referrer_absorbed = 0.00;
+        $hospital_absorbed = 0.00;
+
+        foreach ($rows as &$r) {
+            $disc = 0.00;
+            if (isset($r->flat_discount) && is_numeric($r->flat_discount) && floatval($r->flat_discount) > 0) {
+                $disc = floatval($r->flat_discount);
+            } elseif (isset($r->discount) && is_numeric($r->discount) && floatval($r->discount) > 0) {
+                $disc = floatval($r->discount);
+            }
+
+            $gross = floatval($r->amount);
+            if ($gross <= 0) {
+                $gross = floatval($r->gross_total) + $disc;
+            }
+
+            $pct = ($gross > 0) ? round(($disc / $gross) * 100, 2) : 0.00;
+            $r->discount_amount = $disc;
+            $r->discount_percentage = $pct;
+            $r->gross_amount = $gross;
+            $r->net_payable = floatval($r->gross_total);
+
+            // Mandatory Business Rule:
+            // When referrer is assigned, discount is deducted from referrer's commission entitlement.
+            // When no referrer, hospital absorbs the discount.
+            if (!empty($r->referrer) || !empty($r->referrer_name)) {
+                $ref_label = !empty($r->ref_name) ? $r->ref_name : (!empty($r->referrer_name) ? $r->referrer_name : 'Referrer #' . $r->referrer);
+                $r->absorbed_by = 'Deducted from Referrer (' . $ref_label . ')';
+                $r->absorbed_type = 'referrer';
+                $referrer_absorbed += $disc;
+            } else {
+                $r->absorbed_by = 'Hospital Absorbed';
+                $r->absorbed_type = 'hospital';
+                $hospital_absorbed += $disc;
+            }
+
+            $r->discount_reason = !empty($r->remarks) ? $r->remarks : 'Patient Courtesy Concession';
+            $r->authorized_by = $r->cashier_name;
+
+            $total_gross += $gross;
+            $total_discount += $disc;
+        }
+        unset($r);
+
+        $avg_pct = ($total_gross > 0) ? round(($total_discount / $total_gross) * 100, 2) : 0.00;
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_discounted_invoices' => $total_invoices,
+                'total_gross' => $total_gross,
+                'total_discount' => $total_discount,
+                'referrer_absorbed' => $referrer_absorbed,
+                'hospital_absorbed' => $hospital_absorbed,
+                'average_discount_pct' => $avg_pct
+            ]
+        ];
+    }
+
+    /**
+     * 9. CASHIER-WISE COLLECTION REPORT
+     * Summary of collections by each cashier/operator across payment methods
+     */
+    public function getCashierCollectionReport($start_time, $end_time, $user_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("pd.user as cashier_id, 
+                           COALESCE(u.username, CONCAT('Cashier #', pd.user)) as cashier_name,
+                           u.first_name, u.last_name, u.email,
+                           COUNT(*) as tx_count,
+                           SUM(pd.deposited_amount) as total_coll,
+                           SUM(CASE WHEN LOWER(TRIM(COALESCE(pd.deposit_type, 'Cash'))) = 'cash' THEN pd.deposited_amount ELSE 0 END) as cash_coll,
+                           SUM(CASE WHEN LOWER(TRIM(COALESCE(pd.deposit_type, ''))) IN ('bkash', 'nagad', 'rocket', 'card', 'online') THEN pd.deposited_amount ELSE 0 END) as online_coll,
+                           SUM(CASE WHEN LOWER(TRIM(COALESCE(pd.deposit_type, ''))) = 'bank' THEN pd.deposited_amount ELSE 0 END) as bank_coll,
+                           SUM(CASE WHEN LOWER(TRIM(COALESCE(pd.deposit_type, ''))) NOT IN ('cash', 'bkash', 'nagad', 'rocket', 'card', 'online', 'bank') THEN pd.deposited_amount ELSE 0 END) as other_coll");
+        $this->db->from('patient_deposit pd');
+        $this->db->join('users u', 'u.id = pd.user', 'left');
+        $this->db->where('pd.hospital_id', $hospital_id);
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+
+        if (!empty($user_id)) {
+            $this->db->where('pd.user', $user_id);
+        }
+
+        $this->db->group_by('pd.user, u.username, u.first_name, u.last_name, u.email');
+        $this->db->order_by('total_coll', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $grand_tx = 0;
+        $grand_cash = 0.00;
+        $grand_online = 0.00;
+        $grand_bank = 0.00;
+        $grand_total = 0.00;
+
+        foreach ($rows as $r) {
+            $grand_tx += intval($r->tx_count);
+            $grand_cash += floatval($r->cash_coll);
+            $grand_online += floatval($r->online_coll);
+            $grand_bank += floatval($r->bank_coll);
+            $grand_total += floatval($r->total_coll);
+        }
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'active_cashiers' => count($rows),
+                'total_transactions' => $grand_tx,
+                'cash_collection' => $grand_cash,
+                'online_collection' => $grand_online,
+                'bank_collection' => $bank_collection ?? $grand_bank,
+                'total_collection' => $grand_total
+            ]
+        ];
+    }
+
+    /**
+     * 10. COLLECTION SUMMARY REPORT
+     * Executive reconciliation statement: New Billing, Discounts, Net Payable, Collections, Advance, Refunds, Net Cash
+     */
+    public function getCollectionSummaryReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        // Invoicing in period
+        $this->db->select("COUNT(*) as total_invoices,
+                           SUM(amount) as gross_billing,
+                           SUM(COALESCE(flat_discount, discount)) as total_discount,
+                           SUM(gross_total) as net_payable");
+        $this->db->from('payment');
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->where("LOWER(TRIM(status)) !=", 'cancelled');
+        $this->db->where('date >=', $start_time);
+        $this->db->where('date <=', $end_time);
+        $inv_row = $this->db->get()->row();
+
+        $total_invoices = $inv_row ? intval($inv_row->total_invoices) : 0;
+        $gross_billing = $inv_row ? floatval($inv_row->gross_billing) : 0.00;
+        $total_discount = $inv_row ? floatval($inv_row->total_discount) : 0.00;
+        $net_payable = $inv_row ? floatval($inv_row->net_payable) : 0.00;
+
+        // Collections in period
+        $this->db->reset_query();
+        $this->db->select("pd.*, p.date as invoice_date");
+        $this->db->from('patient_deposit pd');
+        $this->db->join('payment p', 'p.id = pd.payment_id', 'left');
+        $this->db->where("(pd.hospital_id = '$hospital_id' OR p.hospital_id = '$hospital_id')", NULL, FALSE);
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+        $deposits = $this->db->get()->result();
+
+        $current_inv_coll = 0.00;
+        $prev_due_coll = 0.00;
+        $advance_coll = 0.00;
+        $method_coll = [];
+
+        foreach ($deposits as $d) {
+            $amt = floatval($d->deposited_amount);
+            $m = !empty($d->deposit_type) ? trim($d->deposit_type) : 'Cash';
+            if (strcasecmp($m, 'bkash') === 0) $m = 'bKash';
+            elseif (strcasecmp($m, 'nagad') === 0) $m = 'Nagad';
+            elseif (strcasecmp($m, 'rocket') === 0) $m = 'Rocket';
+            elseif (strcasecmp($m, 'bank') === 0) $m = 'Bank';
+            elseif (strcasecmp($m, 'card') === 0) $m = 'Card';
+            elseif (strcasecmp($m, 'cash') === 0) $m = 'Cash';
+
+            if (!isset($method_coll[$m])) $method_coll[$m] = 0.00;
+            $method_coll[$m] += $amt;
+
+            if (empty($d->payment_id) || $d->payment_from === 'advance') {
+                $advance_coll += $amt;
+            } elseif (!empty($d->invoice_date) && intval($d->invoice_date) < $start_time) {
+                $prev_due_coll += $amt;
+            } else {
+                $current_inv_coll += $amt;
+            }
+        }
+
+        $total_collections = $current_inv_coll + $prev_due_coll + $advance_coll;
+
+        // Refunds in period
+        $this->db->reset_query();
+        $this->db->select_sum('amount_received', 'total_refunds');
+        $this->db->from('payment');
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->where("LOWER(TRIM(status))", 'cancelled');
+        $this->db->where('date >=', $start_time);
+        $this->db->where('date <=', $end_time);
+        $ref_row = $this->db->get()->row();
+        $total_refunds = $ref_row ? floatval($ref_row->total_refunds) : 0.00;
+
+        $net_cash_received = max(0.00, $total_collections - $total_refunds);
+        $outstanding_due = max(0.00, $net_payable - $current_inv_coll);
+
+        return [
+            'summary' => [
+                'total_invoices' => $total_invoices,
+                'gross_billing' => $gross_billing,
+                'total_discount' => $total_discount,
+                'net_payable' => $net_payable,
+                'current_invoice_collection' => $current_inv_coll,
+                'prev_due_collection' => $prev_due_coll,
+                'advance_collection' => $advance_coll,
+                'total_collection' => $total_collections,
+                'total_refunds' => $total_refunds,
+                'net_cash_received' => $net_cash_received,
+                'outstanding_due' => $outstanding_due,
+                'methods' => $method_coll
+            ]
+        ];
+    }
+
 }

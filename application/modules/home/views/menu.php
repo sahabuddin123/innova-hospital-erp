@@ -789,6 +789,30 @@ $sidebar_hidden_modules = array(
                     <li class="nav-item"><a class="nav-link text-white" href="finance/daily"><i class="text-secondary nav-icon far fa-circle"></i>
                             <p><?php echo lang('daily_sales'); ?></p>
                         </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/paymentMethodReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('payment_method_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/dueReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('due_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/partialPaymentReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('partial_payment_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/advancePaymentReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('advance_payment_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/refundReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('refund_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/discountReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('discount_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/cashierReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('cashier_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/collectionSummaryReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('collection_summary_report'); ?></p>
+                        </a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="finance/monthlyExpense"><i class="text-secondary nav-icon far fa-circle"></i>
                             <p><?php echo lang('monthly_expense'); ?></p>
                         </a></li>
