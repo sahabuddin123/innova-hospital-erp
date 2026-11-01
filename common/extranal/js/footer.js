@@ -612,7 +612,17 @@ $('ul.nav-sidebar a').filter(function () {
 
 // for treeview
 $('ul.nav-treeview a').filter(function () {
-  return this.href == url;
+  if (this.href == url) {
+    return true;
+  }
+  var currentHref = window.location.href;
+  if ((currentHref.indexOf('finance/editExpense') !== -1 || currentHref.indexOf('finance/expenseInvoice') !== -1) && this.getAttribute('href') === 'finance/expense') {
+    return true;
+  }
+  if (currentHref.indexOf('finance/editExpenseCategory') !== -1 && this.getAttribute('href') === 'finance/expenseCategory') {
+    return true;
+  }
+  return false;
 }).parentsUntil(".nav-sidebar > .nav-treeview").addClass('menu-open').prev('a').addClass('active');
 
 

@@ -650,8 +650,25 @@ $sidebar_hidden_modules = array(
                 <li class="nav-item"><a class="nav-link text-white" href="finance/category"><i class="text-secondary nav-icon far fa-circle"></i>
                         <p><?php echo lang('payment_categories'); ?></p>
                     </a></li>
+                <!-- <li class="nav-item"><a class="nav-link text-white" href="insurance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('insurance'); ?></p>
+                    </a></li> -->
+
+
+            </ul>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link text-white" href="#">
+                <i class="text-secondary nav-icon fas fa-receipt"></i>
+                <p>
+                    <?php echo lang('expense'); ?>
+                    <i class="right fas fa-angle-left"></i>
+                </p>
+            </a>
+            <ul class="nav nav-treeview">
                 <li class="nav-item"><a class="nav-link text-white" href="finance/expense"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('expense'); ?></p>
+                        <p><?php echo !empty(lang('expense_list')) ? lang('expense_list') : 'Expense List'; ?></p>
                     </a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="finance/addExpenseView"><i class="text-secondary nav-icon far fa-circle"></i>
                         <p><?php echo lang('add_expense'); ?></p>
@@ -659,11 +676,6 @@ $sidebar_hidden_modules = array(
                 <li class="nav-item"><a class="nav-link text-white" href="finance/expenseCategory"><i class="text-secondary nav-icon far fa-circle"></i>
                         <p><?php echo lang('expense_categories'); ?></p>
                     </a></li>
-                <!-- <li class="nav-item"><a class="nav-link text-white" href="insurance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('insurance'); ?></p>
-                    </a></li> -->
-
-
             </ul>
         </li>
         <!-- 
@@ -1634,22 +1646,24 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             </ul>
         </li>
         <li class="nav-item">
-            <a class="nav-link text-white" href="finance/expense">
-                <i class="text-secondary nav-icon fas fa-money-check"></i>
-                <p> <?php echo lang('expense'); ?> </p>
+            <a class="nav-link text-white" href="#">
+                <i class="text-secondary nav-icon fas fa-receipt"></i>
+                <p>
+                    <?php echo lang('expense'); ?>
+                    <i class="right fas fa-angle-left"></i>
+                </p>
             </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link text-white" href="finance/addExpenseView">
-                <i class="text-secondary nav-icon fas fa-plus-circle"></i>
-                <p> <?php echo lang('add_expense'); ?> </p>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link text-white" href="finance/expenseCategory">
-                <i class="text-secondary nav-icon far fa-edit"></i>
-                <p> <?php echo lang('expense_categories'); ?> </p>
-            </a>
+            <ul class="nav nav-treeview">
+                <li class="nav-item"><a class="nav-link text-white" href="finance/expense"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo !empty(lang('expense_list')) ? lang('expense_list') : 'Expense List'; ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/addExpenseView"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('add_expense'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/expenseCategory"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('expense_categories'); ?></p>
+                    </a></li>
+            </ul>
         </li>
         <li class="nav-item">
             <a class="nav-link text-white" href="finance/doctorsCommission">
