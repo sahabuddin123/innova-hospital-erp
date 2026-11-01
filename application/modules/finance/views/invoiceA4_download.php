@@ -391,20 +391,18 @@ body {
     margin-bottom: 5px;
 }
 .brand-title {
-    font-size: 13.5pt;
+    font-size: 11pt;
     font-weight: bold;
     color: #0f2942;
     text-transform: uppercase;
-    letter-spacing: -0.2px;
+    letter-spacing: 0px;
 }
 .brand-bangla {
     font-family: freeserif, sans-serif;
-    font-size: 10.5pt;
-    font-weight: normal;
+    font-size: 13.5pt;
+    font-weight: bold;
     color: #0f766e;
     margin-top: 1px;
-    text-align: justify;
-    text-justify: inter-word;
 }
 .brand-addr {
     font-size: 7.2pt;
