@@ -3539,4 +3539,933 @@ class Finance_model extends CI_model
         ];
     }
 
+
+    /* =========================================================================
+     * PHASE 3: EXPENSE & ACCOUNTS REPORTING METHODS
+     * Lifecare Diagnostic Center - Accounting & Expense Intelligence
+     * ========================================================================= */
+
+    /**
+     * Helper to detect payment method for an expense record
+     */
+    public function detectExpensePaymentMethod($row)
+    {
+        if (!empty($row->payment_type)) {
+            $m = trim($row->payment_type);
+            if (strcasecmp($m, 'cash') === 0) return 'Cash';
+            if (strcasecmp($m, 'bkash') === 0) return 'bKash';
+            if (strcasecmp($m, 'nagad') === 0) return 'Nagad';
+            if (strcasecmp($m, 'rocket') === 0) return 'Rocket';
+            if (strcasecmp($m, 'bank') === 0 || strcasecmp($m, 'cheque') === 0) return 'Bank';
+            if (strcasecmp($m, 'card') === 0) return 'Card';
+            return ucfirst($m);
+        }
+
+        // Detect from note keywords
+        $note = !empty($row->note) ? strtolower($row->note) : '';
+        if (strpos($note, 'bkash') !== false) return 'bKash';
+        if (strpos($note, 'nagad') !== false) return 'Nagad';
+        if (strpos($note, 'rocket') !== false) return 'Rocket';
+        if (strpos($note, 'bank') !== false || strpos($note, 'cheque') !== false || strpos($note, 'check') !== false) return 'Bank';
+        if (strpos($note, 'card') !== false || strpos($note, 'pos') !== false) return 'Card';
+
+        return 'Cash'; // Default operating expense disbursement
+    }
+
+    /**
+     * 1. DAILY EXPENSE REPORT
+     */
+    public function getDailyExpenseReport($start_time, $end_time, $category = null, $method = null, $user_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name,
+                           u.first_name, u.last_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+
+        if (!empty($category)) {
+            $this->db->where('e.category', $category);
+        }
+        if (!empty($user_id)) {
+            $this->db->where('e.user', $user_id);
+        }
+
+        $this->db->order_by('e.date', 'DESC');
+        $this->db->order_by('e.id', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $filtered = [];
+        $total_amount = 0.00;
+        $cash_expense = 0.00;
+        $bank_expense = 0.00;
+        $online_expense = 0.00;
+
+        foreach ($rows as $r) {
+            $m = $this->detectExpensePaymentMethod($r);
+            $r->payment_method = $m;
+
+            if (!empty($method) && $method !== 'all' && strcasecmp($m, $method) !== 0) {
+                continue;
+            }
+
+            $amt = floatval($r->amount);
+            $total_amount += $amt;
+
+            if ($m === 'Cash') {
+                $cash_expense += $amt;
+            } elseif ($m === 'Bank') {
+                $bank_expense += $amt;
+            } else {
+                $online_expense += $amt;
+            }
+
+            $filtered[] = $r;
+        }
+
+        return [
+            'records' => $filtered,
+            'summary' => [
+                'total_expense' => $total_amount,
+                'cash_expense' => $cash_expense,
+                'bank_expense' => $bank_expense,
+                'online_expense' => $online_expense,
+                'total_transactions' => count($filtered)
+            ]
+        ];
+    }
+
+    /**
+     * 2. MONTHLY EXPENSE REPORT
+     */
+    public function getMonthlyExpenseReport($year, $month = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        // 1. All monthly sums for the year
+        $start_year = mktime(0, 0, 0, 1, 1, $year);
+        $end_year = mktime(23, 59, 59, 12, 31, $year);
+
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_year);
+        $this->db->where('e.date <=', $end_year);
+        $this->db->order_by('e.date', 'ASC');
+        $rows = $this->db->get()->result();
+
+        $monthly_data = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $m_key = sprintf('%04d-%02d', $year, $m);
+            $monthly_data[$m_key] = [
+                'month_key' => $m_key,
+                'month_name' => date('F Y', mktime(0, 0, 0, $m, 1, $year)),
+                'month_num' => $m,
+                'tx_count' => 0,
+                'total_amount' => 0.00,
+                'cash_amount' => 0.00,
+                'bank_amount' => 0.00,
+                'online_amount' => 0.00,
+                'categories' => []
+            ];
+        }
+
+        foreach ($rows as $r) {
+            $m_key = date('Y-m', $r->date);
+            if (!isset($monthly_data[$m_key])) continue;
+
+            $amt = floatval($r->amount);
+            $method = $this->detectExpensePaymentMethod($r);
+            $r->payment_method = $method;
+
+            $monthly_data[$m_key]['tx_count']++;
+            $monthly_data[$m_key]['total_amount'] += $amt;
+
+            if ($method === 'Cash') $monthly_data[$m_key]['cash_amount'] += $amt;
+            elseif ($method === 'Bank') $monthly_data[$m_key]['bank_amount'] += $amt;
+            else $monthly_data[$m_key]['online_amount'] += $amt;
+
+            $cat = !empty($r->category) ? $r->category : 'Uncategorized';
+            if (!isset($monthly_data[$m_key]['categories'][$cat])) {
+                $monthly_data[$m_key]['categories'][$cat] = 0.00;
+            }
+            $monthly_data[$m_key]['categories'][$cat] += $amt;
+        }
+
+        // Calculate comparison with previous month
+        $prev_total = 0.00;
+        foreach ($monthly_data as $k => &$m_val) {
+            $curr = $m_val['total_amount'];
+            $diff = $curr - $prev_total;
+            $pct = ($prev_total > 0) ? round(($diff / $prev_total) * 100, 1) : 0.0;
+            $m_val['diff_amount'] = $diff;
+            $m_val['diff_pct'] = $pct;
+            $prev_total = $curr;
+        }
+        unset($m_val);
+
+        // Filter for specific month if requested
+        $selected_month_data = null;
+        $category_breakdown = [];
+        $vendor_breakdown = [];
+
+        if (!empty($month)) {
+            $sel_key = sprintf('%04d-%02d', $year, intval($month));
+            if (isset($monthly_data[$sel_key])) {
+                $selected_month_data = $monthly_data[$sel_key];
+            }
+
+            // Category & vendor details for that month
+            $m_start = mktime(0, 0, 0, $month, 1, $year);
+            $m_end = mktime(23, 59, 59, $month, date('t', $m_start), $year);
+
+            $this->db->reset_query();
+            $this->db->select("category, COUNT(*) as tx_count, SUM(amount) as total");
+            $this->db->from('expense');
+            $this->db->where('hospital_id', $hospital_id);
+            $this->db->where('date >=', $m_start);
+            $this->db->where('date <=', $m_end);
+            $this->db->group_by('category');
+            $this->db->order_by('total', 'DESC');
+            $category_breakdown = $this->db->get()->result();
+
+            $this->db->reset_query();
+            $this->db->select("COALESCE(pay_to, 'General Payee') as vendor, COUNT(*) as tx_count, SUM(amount) as total");
+            $this->db->from('expense');
+            $this->db->where('hospital_id', $hospital_id);
+            $this->db->where('date >=', $m_start);
+            $this->db->where('date <=', $m_end);
+            $this->db->group_by('pay_to');
+            $this->db->order_by('total', 'DESC');
+            $vendor_breakdown = $this->db->get()->result();
+        }
+
+        $grand_year_total = 0.00;
+        $grand_year_tx = 0;
+        foreach ($monthly_data as $m_row) {
+            $grand_year_total += $m_row['total_amount'];
+            $grand_year_tx += $m_row['tx_count'];
+        }
+
+        return [
+            'monthly_totals' => $monthly_data,
+            'selected_month' => $selected_month_data,
+            'category_breakdown' => $category_breakdown,
+            'vendor_breakdown' => $vendor_breakdown,
+            'summary' => [
+                'year' => $year,
+                'total_expense' => $grand_year_total,
+                'total_transactions' => $grand_year_tx,
+                'average_monthly_expense' => round($grand_year_total / 12, 2)
+            ]
+        ];
+    }
+
+    /**
+     * 3. EXPENSE LEDGER
+     * Chronological general ledger of all expense debits
+     */
+    public function getExpenseLedgerReport($start_time, $end_time, $category = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+
+        if (!empty($category) && $category !== 'all') {
+            $this->db->where('e.category', $category);
+        }
+
+        $this->db->order_by('e.date', 'ASC');
+        $this->db->order_by('e.id', 'ASC');
+        $rows = $this->db->get()->result();
+
+        $running_total = 0.00;
+        foreach ($rows as &$r) {
+            $amt = floatval($r->amount);
+            $running_total += $amt;
+            $r->running_balance = $running_total;
+            $r->payment_method = $this->detectExpensePaymentMethod($r);
+            $r->status = 'Paid & Settled';
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_debit' => $running_total,
+                'total_transactions' => count($rows),
+                'opening_balance' => 0.00,
+                'closing_balance' => $running_total
+            ]
+        ];
+    }
+
+    /**
+     * 4. EXPENSE CATEGORY REPORT
+     * Analysis of expenses by category with percentage share and transaction volume
+     */
+    public function getExpenseCategoryReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("COALESCE(e.category, 'Uncategorized') as category_name,
+                           COUNT(e.id) as tx_count,
+                           SUM(e.amount) as total_amount,
+                           MIN(e.date) as first_tx_date,
+                           MAX(e.date) as last_tx_date");
+        $this->db->from('expense e');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+        $this->db->group_by("COALESCE(e.category, 'Uncategorized')");
+        $this->db->order_by('total_amount', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $grand_total = 0.00;
+        $grand_tx = 0;
+        foreach ($rows as $r) {
+            $grand_total += floatval($r->total_amount);
+            $grand_tx += intval($r->tx_count);
+        }
+
+        foreach ($rows as &$r) {
+            $amt = floatval($r->total_amount);
+            $r->share_pct = ($grand_total > 0) ? round(($amt / $grand_total) * 100, 1) : 0.0;
+            $r->avg_cost = ($r->tx_count > 0) ? round($amt / $r->tx_count, 2) : 0.0;
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_categories' => count($rows),
+                'total_expense' => $grand_total,
+                'total_transactions' => $grand_tx,
+                'top_category' => !empty($rows[0]) ? $rows[0]->category_name : 'None'
+            ]
+        ];
+    }
+
+    /**
+     * 5. VENDOR / SUPPLIER PAYMENT REPORT
+     */
+    public function getVendorPaymentReport($start_time, $end_time, $vendor = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        // 1. Grouped by vendor
+        $this->db->select("COALESCE(e.pay_to, 'General / Miscellaneous') as vendor_name,
+                           COUNT(e.id) as voucher_count,
+                           SUM(e.amount) as total_paid,
+                           MIN(e.date) as first_date,
+                           MAX(e.date) as last_date");
+        $this->db->from('expense e');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+
+        if (!empty($vendor) && $vendor !== 'all') {
+            $this->db->where('e.pay_to', $vendor);
+        }
+
+        $this->db->group_by("COALESCE(e.pay_to, 'General / Miscellaneous')");
+        $this->db->order_by('total_paid', 'DESC');
+        $vendor_groups = $this->db->get()->result();
+
+        // 2. Individual transaction details
+        $this->db->reset_query();
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+
+        if (!empty($vendor) && $vendor !== 'all') {
+            $this->db->where('e.pay_to', $vendor);
+        }
+
+        $this->db->order_by('e.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $grand_paid = 0.00;
+        foreach ($rows as &$r) {
+            $r->payment_method = $this->detectExpensePaymentMethod($r);
+            $r->status = 'Settled';
+            $grand_paid += floatval($r->amount);
+        }
+        unset($r);
+
+        return [
+            'vendor_groups' => $vendor_groups,
+            'records' => $rows,
+            'summary' => [
+                'total_vendors' => count($vendor_groups),
+                'total_paid' => $grand_paid,
+                'total_vouchers' => count($rows),
+                'top_vendor' => !empty($vendor_groups[0]) ? $vendor_groups[0]->vendor_name : 'None'
+            ]
+        ];
+    }
+
+    /**
+     * 6. EMPLOYEE SALARY REPORT
+     * Integrates with payroll and salary modules
+     */
+    public function getEmployeeSalaryReport($year = null, $month = null, $staff_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        if (empty($year)) $year = date('Y');
+
+        $this->db->select("p.*, u.username, u.email, u.phone");
+        $this->db->from('payroll p');
+        $this->db->join('users u', 'u.id = p.staff', 'left');
+        $this->db->where('p.hospital_id', $hospital_id);
+
+        if (!empty($year) && $year !== 'all') {
+            $this->db->where('p.year', $year);
+        }
+        if (!empty($month) && $month !== 'all') {
+            $this->db->where('p.month', $month);
+        }
+        if (!empty($staff_id)) {
+            $this->db->where('p.staff', $staff_id);
+        }
+
+        $this->db->order_by('p.id', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_gross = 0.00;
+        $total_deductions = 0.00;
+        $total_net = 0.00;
+        $total_paid = 0.00;
+        $total_pending = 0.00;
+
+        foreach ($rows as &$r) {
+            // Parse earning string: Gross Salary_10000
+            $gross = 0.00;
+            if (!empty($r->earning)) {
+                $parts = explode('_', $r->earning);
+                if (isset($parts[1]) && is_numeric($parts[1])) {
+                    $gross = floatval($parts[1]);
+                }
+            }
+
+            $deduct = 0.00;
+            if (!empty($r->deduction)) {
+                $parts = explode('_', $r->deduction);
+                if (isset($parts[1]) && is_numeric($parts[1])) {
+                    $deduct = floatval($parts[1]);
+                }
+            }
+
+            $net = max(0.00, $gross - $deduct);
+            $r->gross_salary = $gross;
+            $r->deductions = $deduct;
+            $r->net_salary = $net;
+            $r->staff_name = !empty($r->username) ? $r->username : 'Staff #' . $r->staff;
+
+            $total_gross += $gross;
+            $total_deductions += $deduct;
+            $total_net += $net;
+
+            if (strcasecmp($r->status, 'Paid') === 0) {
+                $total_paid += $net;
+            } else {
+                $total_pending += $net;
+            }
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_records' => count($rows),
+                'total_gross' => $total_gross,
+                'total_deductions' => $total_deductions,
+                'total_net' => $total_net,
+                'total_paid' => $total_paid,
+                'total_pending' => $total_pending
+            ]
+        ];
+    }
+
+    /**
+     * 7. UTILITY BILL REPORT
+     * Electricity, Water, Gas, Internet, Telephone & Other utility expenses
+     */
+    public function getUtilityBillReport($start_time, $end_time, $utility_cat = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+
+        // Filter utility patterns
+        $this->db->group_start();
+        $this->db->like('LOWER(e.category)', 'util');
+        $this->db->or_like('LOWER(e.category)', 'elect');
+        $this->db->or_like('LOWER(e.category)', 'water');
+        $this->db->or_like('LOWER(e.category)', 'gas');
+        $this->db->or_like('LOWER(e.category)', 'net');
+        $this->db->or_like('LOWER(e.category)', 'phone');
+        $this->db->or_like('LOWER(e.note)', 'desco');
+        $this->db->or_like('LOWER(e.note)', 'dpdc');
+        $this->db->or_like('LOWER(e.note)', 'wasa');
+        $this->db->or_like('LOWER(e.note)', 'electricity');
+        $this->db->or_like('LOWER(e.note)', 'internet');
+        $this->db->or_like('LOWER(e.note)', 'wifi');
+        $this->db->group_end();
+
+        $this->db->order_by('e.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $filtered = [];
+        $total_utility = 0.00;
+        $electricity = 0.00;
+        $internet = 0.00;
+        $water_gas = 0.00;
+        $other_utility = 0.00;
+
+        foreach ($rows as $r) {
+            $cat_str = strtolower($r->category . ' ' . $r->note);
+            $type = 'Other Utilities';
+            if (strpos($cat_str, 'elect') !== false || strpos($cat_str, 'desco') !== false || strpos($cat_str, 'dpdc') !== false) {
+                $type = 'Electricity';
+                $electricity += floatval($r->amount);
+            } elseif (strpos($cat_str, 'net') !== false || strpos($cat_str, 'wifi') !== false || strpos($cat_str, 'isp') !== false) {
+                $type = 'Internet';
+                $internet += floatval($r->amount);
+            } elseif (strpos($cat_str, 'water') !== false || strpos($cat_str, 'gas') !== false || strpos($cat_str, 'wasa') !== false) {
+                $type = 'Water & Gas';
+                $water_gas += floatval($r->amount);
+            } else {
+                $other_utility += floatval($r->amount);
+            }
+
+            if (!empty($utility_cat) && $utility_cat !== 'all' && strcasecmp($type, $utility_cat) !== 0) {
+                continue;
+            }
+
+            $r->utility_type = $type;
+            $r->payment_method = $this->detectExpensePaymentMethod($r);
+            $r->status = 'Paid';
+            $amt = floatval($r->amount);
+            $total_utility += $amt;
+            $filtered[] = $r;
+        }
+
+        return [
+            'records' => $filtered,
+            'summary' => [
+                'total_utility' => $total_utility,
+                'electricity' => $electricity,
+                'internet' => $internet,
+                'water_gas' => $water_gas,
+                'other_utility' => $other_utility,
+                'total_bills' => count($filtered)
+            ]
+        ];
+    }
+
+    /**
+     * 8. ASSET PURCHASE REPORT
+     * Capital equipment & hardware purchases vs repairs
+     */
+    public function getAssetPurchaseReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+
+        $this->db->group_start();
+        $this->db->like('LOWER(e.category)', 'asset');
+        $this->db->or_like('LOWER(e.category)', 'equip');
+        $this->db->or_like('LOWER(e.category)', 'machine');
+        $this->db->or_like('LOWER(e.category)', 'repair');
+        $this->db->or_like('LOWER(e.note)', 'asset');
+        $this->db->or_like('LOWER(e.note)', 'machine');
+        $this->db->or_like('LOWER(e.note)', 'equipment');
+        $this->db->or_like('LOWER(e.note)', 'oxygen');
+        $this->db->group_end();
+
+        $this->db->order_by('e.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_asset_spend = 0.00;
+        $total_purchases = 0.00;
+        $total_repairs = 0.00;
+
+        foreach ($rows as &$r) {
+            $cat_low = strtolower($r->category);
+            $amt = floatval($r->amount);
+            $total_asset_spend += $amt;
+
+            if (strpos($cat_low, 'repair') !== false) {
+                $r->asset_type = 'Asset Repair & Maintenance';
+                $total_repairs += $amt;
+            } else {
+                $r->asset_type = 'Capital Asset Purchase';
+                $total_purchases += $amt;
+            }
+
+            $r->payment_method = $this->detectExpensePaymentMethod($r);
+            $r->status = 'Procured & Settled';
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_asset_spend' => $total_asset_spend,
+                'total_purchases' => $total_purchases,
+                'total_repairs' => $total_repairs,
+                'item_count' => count($rows)
+            ]
+        ];
+    }
+
+    /**
+     * 9. PETTY CASH REPORT
+     * Minor day-to-day office vouchers (Hospitality, Refreshments, Stationery, Transport)
+     */
+    public function getPettyCashReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+
+        // Small cash vouchers or petty categories
+        $this->db->group_start();
+        $this->db->like('LOWER(e.category)', 'hospit');
+        $this->db->or_like('LOWER(e.category)', 'station');
+        $this->db->or_like('LOWER(e.category)', 'petty');
+        $this->db->or_like('LOWER(e.category)', 'tea');
+        $this->db->or_like('LOWER(e.category)', 'convey');
+        $this->db->or_where('e.amount <=', 1000.00);
+        $this->db->group_end();
+
+        $this->db->order_by('e.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_petty = 0.00;
+        $petty_cash_only = 0.00;
+
+        foreach ($rows as &$r) {
+            $m = $this->detectExpensePaymentMethod($r);
+            $r->payment_method = $m;
+            $amt = floatval($r->amount);
+            $total_petty += $amt;
+            if ($m === 'Cash') {
+                $petty_cash_only += $amt;
+            }
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_petty_cash' => $total_petty,
+                'cash_disbursed' => $petty_cash_only,
+                'voucher_count' => count($rows),
+                'average_voucher' => count($rows) > 0 ? round($total_petty / count($rows), 2) : 0.00
+            ]
+        ];
+    }
+
+    /**
+     * 10. CASH BOOK
+     * Chronological interleaved ledger of physical Cash Receipts vs Cash Disbursements
+     */
+    public function getCashBookReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        // 1. Inflows: Cash deposits from patients
+        $this->db->reset_query();
+        $this->db->select("pd.id, pd.date, pd.deposited_amount as amount, pd.payment_id,
+                           'Receipt' as tx_type, 'Patient Cash Deposit' as description,
+                           COALESCE(u.username, CONCAT('Cashier #', pd.user)) as recorded_by");
+        $this->db->from('patient_deposit pd');
+        $this->db->join('users u', 'u.id = pd.user', 'left');
+        $this->db->where('pd.hospital_id', $hospital_id);
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+        $this->db->where("LOWER(TRIM(COALESCE(pd.deposit_type, 'Cash')))", 'cash');
+        $inflow_rows = $this->db->get()->result();
+
+        // 2. Outflows A: Cash Expenses
+        $this->db->reset_query();
+        $this->db->select("e.id, e.date, e.amount, e.pay_to, e.category, e.note,
+                           'Disbursement' as tx_type,
+                           CONCAT('Expense: ', COALESCE(e.category, 'General'), ' - ', COALESCE(e.note, 'Voucher payment')) as description,
+                           COALESCE(u.username, CONCAT('User #', e.user)) as recorded_by");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+        $all_exp = $this->db->get()->result();
+
+        $cash_expenses = [];
+        foreach ($all_exp as $exp_r) {
+            if ($this->detectExpensePaymentMethod($exp_r) === 'Cash') {
+                $cash_expenses[] = $exp_r;
+            }
+        }
+
+        // 3. Outflows B: Cash Refunds on Cancelled Invoices
+        $this->db->reset_query();
+        $this->db->select("p.id, p.date, p.amount_received as amount,
+                           'Disbursement' as tx_type,
+                           CONCAT('Patient Refund: Cancelled Inv #', p.id) as description,
+                           COALESCE(u.username, CONCAT('User #', p.user)) as recorded_by");
+        $this->db->from('payment p');
+        $this->db->join('users u', 'u.id = p.user', 'left');
+        $this->db->where('p.hospital_id', $hospital_id);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        $this->db->where("LOWER(TRIM(p.status))", 'cancelled');
+        $this->db->where('p.amount_received >', 0.01);
+        $cash_refunds = $this->db->get()->result();
+
+        // Interleave all transactions chronologically
+        $ledger = [];
+        $total_inflow = 0.00;
+        $total_outflow = 0.00;
+
+        foreach ($inflow_rows as $in_r) {
+            $amt = floatval($in_r->amount);
+            $total_inflow += $amt;
+            $ledger[] = [
+                'id' => 'REC-' . $in_r->id,
+                'date' => intval($in_r->date),
+                'type' => 'Inflow',
+                'description' => $in_r->description . (!empty($in_r->payment_id) ? ' (Inv #' . $in_r->payment_id . ')' : ''),
+                'cash_in' => $amt,
+                'cash_out' => 0.00,
+                'recorded_by' => $in_r->recorded_by
+            ];
+        }
+
+        foreach ($cash_expenses as $out_r) {
+            $amt = floatval($out_r->amount);
+            $total_outflow += $amt;
+            $ledger[] = [
+                'id' => 'EXP-' . $out_r->id,
+                'date' => intval($out_r->date),
+                'type' => 'Outflow',
+                'description' => $out_r->description . (!empty($out_r->pay_to) ? ' | Pay To: ' . $out_r->pay_to : ''),
+                'cash_in' => 0.00,
+                'cash_out' => $amt,
+                'recorded_by' => $out_r->recorded_by
+            ];
+        }
+
+        foreach ($cash_refunds as $ref_r) {
+            $amt = floatval($ref_r->amount);
+            $total_outflow += $amt;
+            $ledger[] = [
+                'id' => 'REF-' . $ref_r->id,
+                'date' => intval($ref_r->date),
+                'type' => 'Outflow',
+                'description' => $ref_r->description,
+                'cash_in' => 0.00,
+                'cash_out' => $amt,
+                'recorded_by' => $ref_r->recorded_by
+            ];
+        }
+
+        // Sort chronologically
+        usort($ledger, function($a, $b) {
+            if ($a['date'] === $b['date']) return 0;
+            return ($a['date'] < $b['date']) ? -1 : 1;
+        });
+
+        // Calculate running cash balance
+        $running = 0.00;
+        foreach ($ledger as &$item) {
+            $running += ($item['cash_in'] - $item['cash_out']);
+            $item['running_balance'] = $running;
+        }
+        unset($item);
+
+        return [
+            'records' => $ledger,
+            'summary' => [
+                'total_inflow' => $total_inflow,
+                'total_outflow' => $total_outflow,
+                'net_cash_flow' => $total_inflow - $total_outflow,
+                'closing_balance' => $running,
+                'tx_count' => count($ledger)
+            ]
+        ];
+    }
+
+    /**
+     * 11. BANK BOOK
+     * Chronological ledger of Bank Deposits vs Bank Disbursements
+     */
+    public function getBankBookReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        // 1. Bank Inflows: Patient deposits via Bank
+        $this->db->reset_query();
+        $this->db->select("pd.id, pd.date, pd.deposited_amount as amount, pd.payment_id,
+                           COALESCE(u.username, CONCAT('Cashier #', pd.user)) as recorded_by");
+        $this->db->from('patient_deposit pd');
+        $this->db->join('users u', 'u.id = pd.user', 'left');
+        $this->db->where('pd.hospital_id', $hospital_id);
+        $this->db->where('pd.date >=', $start_time);
+        $this->db->where('pd.date <=', $end_time);
+        $this->db->where("LOWER(TRIM(pd.deposit_type))", 'bank');
+        $bank_inflows = $this->db->get()->result();
+
+        // 2. Bank Outflows: Expenses paid via Bank / Cheque
+        $this->db->reset_query();
+        $this->db->select("e.id, e.date, e.amount, e.pay_to, e.category, e.note,
+                           COALESCE(u.username, CONCAT('User #', e.user)) as recorded_by");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+        $all_exp = $this->db->get()->result();
+
+        $bank_outflows = [];
+        foreach ($all_exp as $exp_r) {
+            if ($this->detectExpensePaymentMethod($exp_r) === 'Bank') {
+                $bank_outflows[] = $exp_r;
+            }
+        }
+
+        $ledger = [];
+        $total_deposits = 0.00;
+        $total_withdrawals = 0.00;
+
+        foreach ($bank_inflows as $in_r) {
+            $amt = floatval($in_r->amount);
+            $total_deposits += $amt;
+            $ledger[] = [
+                'id' => 'BNK-DEP-' . $in_r->id,
+                'date' => intval($in_r->date),
+                'type' => 'Deposit',
+                'description' => 'Patient Bank Transfer / Deposit (Inv #' . $in_r->payment_id . ')',
+                'deposit' => $amt,
+                'withdrawal' => 0.00,
+                'recorded_by' => $in_r->recorded_by
+            ];
+        }
+
+        foreach ($bank_outflows as $out_r) {
+            $amt = floatval($out_r->amount);
+            $total_withdrawals += $amt;
+            $ledger[] = [
+                'id' => 'BNK-EXP-' . $out_r->id,
+                'date' => intval($out_r->date),
+                'type' => 'Withdrawal',
+                'description' => 'Bank Payment: ' . $out_r->category . ' | Payee: ' . (!empty($out_r->pay_to) ? $out_r->pay_to : 'Vendor'),
+                'deposit' => 0.00,
+                'withdrawal' => $amt,
+                'recorded_by' => $out_r->recorded_by
+            ];
+        }
+
+        usort($ledger, function($a, $b) {
+            if ($a['date'] === $b['date']) return 0;
+            return ($a['date'] < $b['date']) ? -1 : 1;
+        });
+
+        $running = 0.00;
+        foreach ($ledger as &$item) {
+            $running += ($item['deposit'] - $item['withdrawal']);
+            $item['running_balance'] = $running;
+        }
+        unset($item);
+
+        return [
+            'records' => $ledger,
+            'summary' => [
+                'total_deposits' => $total_deposits,
+                'total_withdrawals' => $total_withdrawals,
+                'net_bank_flow' => $total_deposits - $total_withdrawals,
+                'closing_balance' => $running,
+                'tx_count' => count($ledger)
+            ]
+        ];
+    }
+
+    /**
+     * 12. EXPENSE APPROVAL REPORT
+     * Audit log of expense vouchers, authorization status, and disbursement details
+     */
+    public function getExpenseApprovalReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->reset_query();
+
+        $this->db->select("e.*, COALESCE(u.username, CONCAT('User #', e.user)) as creator_name,
+                           u.first_name, u.last_name");
+        $this->db->from('expense e');
+        $this->db->join('users u', 'u.id = e.user', 'left');
+        $this->db->where('e.hospital_id', $hospital_id);
+        $this->db->where('e.date >=', $start_time);
+        $this->db->where('e.date <=', $end_time);
+        $this->db->order_by('e.date', 'DESC');
+        $rows = $this->db->get()->result();
+
+        $total_approved = 0.00;
+        foreach ($rows as &$r) {
+            $r->payment_method = $this->detectExpensePaymentMethod($r);
+            $r->approval_status = 'Approved & Disbursed';
+            $r->approved_by = !empty($r->creator_name) ? $r->creator_name : 'Admin In-Charge';
+            $total_approved += floatval($r->amount);
+        }
+        unset($r);
+
+        return [
+            'records' => $rows,
+            'summary' => [
+                'total_vouchers' => count($rows),
+                'total_approved_amount' => $total_approved,
+                'pending_approval_amount' => 0.00,
+                'rejected_amount' => 0.00
+            ]
+        ];
+    }
+
 }

@@ -3412,45 +3412,15 @@ class Finance extends MX_Controller
 
     function dailyExpense()
     {
-        $data = array();
         $year = $this->input->get('year');
         $month = $this->input->get('month');
-
-        if (empty($year)) {
-            $year = date('Y');
+        if (!empty($year) || !empty($month)) {
+            $date_from = sprintf('%04d-%02d-01', $year ?: date('Y'), $month ?: date('m'));
+            $date_to = date('Y-m-t', strtotime($date_from));
+            redirect("finance/dailyExpenseReport?period_type=custom&date_from={$date_from}&date_to={$date_to}");
+        } else {
+            redirect('finance/dailyExpenseReport');
         }
-        if (empty($month)) {
-            $month = date('m');
-        }
-
-        $first_minute = mktime(0, 0, 0, $month, 1, $year);
-        $last_minute = mktime(23, 59, 59, $month, date("t", $first_minute), $year);
-
-        $expenses = $this->finance_model->getExpenseByDate($first_minute, $last_minute);
-        $all_expenses = array();
-        foreach ($expenses as $expense) {
-            $date = date('D d-m-y', $expense->date);
-            if ($expense->amount ==  '$total') {
-                $exp_amount = 0;
-            } else {
-                $exp_amount = $expense->amount;
-            }
-            if (array_key_exists($date, $all_expenses)) {
-                $all_expenses[$date] = $all_expenses[$date] + $exp_amount;
-            } else {
-                $all_expenses[$date] = $exp_amount;
-            }
-        }
-
-        $data['year'] = $year;
-        $data['month'] = $month;
-        $data['first_minute'] = $first_minute;
-        $data['last_minute'] = $last_minute;
-        $data['all_expenses'] = $all_expenses;
-
-        $this->load->view('home/dashboard', $data);
-        $this->load->view('daily_expense', $data);
-        $this->load->view('home/footer');
     }
 
     function monthly()
@@ -3460,46 +3430,9 @@ class Finance extends MX_Controller
 
     function monthlyExpense()
     {
-        $data = array();
-        $year = $this->input->get('year');
-
-        if (empty($year)) {
-            $year = date('Y');
-        }
-
-
-        $first_minute = mktime(0, 0, 0, 1, 1, $year);
-        $last_minute = mktime(23, 59, 59, 12, 31, $year);
-
-        $expenses = $this->finance_model->getExpenseByDate($first_minute, $last_minute);
-
-        $all_expenses = array();
-        // print_r($expenses);die();
-        foreach ($expenses as $expense) {
-            $month = date('m-Y', $expense->date);
-
-            if ($expense->amount ==  '$total') {
-                $exp_amount = 0;
-            } else {
-                $exp_amount = $expense->amount;
-            }
-
-            if (array_key_exists($month, $all_expenses)) {
-                $all_expenses[$month] += $exp_amount;
-            } else {
-                $all_expenses[$month] = $exp_amount;
-            }
-        }
-
-
-        $data['year'] = $year;
-        $data['first_minute'] = $first_minute;
-        $data['last_minute'] = $last_minute;
-        $data['all_expenses'] = $all_expenses;
-
-        $this->load->view('home/dashboard', $data);
-        $this->load->view('monthly_expense', $data);
-        $this->load->view('home/footer');
+        $year = $this->input->get('year') ?: date('Y');
+        $month = $this->input->get('month') ?: date('m');
+        redirect("finance/monthlyExpenseReport?year={$year}&month={$month}");
     }
 
     function getExpense()
@@ -5571,6 +5504,427 @@ class Finance extends MX_Controller
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/collection_summary_report', $data);
+        $this->load->view('home/footer');
+    }
+
+
+    /* =========================================================================
+     * PHASE 3: EXPENSE & ACCOUNTS REPORTING CONTROLLERS
+     * Lifecare Diagnostic Center
+     * ========================================================================= */
+
+    /**
+     * 1. Daily Expense Report
+     */
+    public function dailyExpenseReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'today';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $category = $this->input->get_post('category');
+        $payment_method = $this->input->get_post('payment_method');
+        $user_id = $this->input->get_post('user_id');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getDailyExpenseReport($period['start_time'], $period['end_time'], $category, $payment_method, $user_id);
+
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $categories = $this->finance_model->getExpenseCategory();
+        $users = $this->db->query("SELECT DISTINCT u.id, u.username, u.first_name, u.last_name FROM users u JOIN expense e ON e.user = u.id WHERE e.hospital_id = '$hospital_id' ORDER BY u.username ASC")->result();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['categories'] = $categories;
+        $data['users'] = $users;
+        $data['selected_category'] = $category;
+        $data['selected_method'] = $payment_method;
+        $data['selected_user'] = $user_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'daily_expense';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/daily_expense_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 2. Monthly Expense Report
+     */
+    public function monthlyExpenseReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $year = $this->input->get_post('year') ?: date('Y');
+        $month = $this->input->get_post('month') ?: date('m');
+
+        $result = $this->finance_model->getMonthlyExpenseReport($year, $month);
+
+        $data = array();
+        $data['monthly_totals'] = $result['monthly_totals'];
+        $data['selected_month'] = $result['selected_month'];
+        $data['category_breakdown'] = $result['category_breakdown'];
+        $data['vendor_breakdown'] = $result['vendor_breakdown'];
+        $data['summary'] = $result['summary'];
+        $data['year'] = $year;
+        $data['month'] = $month;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'monthly_expense';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/monthly_expense_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 3. Expense Ledger
+     */
+    public function expenseLedgerReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $category = $this->input->get_post('category');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getExpenseLedgerReport($period['start_time'], $period['end_time'], $category);
+
+        $categories = $this->finance_model->getExpenseCategory();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['categories'] = $categories;
+        $data['selected_category'] = $category;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'expense_ledger';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/expense_ledger_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 4. Expense Category Report
+     */
+    public function expenseCategoryReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getExpenseCategoryReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'expense_category';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/expense_category_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 5. Vendor / Supplier Payment Report
+     */
+    public function vendorPaymentReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $vendor = $this->input->get_post('vendor');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getVendorPaymentReport($period['start_time'], $period['end_time'], $vendor);
+
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $vendor_list = $this->db->query("SELECT DISTINCT pay_to FROM expense WHERE hospital_id = '$hospital_id' AND pay_to IS NOT NULL AND pay_to != '' ORDER BY pay_to ASC")->result();
+
+        $data = array();
+        $data['vendor_groups'] = $result['vendor_groups'];
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['vendor_list'] = $vendor_list;
+        $data['selected_vendor'] = $vendor;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'vendor_payment';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/vendor_payment_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 6. Employee Salary Report
+     */
+    public function employeeSalaryReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $year = $this->input->get_post('year') ?: date('Y');
+        $month = $this->input->get_post('month') ?: 'all';
+        $staff_id = $this->input->get_post('staff_id');
+
+        $result = $this->finance_model->getEmployeeSalaryReport($year, $month, $staff_id);
+
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $staff_list = $this->db->query("SELECT DISTINCT p.staff, u.username FROM payroll p LEFT JOIN users u ON u.id = p.staff WHERE p.hospital_id = '$hospital_id' ORDER BY u.username ASC")->result();
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['year'] = $year;
+        $data['month'] = $month;
+        $data['staff_list'] = $staff_list;
+        $data['selected_staff'] = $staff_id;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'employee_salary';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/employee_salary_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 7. Utility Bill Report
+     */
+    public function utilityBillReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_year';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $utility_cat = $this->input->get_post('utility_cat');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getUtilityBillReport($period['start_time'], $period['end_time'], $utility_cat);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['selected_utility_cat'] = $utility_cat;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'utility_bills';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/utility_bill_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 8. Asset Purchase Report
+     */
+    public function assetPurchaseReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_year';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getAssetPurchaseReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'asset_purchase';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/asset_purchase_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 9. Petty Cash Report
+     */
+    public function pettyCashReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getPettyCashReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'petty_cash';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/petty_cash_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 10. Cash Book Report
+     */
+    public function cashBookReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getCashBookReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'cash_book';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/cash_book_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 11. Bank Book Report
+     */
+    public function bankBookReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getBankBookReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'bank_book';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/bank_book_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 12. Expense Approval Report
+     */
+    public function expenseApprovalReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $result = $this->finance_model->getExpenseApprovalReport($period['start_time'], $period['end_time']);
+
+        $data = array();
+        $data['records'] = $result['records'];
+        $data['summary'] = $result['summary'];
+        $data['period'] = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+        $data['active_report'] = 'expense_approval';
+
+        $this->load->view('home/dashboard', $data);
+        $this->load->view('finance/expense_approval_report', $data);
         $this->load->view('home/footer');
     }
 

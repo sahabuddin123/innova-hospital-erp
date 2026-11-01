@@ -38,3 +38,4 @@ $current = !empty($active_report) ? $active_report : '';
         <i class="fas fa-balance-scale"></i> Collection Summary
     </a>
 </div>
+

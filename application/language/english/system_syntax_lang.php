@@ -2621,3 +2621,17 @@ $lang['refund_report'] = 'Refund Report';
 $lang['discount_report'] = 'Discount Audit Report';
 $lang['cashier_report'] = 'Cashier-wise Collection Report';
 $lang['collection_summary_report'] = 'Collection Summary Report';
+
+// Phase 3: Expense & Accounts Reporting Language Strings
+$lang['daily_expense_report'] = 'Daily Expense Report';
+$lang['monthly_expense_report'] = 'Monthly Expense Report';
+$lang['expense_ledger_report'] = 'Expense Ledger';
+$lang['expense_category_report'] = 'Expense Category Report';
+$lang['vendor_payment_report'] = 'Vendor Payment Report';
+$lang['employee_salary_report'] = 'Employee Salary Report';
+$lang['utility_bill_report'] = 'Utility Bill Report';
+$lang['asset_purchase_report'] = 'Asset Purchase Report';
+$lang['petty_cash_report'] = 'Petty Cash Report';
+$lang['cash_book_report'] = 'Cash Book';
+$lang['bank_book_report'] = 'Bank Book';
+$lang['expense_approval_report'] = 'Expense Approval Report';

@@ -819,6 +819,36 @@ $sidebar_hidden_modules = array(
                     <li class="nav-item"><a class="nav-link text-white" href="finance/dailyExpense"><i class="text-secondary nav-icon far fa-circle"></i>
                             <p><?php echo lang('daily_expense'); ?></p>
                         </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/expenseLedgerReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('expense_ledger_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/expenseCategoryReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('expense_category_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/vendorPaymentReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('vendor_payment_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/employeeSalaryReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('employee_salary_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/utilityBillReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('utility_bill_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/assetPurchaseReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('asset_purchase_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/pettyCashReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('petty_cash_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/cashBookReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('cash_book_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/bankBookReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('bank_book_report'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/expenseApprovalReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('expense_approval_report'); ?></p>
+                        </a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="finance/expenseVsIncome"><i class="text-secondary nav-icon far fa-circle"></i>
                             <p><?php echo lang('expense_vs_income'); ?></p>
                         </a></li>

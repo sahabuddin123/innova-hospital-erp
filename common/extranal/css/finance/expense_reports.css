@@ -1,0 +1,391 @@
+/**
+ * Lifecare Diagnostic Center - Expense & Accounts Reports Styling
+ * Phase 3 Implementation
+ */
+
+:root {
+    --rep-primary: #1e40af;
+    --rep-primary-light: #3b82f6;
+    --rep-success: #059669;
+    --rep-success-light: #10b981;
+    --rep-warning: #d97706;
+    --rep-danger: #dc2626;
+    --rep-purple: #7c3aed;
+    --rep-indigo: #4f46e5;
+    --rep-teal: #0d9488;
+    --rep-gray-50: #f8fafc;
+    --rep-gray-100: #f1f5f9;
+    --rep-gray-200: #e2e8f0;
+    --rep-gray-300: #cbd5e1;
+    --rep-gray-600: #475569;
+    --rep-gray-700: #334155;
+    --rep-gray-800: #1e293b;
+    --rep-gray-900: #0f172a;
+    --rep-radius: 12px;
+    --rep-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+}
+
+.rep-wrapper {
+    background-color: #f8fafc;
+    min-height: calc(100vh - 120px);
+    padding: 20px 24px 40px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--rep-gray-800);
+}
+
+/* Header & Filter Card */
+.rep-header-card {
+    background: #ffffff;
+    border-radius: var(--rep-radius);
+    padding: 20px 24px;
+    box-shadow: var(--rep-shadow);
+    margin-bottom: 24px;
+    border: 1px solid var(--rep-gray-200);
+}
+
+.rep-title h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--rep-gray-900);
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rep-title p {
+    font-size: 13px;
+    color: var(--rep-gray-600);
+    margin: 0;
+}
+
+.rep-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.rep-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: #ffffff;
+    border: 1px solid var(--rep-gray-300);
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--rep-gray-700);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+.rep-action-btn:hover {
+    background: var(--rep-gray-100);
+    color: var(--rep-primary);
+    border-color: var(--rep-primary-light);
+}
+
+/* Period Switcher Pills */
+.rep-controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rep-gray-200);
+}
+
+.rep-period-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--rep-gray-100);
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.rep-period-btn {
+    border: none;
+    background: transparent;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--rep-gray-700);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.rep-period-btn.active {
+    background: #ffffff;
+    color: var(--rep-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    font-weight: 700;
+}
+
+.rep-period-btn:hover:not(.active) {
+    color: var(--rep-primary);
+}
+
+.rep-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.rep-date-input, .rep-select {
+    padding: 6px 12px;
+    border: 1px solid var(--rep-gray-300);
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: var(--rep-gray-800);
+    background: #ffffff;
+}
+
+.rep-date-input:focus, .rep-select:focus {
+    outline: none;
+    border-color: var(--rep-primary-light);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.rep-filter-submit {
+    padding: 6px 16px;
+    background: var(--rep-primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.rep-filter-submit:hover {
+    background: #1d4ed8;
+}
+
+.rep-btn-clear {
+    padding: 6px 12px;
+    background: transparent;
+    color: var(--rep-gray-600);
+    border: 1px solid var(--rep-gray-300);
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.rep-btn-clear:hover {
+    background: var(--rep-gray-200);
+    color: var(--rep-gray-900);
+}
+
+/* KPI Summary Cards */
+.rep-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.rep-kpi-card {
+    background: #ffffff;
+    border-radius: var(--rep-radius);
+    padding: 18px 20px;
+    box-shadow: var(--rep-shadow);
+    border: 1px solid var(--rep-gray-200);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.rep-kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--rep-primary-light);
+}
+
+.rep-kpi-card.success::before { background: var(--rep-success-light); }
+.rep-kpi-card.danger::before { background: var(--rep-danger); }
+.rep-kpi-card.warning::before { background: var(--rep-warning); }
+.rep-kpi-card.info::before { background: var(--rep-teal); }
+.rep-kpi-card.purple::before { background: var(--rep-purple); }
+
+.rep-kpi-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--rep-gray-600);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rep-kpi-val {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--rep-gray-900);
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+
+.rep-kpi-sub {
+    font-size: 11.5px;
+    color: var(--rep-gray-600);
+}
+
+/* Table Card & DataTables */
+.rep-table-card {
+    background: #ffffff;
+    border-radius: var(--rep-radius);
+    padding: 20px 24px;
+    box-shadow: var(--rep-shadow);
+    border: 1px solid var(--rep-gray-200);
+    margin-bottom: 24px;
+}
+
+.rep-table {
+    width: 100% !important;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.rep-table thead th {
+    background-color: #f1f5f9;
+    color: var(--rep-gray-700);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11.5px;
+    letter-spacing: 0.5px;
+    padding: 12px 14px;
+    border-bottom: 2px solid var(--rep-gray-200);
+    white-space: nowrap;
+}
+
+.rep-table tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rep-gray-200);
+    vertical-align: middle;
+}
+
+.rep-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.rep-total-row {
+    background-color: #f1f5f9;
+    border-top: 2px solid var(--rep-gray-300);
+    font-weight: 800;
+}
+
+.rep-total-row td {
+    font-size: 13.5px;
+    padding: 12px 14px;
+}
+
+/* Submenu Tab Bar */
+.rep-nav-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #ffffff;
+    padding: 10px 14px;
+    border-radius: var(--rep-radius);
+    box-shadow: var(--rep-shadow);
+    border: 1px solid var(--rep-gray-200);
+    margin-bottom: 20px;
+    overflow-x: auto;
+}
+
+.rep-nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--rep-gray-700);
+    text-decoration: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.rep-nav-item:hover {
+    background: var(--rep-gray-100);
+    color: var(--rep-primary);
+    text-decoration: none;
+}
+
+.rep-nav-item.active {
+    background: #eff6ff;
+    color: var(--rep-primary);
+    border: 1px solid #bfdbfe;
+    font-weight: 700;
+}
+
+/* Print Specific Rules */
+@media print {
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-size: 11pt !important;
+    }
+    .rep-wrapper {
+        padding: 0 !important;
+        background: transparent !important;
+    }
+    .rep-header-card, .rep-table-card, .rep-kpi-card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        padding: 10px !important;
+        margin-bottom: 12px !important;
+        break-inside: avoid;
+    }
+    .rep-actions, .rep-period-pills, .rep-filter-group,
+    .dataTables_filter, .dataTables_length, .dataTables_paginate, .dataTables_info,
+    .rep-nav-bar, .d-print-none, .btn {
+        display: none !important;
+    }
+    .rep-title h2 {
+        font-size: 18pt !important;
+        color: #000000 !important;
+    }
+    .rep-table thead th {
+        background-color: #f2f2f2 !important;
+        color: #000000 !important;
+        border: 1px solid #ccc !important;
+        font-size: 9pt !important;
+        padding: 6px !important;
+    }
+    .rep-table tbody td {
+        border: 1px solid #ddd !important;
+        font-size: 9pt !important;
+        padding: 6px !important;
+    }
+    .rep-kpi-grid {
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 8px !important;
+    }
+    .rep-kpi-card {
+        border-left: 3px solid #333 !important;
+    }
+    .rep-kpi-val {
+        font-size: 16pt !important;
+    }
+    @page {
+        size: A4 portrait;
+        margin: 12mm 10mm;
+    }
+}
