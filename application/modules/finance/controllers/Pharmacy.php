@@ -481,17 +481,28 @@ class Pharmacy extends MX_Controller
     public function addExpenseCategory()
     {
         $id = $this->input->post('id');
-        $category = $this->input->post('category');
-        $description = $this->input->post('description');
+        $category = trim((string)$this->input->post('category'));
+        $description = trim((string)$this->input->post('description'));
+        if (empty($description)) {
+            $description = $category;
+        }
+        $is_ajax = $this->input->is_ajax_request() || $this->input->post('is_ajax') || $this->input->get('is_ajax');
 
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
         // Validating Category Name Field
         $this->form_validation->set_rules('category', 'Category', 'trim|required|min_length[1]|max_length[100]|xss_clean');
         // Validating Description Field
-        $data['settings'] = $this->settings_model->getSettings();
-        $this->form_validation->set_rules('description', 'Description', 'trim|required|min_length[1]|max_length[100]|xss_clean');
+        $this->form_validation->set_rules('description', 'Description', 'trim|max_length[255]|xss_clean');
         if ($this->form_validation->run() == FALSE) {
+            if ($is_ajax) {
+                echo json_encode(array(
+                    'status' => 'error',
+                    'message' => validation_errors() ?: 'Please provide a valid category name.'
+                ));
+                return;
+            }
+            $data['settings'] = $this->settings_model->getSettings();
             $this->load->view('home/dashboard', $data);
             $this->load->view('pharmacy/add_expense_category');
             $this->load->view('home/footer');
@@ -502,10 +513,28 @@ class Pharmacy extends MX_Controller
                 'description' => $description
             );
             if (empty($id)) {
-                $this->pharmacy_model->insertExpenseCategory($data);
+                $inserted_id = $this->pharmacy_model->insertExpenseCategory($data);
+                if ($is_ajax) {
+                    echo json_encode(array(
+                        'status' => 'success',
+                        'id' => $inserted_id,
+                        'category' => $category,
+                        'message' => 'Pharmacy category added successfully!'
+                    ));
+                    return;
+                }
                 show_swal(lang('pharmacy_expense_category_added'), 'success', lang('added'));
             } else {
                 $this->pharmacy_model->updateExpenseCategory($id, $data);
+                if ($is_ajax) {
+                    echo json_encode(array(
+                        'status' => 'success',
+                        'id' => $id,
+                        'category' => $category,
+                        'message' => 'Pharmacy category updated successfully!'
+                    ));
+                    return;
+                }
                 show_swal(lang('pharmacy_expense_category_updated'), 'success', lang('updated'));
             }
             redirect('finance/pharmacy/expenseCategory');

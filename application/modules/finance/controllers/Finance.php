@@ -1798,16 +1798,27 @@ class Finance extends MX_Controller
     public function addExpenseCategory()
     {
         $id = $this->input->post('id');
-        $category = $this->input->post('category');
-        $description = $this->input->post('description');
+        $category = trim((string)$this->input->post('category'));
+        $description = trim((string)$this->input->post('description'));
+        if (empty($description)) {
+            $description = $category;
+        }
+        $is_ajax = $this->input->is_ajax_request() || $this->input->post('is_ajax') || $this->input->get('is_ajax');
 
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
         // Validating Category Name Field
         $this->form_validation->set_rules('category', 'Category', 'trim|required|min_length[1]|max_length[100]|xss_clean');
         // Validating Description Field
-        $this->form_validation->set_rules('description', 'Description', 'trim|required|min_length[1]|max_length[100]|xss_clean');
+        $this->form_validation->set_rules('description', 'Description', 'trim|max_length[255]|xss_clean');
         if ($this->form_validation->run() == FALSE) {
+            if ($is_ajax) {
+                echo json_encode(array(
+                    'status' => 'error',
+                    'message' => validation_errors() ?: 'Please provide a valid category name.'
+                ));
+                return;
+            }
             if (!empty($id)) {
                 show_swal(lang('validation_error'), 'error', lang('error'));
                 redirect('finance/editExpenseCategory?id=' . $id);
@@ -1819,16 +1830,53 @@ class Finance extends MX_Controller
                 $this->load->view('home/footer');
             }
         } else {
-            $data = array();
+            $hospital_id = $this->session->userdata('hospital_id');
+            // Check if category already exists for this hospital
+            $existing = $this->db->get_where('expense_category', array(
+                'category' => $category,
+                'hospital_id' => $hospital_id
+            ))->row();
+
+            if (!empty($existing) && (empty($id) || $existing->id != $id)) {
+                if ($is_ajax) {
+                    echo json_encode(array(
+                        'status' => 'success',
+                        'already_exists' => true,
+                        'category' => $existing->category,
+                        'id' => $existing->id,
+                        'message' => 'Category already exists and has been selected!'
+                    ));
+                    return;
+                }
+            }
+
             $data = array(
                 'category' => $category,
                 'description' => $description
             );
             if (empty($id)) {
-                $this->finance_model->insertExpenseCategory($data);
+                $inserted_id = $this->finance_model->insertExpenseCategory($data);
+                if ($is_ajax) {
+                    echo json_encode(array(
+                        'status' => 'success',
+                        'id' => $inserted_id,
+                        'category' => $category,
+                        'message' => 'Category added successfully!'
+                    ));
+                    return;
+                }
                 show_swal(lang('added'), 'success', lang('added'));
             } else {
                 $this->finance_model->updateExpenseCategory($id, $data);
+                if ($is_ajax) {
+                    echo json_encode(array(
+                        'status' => 'success',
+                        'id' => $id,
+                        'category' => $category,
+                        'message' => 'Category updated successfully!'
+                    ));
+                    return;
+                }
                 show_swal(lang('updated'), 'success', lang('updated'));
             }
             redirect('finance/expenseCategory');
