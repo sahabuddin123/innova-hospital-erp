@@ -10,6 +10,9 @@ $expense_number = 'EXP-' . sprintf('%08d', $expense_id_raw);
 date_default_timezone_set('Asia/Dhaka');
 $invoice_date = !empty($expense->date) ? date('d/m/Y', $expense->date) : date('d/m/Y');
 $invoice_time = !empty($expense->date) ? date('h:i A', $expense->date) : date('h:i A');
+$bill_date = !empty($expense->bill_date) ? (is_numeric($expense->bill_date) ? date('d/m/Y', $expense->bill_date) : date('d/m/Y', strtotime($expense->bill_date))) : $invoice_date;
+$pay_to = !empty($expense->pay_to) ? $expense->pay_to : '';
+$payer_name = !empty($expense->payer_name) ? $expense->payer_name : '';
 $print_date = date('d/m/Y h:i A');
 
 // Cashier / Bill Creator Information (Resolve staff name by user ID)
@@ -308,28 +311,35 @@ if (!function_exists('invoiceAmountInWords')) {
                                 <td class="val font-monospace"><strong><?php echo $expense_number; ?></strong></td>
                             </tr>
                             <tr>
-                                <td class="lbl">Address</td>
+                                <td class="lbl">Pay To (Receiver)</td>
                                 <td class="sep">:</td>
-                                <td class="val"><?php echo html_escape($hospital_address); ?></td>
+                                <td class="val">
+                                    <strong style="color: #0f172a; font-size: 11.5px;"><?php echo !empty($pay_to) ? html_escape($pay_to) : '<span class="text-muted font-italic">-</span>'; ?></strong>
+                                </td>
+                                <td class="lbl">Bill Date</td>
+                                <td class="sep">:</td>
+                                <td class="val font-monospace"><strong><?php echo $bill_date; ?></strong></td>
+                            </tr>
+                            <tr>
+                                <td class="lbl">Payer (Purchaser)</td>
+                                <td class="sep">:</td>
+                                <td class="val">
+                                    <strong><?php echo !empty($payer_name) ? html_escape($payer_name) : html_escape($cashier_name); ?></strong>
+                                </td>
                                 <td class="lbl">Expense ID</td>
                                 <td class="sep">:</td>
                                 <td class="val font-monospace">#<?php echo $expense->id; ?></td>
                             </tr>
-                            <tr>
-                                <td class="lbl">Contact Phone</td>
-                                <td class="sep">:</td>
-                                <td class="val"><?php echo html_escape($phone_1); ?></td>
-                                <td class="lbl">Invoice Date</td>
-                                <td class="sep">:</td>
-                                <td class="val"><?php echo $invoice_date; ?></td>
-                            </tr>
                             <tr class="doctor-subrow">
                                 <td class="lbl">Expense Category</td>
                                 <td class="sep">:</td>
-                                <td class="val" colspan="4">
+                                <td class="val">
                                     <strong><?php echo html_escape($expense->category); ?></strong>
                                     <span class="doc-badge ml-2"><i class="fas fa-tag mr-1"></i> Hospital Operating Expense</span>
                                 </td>
+                                <td class="lbl">Invoice Date</td>
+                                <td class="sep">:</td>
+                                <td class="val"><?php echo $invoice_date; ?></td>
                             </tr>
                         </table>
                     </div>

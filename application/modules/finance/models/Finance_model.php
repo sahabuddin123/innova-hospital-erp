@@ -10,6 +10,22 @@ class Finance_model extends CI_model
     {
         parent::__construct();
         $this->load->database();
+        $this->ensureExpenseSchema();
+    }
+
+    private function ensureExpenseSchema()
+    {
+        if ($this->db->table_exists('expense')) {
+            if (!$this->db->field_exists('pay_to', 'expense')) {
+                $this->db->query("ALTER TABLE `expense` ADD COLUMN `pay_to` VARCHAR(255) NULL AFTER `note`");
+            }
+            if (!$this->db->field_exists('payer_name', 'expense')) {
+                $this->db->query("ALTER TABLE `expense` ADD COLUMN `payer_name` VARCHAR(255) NULL AFTER `pay_to`");
+            }
+            if (!$this->db->field_exists('bill_date', 'expense')) {
+                $this->db->query("ALTER TABLE `expense` ADD COLUMN `bill_date` VARCHAR(100) NULL AFTER `payer_name`");
+            }
+        }
     }
 
     function insertPayment($data)
@@ -864,6 +880,7 @@ class Finance_model extends CI_model
         $data1 = array('hospital_id' => $this->session->userdata('hospital_id'));
         $data2 = array_merge($data, $data1);
         $this->db->insert('expense', $data2);
+        return $this->db->insert_id();
     }
 
     function getExpense()

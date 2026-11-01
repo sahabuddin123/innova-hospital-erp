@@ -1661,20 +1661,31 @@ class Finance extends MX_Controller
     {
         $id = $this->input->post('id');
         $category = $this->input->post('category');
-        $date = time();
         $amount = $this->input->post('amount');
         $user = $this->ion_auth->get_user_id();
         $note = $this->input->post('note');
+        $pay_to = $this->input->post('pay_to');
+        $payer_name = $this->input->post('payer_name');
+        $bill_date = $this->input->post('bill_date');
+
+        if (!empty($bill_date)) {
+            $date = strtotime($bill_date . ' ' . date('H:i:s'));
+        } else {
+            $date = time();
+            $bill_date = date('Y-m-d');
+        }
+        $datestring = date('d/m/y', $date);
 
         $this->load->library('form_validation');
         $this->form_validation->set_error_delimiters('<div class="error">', '</div>');
 
-        // Validating Category Field
+        // Validating Fields
         $this->form_validation->set_rules('category', 'Category', 'trim|required|min_length[1]|max_length[100]|xss_clean');
-        // Validating Generic Name Field
         $this->form_validation->set_rules('amount', 'Amount', 'trim|required|min_length[1]|max_length[100]|xss_clean');
-        // Validating Note Field
-        $this->form_validation->set_rules('note', 'Note', 'trim|min_length[1]|max_length[100]|xss_clean');
+        $this->form_validation->set_rules('pay_to', 'Pay To', 'trim|max_length[255]|xss_clean');
+        $this->form_validation->set_rules('payer_name', 'Payer Name', 'trim|max_length[255]|xss_clean');
+        $this->form_validation->set_rules('bill_date', 'Bill Date', 'trim|max_length[100]|xss_clean');
+        $this->form_validation->set_rules('note', 'Note', 'trim|max_length[1000]|xss_clean');
 
         if ($this->form_validation->run() == FALSE) {
             if (!empty($id)) {
@@ -1695,9 +1706,12 @@ class Finance extends MX_Controller
                 $data = array(
                     'category' => $category,
                     'date' => $date,
-                    'datestring' => date('d/m/y', $date),
+                    'datestring' => $datestring,
                     'amount' => $amount,
                     'note' => $note,
+                    'pay_to' => $pay_to,
+                    'payer_name' => $payer_name,
+                    'bill_date' => $bill_date,
                     'user' => $user
                 );
             } else {
@@ -1705,17 +1719,23 @@ class Finance extends MX_Controller
                     'category' => $category,
                     'amount' => $amount,
                     'note' => $note,
+                    'pay_to' => $pay_to,
+                    'payer_name' => $payer_name,
+                    'bill_date' => $bill_date,
+                    'date' => $date,
+                    'datestring' => $datestring,
                     'user' => $user,
                 );
             }
             if (empty($id)) {
-                $this->finance_model->insertExpense($data);
+                $inserted_id = $this->finance_model->insertExpense($data);
                 show_swal(lang('new_expense_added_successfully'), 'success', lang('added'));
+                redirect('finance/expenseInvoice?id=' . $inserted_id);
             } else {
                 $this->finance_model->updateExpense($id, $data);
                 show_swal(lang('expense_updated_succcessfully'), 'success', lang('updated'));
+                redirect('finance/expenseInvoice?id=' . $id);
             }
-            redirect('finance/expense');
         }
     }
 
@@ -3524,10 +3544,22 @@ class Finance extends MX_Controller
             </div>';
 
 
+            $display_date = !empty($expense->bill_date) ? (is_numeric($expense->bill_date) ? date('d/m/Y', $expense->bill_date) : date('d/m/Y', strtotime($expense->bill_date))) : date('d/m/y', $expense->date);
+            $note_html = '';
+            if (!empty($expense->pay_to)) {
+                $note_html .= '<span class="badge badge-info mr-1" title="Pay To (Receiver)"><i class="fas fa-hand-holding-usd mr-1"></i>' . html_escape($expense->pay_to) . '</span><br>';
+            }
+            if (!empty($expense->payer_name)) {
+                $note_html .= '<small class="text-muted font-weight-bold mr-1" title="Payer (Purchaser)"><i class="fas fa-user-circle mr-1 text-primary"></i>' . html_escape($expense->payer_name) . '</small><br>';
+            }
+            if (!empty($expense->note)) {
+                $note_html .= html_escape($expense->note);
+            }
+
             $info[] = array(
                 $expense->category,
-                date('d/m/y', $expense->date),
-                $expense->note,
+                $display_date,
+                $note_html,
                 $settings->currency . '' . $expense->amount,
                 // $dropdownOptions
                 $options1 . ' ' . $options2 . ' ' . $options3,

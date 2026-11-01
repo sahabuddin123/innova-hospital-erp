@@ -10,6 +10,9 @@ $expense_number = 'EXP-' . sprintf('%08d', $expense_id_raw);
 date_default_timezone_set('Asia/Dhaka');
 $invoice_date = !empty($expense->date) ? date('d/m/Y', $expense->date) : date('d/m/Y');
 $invoice_time = !empty($expense->date) ? date('h:i A', $expense->date) : date('h:i A');
+$bill_date = !empty($expense->bill_date) ? (is_numeric($expense->bill_date) ? date('d/m/Y', $expense->bill_date) : date('d/m/Y', strtotime($expense->bill_date))) : $invoice_date;
+$pay_to = !empty($expense->pay_to) ? $expense->pay_to : '';
+$payer_name = !empty($expense->payer_name) ? $expense->payer_name : '';
 $print_date = date('d/m/Y h:i A');
 
 // Cashier / Bill Creator Information
@@ -398,36 +401,39 @@ body {
 <div class="info-box">
     <table class="info-table">
         <tr>
-            <td class="lbl" style="width: 18%;">Bill To</td>
+            <td class="lbl" style="width: 20%;">Bill To</td>
             <td style="width: 2%;">:</td>
-            <td style="width: 40%;"><strong><?php echo html_escape($hospital_title); ?></strong></td>
+            <td style="width: 38%;"><strong><?php echo html_escape($hospital_title); ?></strong></td>
             <td class="lbl" style="width: 18%;">Invoice No</td>
             <td style="width: 2%;">:</td>
             <td style="width: 20%;"><strong><?php echo $expense_number; ?></strong></td>
         </tr>
         <tr>
-            <td class="lbl">Address</td>
+            <td class="lbl">Pay To (Receiver)</td>
             <td>:</td>
-            <td><?php echo html_escape($hospital_address); ?></td>
+            <td><strong><?php echo !empty($pay_to) ? html_escape($pay_to) : '-'; ?></strong></td>
+            <td class="lbl">Bill Date</td>
+            <td>:</td>
+            <td><strong><?php echo $bill_date; ?></strong></td>
+        </tr>
+        <tr>
+            <td class="lbl">Payer (Purchaser)</td>
+            <td>:</td>
+            <td><strong><?php echo !empty($payer_name) ? html_escape($payer_name) : html_escape($cashier_name); ?></strong></td>
             <td class="lbl">Expense ID</td>
             <td>:</td>
             <td>#<?php echo $expense->id; ?></td>
         </tr>
         <tr>
-            <td class="lbl">Contact Phone</td>
-            <td>:</td>
-            <td><?php echo html_escape($phone_1); ?></td>
-            <td class="lbl">Invoice Date</td>
-            <td>:</td>
-            <td><?php echo $invoice_date; ?></td>
-        </tr>
-        <tr>
             <td class="lbl">Expense Category</td>
             <td>:</td>
-            <td colspan="4">
+            <td>
                 <strong><?php echo html_escape($expense->category); ?></strong>
                 <span class="doc-badge" style="margin-left: 6px;">Hospital Operating Expense</span>
             </td>
+            <td class="lbl">Invoice Date</td>
+            <td>:</td>
+            <td><?php echo $invoice_date; ?></td>
         </tr>
     </table>
 </div>

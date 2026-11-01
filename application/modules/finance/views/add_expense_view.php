@@ -38,67 +38,131 @@
     <section class="content py-5">
         <div class="container-fluid">
             <div class="row justify-content-center">
-                <div class="col-md-6">
-                    <div class="card shadow-lg border-0">
-                        <div class="card-body p-5">
+                <div class="col-lg-7 col-md-9">
+                    <div class="card shadow-lg border-0" style="border-radius: 12px; overflow: hidden;">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h5 class="card-title font-weight-bold mb-0 text-dark">
+                                <i class="fas fa-receipt mr-2 text-primary"></i>
+                                <?php echo !empty($expense->id) ? 'Update Expense Details' : 'New Expense Entry'; ?>
+                            </h5>
+                        </div>
+                        <div class="card-body p-4 p-md-5">
                             <?php echo validation_errors(); ?>
                             <form role="form" action="finance/addExpense" method="post" enctype="multipart/form-data">
-                                <div class="form-group mb-4">
-                                    <label class="text-uppercase text-sm"><?php echo lang('category'); ?> <span class="text-danger">*</span></label>
-                                    <select class="form-control form-control-lg select2" name="category" required="">
-                                        <?php foreach ($categories as $category) { ?>
-                                            <option value="<?php echo $category->category; ?>" <?php
-                                                                                                if (!empty($setval)) {
-                                                                                                    if ($category->category == set_value('category')) {
-                                                                                                        echo 'selected';
-                                                                                                    }
-                                                                                                }
-                                                                                                if (!empty($expense->category)) {
-                                                                                                    if ($category->category == $expense->category) {
-                                                                                                        echo 'selected';
-                                                                                                    }
-                                                                                                }
-                                                                                                ?>> <?php echo $category->category; ?> </option>
-                                        <?php } ?>
-                                    </select>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-4">
+                                            <label class="font-weight-bold text-uppercase text-xs text-muted mb-2"><?php echo lang('category'); ?> <span class="text-danger">*</span></label>
+                                            <select class="form-control form-control-lg select2" name="category" required style="width: 100%;">
+                                                <?php foreach ($categories as $category) { ?>
+                                                    <option value="<?php echo html_escape($category->category); ?>" <?php
+                                                        if (!empty($setval) && $category->category == set_value('category')) {
+                                                            echo 'selected';
+                                                        }
+                                                        if (!empty($expense->category) && $category->category == $expense->category) {
+                                                            echo 'selected';
+                                                        }
+                                                    ?>> <?php echo html_escape($category->category); ?> </option>
+                                                <?php } ?>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-4">
+                                            <label class="font-weight-bold text-uppercase text-xs text-muted mb-2"><?php echo lang('amount'); ?> <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text font-weight-bold text-primary"><?php echo $settings->currency ?? '৳'; ?></span>
+                                                </div>
+                                                <input type="number" step="0.01" class="form-control form-control-lg font-weight-bold" name="amount" placeholder="0.00" value='<?php
+                                                    if (!empty($setval)) {
+                                                        echo set_value('amount');
+                                                    } elseif (!empty($expense->amount)) {
+                                                        echo $expense->amount;
+                                                    }
+                                                ?>' required>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div class="form-group mb-4">
-                                    <label class="text-uppercase text-sm"><?php echo lang('amount'); ?> <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><?php echo $settings->currency; ?></span>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-4">
+                                            <label class="font-weight-bold text-uppercase text-xs text-muted mb-2">
+                                                <i class="far fa-calendar-alt mr-1 text-primary"></i> Bill Date <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="date" class="form-control form-control-lg" name="bill_date" value="<?php
+                                                if (!empty($setval)) {
+                                                    echo set_value('bill_date');
+                                                } elseif (!empty($expense->bill_date)) {
+                                                    echo date('Y-m-d', is_numeric($expense->bill_date) ? $expense->bill_date : strtotime($expense->bill_date));
+                                                } elseif (!empty($expense->date)) {
+                                                    echo date('Y-m-d', $expense->date);
+                                                } else {
+                                                    echo date('Y-m-d');
+                                                }
+                                            ?>" required>
                                         </div>
-                                        <input type="number" step="0.01" class="form-control form-control-lg" name="amount" value='<?php
-                                                                                                                                    if (!empty($setval)) {
-                                                                                                                                        echo set_value('amount');
-                                                                                                                                    }
-                                                                                                                                    if (!empty($expense->amount)) {
-                                                                                                                                        echo $expense->amount;
-                                                                                                                                    }
-                                                                                                                                    ?>' required="">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-4">
+                                            <label class="font-weight-bold text-uppercase text-xs text-muted mb-2">
+                                                <i class="fas fa-hand-holding-usd mr-1 text-success"></i> Pay To (Receiver / Vendor)
+                                            </label>
+                                            <input type="text" class="form-control form-control-lg" name="pay_to" placeholder="e.g. Nur Computer / Vendor Name" value="<?php
+                                                if (!empty($setval)) {
+                                                    echo set_value('pay_to');
+                                                } elseif (!empty($expense->pay_to)) {
+                                                    echo html_escape($expense->pay_to);
+                                                }
+                                            ?>">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group mb-4">
+                                            <label class="font-weight-bold text-uppercase text-xs text-muted mb-2">
+                                                <i class="fas fa-user-tag mr-1 text-info"></i> Payer Name (Purchaser)
+                                            </label>
+                                            <input type="text" class="form-control form-control-lg" name="payer_name" placeholder="e.g. Staff or Purchaser Name" value="<?php
+                                                if (!empty($setval)) {
+                                                    echo set_value('payer_name');
+                                                } elseif (!empty($expense->payer_name)) {
+                                                    echo html_escape($expense->payer_name);
+                                                }
+                                            ?>">
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="form-group mb-4">
-                                    <label class="text-uppercase text-sm"><?php echo lang('remarks'); ?></label>
-                                    <textarea class="form-control form-control-lg" name="note" rows="3"><?php
-                                                                                                        if (!empty($setval)) {
-                                                                                                            echo set_value('note');
-                                                                                                        }
-                                                                                                        if (!empty($expense->note)) {
-                                                                                                            echo $expense->note;
-                                                                                                        }
-                                                                                                        ?></textarea>
+                                    <label class="font-weight-bold text-uppercase text-xs text-muted mb-2">
+                                        <i class="fas fa-align-left mr-1 text-secondary"></i> <?php echo lang('remarks'); ?> / Description
+                                    </label>
+                                    <textarea class="form-control form-control-lg" name="note" rows="3" placeholder="Enter expense note, invoice reference or remarks..."><?php
+                                        if (!empty($setval)) {
+                                            echo set_value('note');
+                                        } elseif (!empty($expense->note)) {
+                                            echo html_escape($expense->note);
+                                        }
+                                    ?></textarea>
                                 </div>
 
                                 <input type="hidden" name="id" value='<?php
-                                                                        if (!empty($expense->id)) {
-                                                                            echo $expense->id;
-                                                                        }
-                                                                        ?>'>
+                                    if (!empty($expense->id)) {
+                                        echo $expense->id;
+                                    }
+                                ?>'>
 
-                                <button type="submit" name="submit" class="btn btn-primary btn-lg btn-block"><?php echo lang('submit'); ?></button>
+                                <div class="pt-2">
+                                    <button type="submit" name="submit" class="btn btn-primary btn-lg btn-block shadow-sm font-weight-bold py-3">
+                                        <i class="fas fa-check-circle mr-2"></i> <?php echo lang('submit'); ?>
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -107,9 +171,6 @@
         </div>
     </section>
 </div>
-
-
-
 
 <!--main content end-->
 <!--footer start-->
