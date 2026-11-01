@@ -198,8 +198,13 @@
       <!-- Right navbar links -->
       <ul class="navbar-nav ml-auto align-items-center">
 
-        <!-- Header Quick Action Buttons: New Invoice & Due Collection -->
+        <!-- Header Quick Action Buttons: Add Expense, New Invoice & Due Collection -->
         <?php if ($this->ion_auth->logged_in() && !$this->ion_auth->in_group(array('Patient', 'superadmin'))) { ?>
+          <li class="nav-item d-none d-sm-flex align-items-center mr-2">
+            <a href="finance/addExpenseView" class="nav-quick-btn nav-btn-expense" title="<?php echo lang('add_expense'); ?>">
+              <i class="fas fa-plus-circle mr-1"></i> Add Expense
+            </a>
+          </li>
           <li class="nav-item d-none d-sm-flex align-items-center mr-2">
             <a href="finance/addPaymentView" class="nav-quick-btn nav-btn-invoice" title="<?php echo lang('new_invoice'); ?>">
               <i class="fas fa-plus mr-1"></i> New Invoice
@@ -1286,6 +1291,17 @@
       text-decoration: none !important;
       border: none;
       cursor: pointer;
+    }
+    .nav-btn-expense {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #ffffff !important;
+      box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
+    }
+    .nav-btn-expense:hover {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+      color: #ffffff !important;
     }
     .nav-btn-invoice {
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
