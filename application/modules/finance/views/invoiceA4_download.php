@@ -391,7 +391,7 @@ body {
     margin-bottom: 5px;
 }
 .brand-title {
-    font-size: 11pt;
+    font-size: 12pt;
     font-weight: bold;
     color: #0f2942;
     text-transform: uppercase;
@@ -399,7 +399,7 @@ body {
 }
 .brand-bangla {
     font-family: freeserif, sans-serif;
-    font-size: 13.5pt;
+    font-size: 13pt;
     font-weight: bold;
     color: #0f766e;
     margin-top: 1px;
