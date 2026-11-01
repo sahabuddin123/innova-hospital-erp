@@ -308,6 +308,12 @@ $print_time = date('d/m/Y h:i A');
                             <td class="field-lbl">Authorized By:</td>
                             <td class="field-val"><?php echo html_escape($processor_name); ?></td>
                         </tr>
+                        <?php if (!empty($withdrawal->expense_id)) { ?>
+                            <tr>
+                                <td class="field-lbl">Expense Voucher:</td>
+                                <td class="field-val font-mono"><strong>EXP-<?php echo sprintf('%07d', $withdrawal->expense_id); ?></strong></td>
+                            </tr>
+                        <?php } ?>
                         <?php if (!empty($withdrawal->admin_notes)) { ?>
                             <tr>
                                 <td class="field-lbl">Notes:</td>

@@ -1042,6 +1042,9 @@ class Referral_model extends CI_Model
                     'processed_by' => $user_id
                 ));
 
+                // If an expense was created for this withdrawal, remove it
+                $this->removeWithdrawalExpense($wd);
+
                 $this->logAction('Withdrawal Rejected', $wd->withdrawal_id, 'Pending', 'Rejected (Refunded to balance)', $wd->hospital_id);
             }
         } elseif ($new_status == 'Paid') {
@@ -1079,6 +1082,9 @@ class Referral_model extends CI_Model
                 'processed_by' => $user_id
             ));
 
+            // Auto link or create expense entry
+            $this->linkWithdrawalToExpense($id, $user_id, $payment_reference);
+
             $this->logAction('Withdrawal Paid', $wd->withdrawal_id, $wd->status, 'Paid. Ref: ' . $payment_reference, $wd->hospital_id);
         } else {
             // Pending / Approved / Processing
@@ -1087,6 +1093,11 @@ class Referral_model extends CI_Model
                 'admin_notes' => $admin_notes,
                 'processed_by' => $user_id
             ));
+            if ($new_status == 'Approved') {
+                // Auto create expense on Approved
+                $this->linkWithdrawalToExpense($id, $user_id, $payment_reference);
+            }
+
             $this->logAction('Withdrawal Status Updated', $wd->withdrawal_id, $wd->status, $new_status, $wd->hospital_id);
         }
 
@@ -1102,6 +1113,163 @@ class Referral_model extends CI_Model
     // ==========================================
     // METRICS, STATEMENTS & REPORTS
     // ==========================================
+
+    /**
+     * Automatically links or generates an expense voucher under 'Ref Commission'
+     * whenever a referral withdrawal is approved or marked paid.
+     */
+    public function linkWithdrawalToExpense($id, $user_id = null, $payment_reference = '')
+    {
+        $wd = $this->getWithdrawalById($id);
+        if (empty($wd)) {
+            return null;
+        }
+
+        // 1. Ensure columns exist safely in both tables
+        if (!$this->db->field_exists('expense_id', 'referral_withdrawals')) {
+            $this->db->query("ALTER TABLE referral_withdrawals ADD COLUMN expense_id INT NULL DEFAULT NULL AFTER admin_notes");
+        }
+        if (!$this->db->field_exists('pay_to', 'expense')) {
+            $this->db->query("ALTER TABLE expense ADD COLUMN pay_to VARCHAR(255) NULL AFTER note");
+        }
+        if (!$this->db->field_exists('payer_name', 'expense')) {
+            $this->db->query("ALTER TABLE expense ADD COLUMN payer_name VARCHAR(255) NULL AFTER pay_to");
+        }
+        if (!$this->db->field_exists('bill_date', 'expense')) {
+            $this->db->query("ALTER TABLE expense ADD COLUMN bill_date VARCHAR(100) NULL AFTER payer_name");
+        }
+
+        // 2. Check if already linked
+        if (!empty($wd->expense_id)) {
+            $existing = $this->db->get_where('expense', array('id' => $wd->expense_id))->row();
+            if (!empty($existing)) {
+                if (!empty($payment_reference) && strpos($existing->note, 'Ref:') === false) {
+                    $updated_note = trim($existing->note . ' Ref: ' . $payment_reference);
+                    $this->db->where('id', $existing->id)->update('expense', array('note' => $updated_note));
+                }
+                return $existing->id;
+            }
+        }
+
+        // 3. Prevent duplicate: Check if an expense already exists with this withdrawal_id in note
+        $existing_by_note = $this->db->where('hospital_id', $wd->hospital_id)
+            ->like('note', $wd->withdrawal_id)
+            ->get('expense')
+            ->row();
+        if (!empty($existing_by_note)) {
+            $this->db->where('id', $wd->id)->update('referral_withdrawals', array('expense_id' => $existing_by_note->id));
+            return $existing_by_note->id;
+        }
+
+        // 4. Find category name (User confirmed: 'Ref Commission')
+        $cat_row = $this->db->where('hospital_id', $wd->hospital_id)
+            ->group_start()
+                ->where('category', 'Ref Commission')
+                ->or_like('category', 'Ref Commission')
+                ->or_like('category', 'Referral Commission')
+            ->group_end()
+            ->get('expense_category')
+            ->row();
+
+        if (!empty($cat_row)) {
+            $category_name = $cat_row->category;
+        } else {
+            // Check global / any hospital
+            $cat_any = $this->db->like('category', 'Ref Commission')->get('expense_category')->row();
+            if (!empty($cat_any)) {
+                $category_name = $cat_any->category;
+            } else {
+                $category_name = 'Ref Commission';
+                // Insert category for hospital so it appears in dropdowns
+                $this->db->insert('expense_category', array(
+                    'category' => 'Ref Commission',
+                    'description' => 'Referral Commission Payout',
+                    'hospital_id' => $wd->hospital_id
+                ));
+            }
+        }
+
+        // 5. Referrer info
+        $referrer = $this->db->get_where('referrer', array('id' => $wd->referrer_id))->row();
+        $ref_name = !empty($referrer->name) ? $referrer->name : (!empty($wd->referrer_name) ? $wd->referrer_name : 'Referrer #' . $wd->referrer_id);
+
+        // 6. Payer name (disburser/approver)
+        $payer_name = 'Hospital Administration';
+        $acting_user_id = !empty($user_id) ? $user_id : $this->session->userdata('user_id');
+        if (!empty($acting_user_id)) {
+            $staff_name = $this->getProcessorStaffName($acting_user_id);
+            if (!empty($staff_name) && $staff_name != 'Hospital Admin') {
+                $payer_name = $staff_name;
+            } else {
+                $u = $this->db->get_where('users', array('id' => $acting_user_id))->row();
+                if (!empty($u->username)) {
+                    $payer_name = $u->username;
+                }
+            }
+        }
+
+        // 7. Compose note
+        $note = $ref_name;
+        if (!empty($wd->account_number)) {
+            $note .= ' ' . $wd->account_number;
+        }
+        if (!empty($wd->payment_method)) {
+            $note .= ' (' . $wd->payment_method . ')';
+        }
+        if (!empty($payment_reference)) {
+            $note .= ' Ref: ' . $payment_reference;
+        } elseif (!empty($wd->payment_reference)) {
+            $note .= ' Ref: ' . $wd->payment_reference;
+        }
+        $note .= ' [' . $wd->withdrawal_id . ']';
+
+        $time_now = time();
+        $expense_data = array(
+            'category' => $category_name,
+            'date' => $time_now,
+            'datestring' => date('d/m/y', $time_now),
+            'bill_date' => date('Y-m-d', $time_now),
+            'amount' => floatval($wd->amount),
+            'pay_to' => $ref_name,
+            'payer_name' => $payer_name,
+            'note' => $note,
+            'user' => !empty($acting_user_id) ? $acting_user_id : 1,
+            'hospital_id' => $wd->hospital_id
+        );
+
+        $this->db->insert('expense', $expense_data);
+        $expense_id = $this->db->insert_id();
+
+        if (!empty($expense_id)) {
+            $this->db->where('id', $wd->id)->update('referral_withdrawals', array('expense_id' => $expense_id));
+        }
+
+        return $expense_id;
+    }
+
+    /**
+     * Removes auto-generated expense voucher if a withdrawal request is rejected.
+     */
+    public function removeWithdrawalExpense($wd)
+    {
+        if (is_numeric($wd)) {
+            $wd = $this->getWithdrawalById($wd);
+        }
+        if (empty($wd)) {
+            return;
+        }
+
+        if (!empty($wd->expense_id)) {
+            $this->db->where('id', $wd->expense_id)->delete('expense');
+            $this->db->where('id', $wd->id)->update('referral_withdrawals', array('expense_id' => null));
+        } else {
+            if (!empty($wd->withdrawal_id)) {
+                $this->db->where('hospital_id', $wd->hospital_id)
+                    ->like('note', $wd->withdrawal_id)
+                    ->delete('expense');
+            }
+        }
+    }
 
     function getDashboardMetrics($hospital_id = null)
     {

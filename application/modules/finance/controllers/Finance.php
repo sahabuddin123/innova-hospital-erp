@@ -1768,6 +1768,9 @@ class Finance extends MX_Controller
             if ($expense_details->hospital_id != $this->session->userdata('hospital_id')) {
                 redirect('home/permission');
             }
+            if ($this->db->table_exists('referral_withdrawals') && $this->db->field_exists('expense_id', 'referral_withdrawals')) {
+                $this->db->where('expense_id', $id)->update('referral_withdrawals', array('expense_id' => null));
+            }
         }
 
         $this->finance_model->deleteExpense($id);

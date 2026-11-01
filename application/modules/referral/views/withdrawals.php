@@ -89,6 +89,13 @@
                                                         <?php } elseif ($w->status == 'Rejected') { ?>
                                                             <span class="badge badge-danger px-2 py-1"><i class="fas fa-times"></i> Rejected</span>
                                                         <?php } ?>
+                                                        <?php if (!empty($w->expense_id)) { ?>
+                                                            <div class="mt-1">
+                                                                <a href="finance/expenseInvoice?id=<?php echo $w->expense_id; ?>" class="badge badge-light border text-info" title="View Auto Expense Voucher" target="_blank">
+                                                                    <i class="fas fa-receipt mr-1"></i>Expense #<?php echo $w->expense_id; ?>
+                                                                </a>
+                                                            </div>
+                                                        <?php } ?>
                                                     </td>
                                                     <td>
                                                         <?php if (!empty($w->payment_reference)) { ?>
@@ -195,10 +202,21 @@
                         <input type="text" class="form-control" name="account_number" placeholder="01XXXXXXXXX or Bank Account details" required>
                     </div>
 
-                    <div class="form-group mb-0">
+                    <div class="form-group mb-3">
                         <label class="font-weight-bold text-dark small text-uppercase">Notes</label>
                         <textarea class="form-control" name="notes" rows="2" placeholder="Optional notes..."></textarea>
                     </div>
+
+                    <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+                        <div class="form-group mb-0 p-2 rounded border bg-light">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="new_req_auto_approve" name="auto_approve" value="1">
+                                <label class="custom-control-label font-weight-bold text-primary small" for="new_req_auto_approve">
+                                    <i class="fas fa-magic mr-1"></i> Approve immediately &amp; auto-record to Expense (Ref Commission)
+                                </label>
+                            </div>
+                        </div>
+                    <?php } ?>
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
@@ -286,8 +304,8 @@
             } else if (action === 'Approved') {
                 header.addClass('bg-gradient-primary');
                 btn.addClass('btn-primary').text('Confirm Approval');
-                $('#statusActionMsg').html('Are you sure you want to <span class="text-primary">Approve</span> withdrawal <strong>#' + wid + '</strong>?');
-                $('#refDiv').hide();
+                $('#statusActionMsg').html('Are you sure you want to <span class="text-primary font-weight-bold">Approve</span> withdrawal <strong>#' + wid + '</strong>?<br><small class="text-success font-weight-bold"><i class="fas fa-magic mr-1"></i>An official expense voucher will be automatically recorded under &ldquo;Ref Commission&rdquo; category.</small>');
+                $('#refDiv').show();
             } else if (action === 'Rejected') {
                 header.addClass('bg-gradient-danger');
                 btn.addClass('btn-danger').text('Confirm Rejection');

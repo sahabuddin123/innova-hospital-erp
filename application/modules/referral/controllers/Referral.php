@@ -448,6 +448,8 @@ class Referral extends MX_Controller
         $payment_method = $this->input->post('payment_method');
         $account_number = trim((string)$this->input->post('account_number'));
         $notes = trim((string)$this->input->post('notes'));
+        $auto_approve = $this->input->post('auto_approve') ? true : false;
+        $payment_reference = trim((string)$this->input->post('payment_reference'));
 
         $hospital_id = $this->session->userdata('hospital_id');
         $user_id = $this->ion_auth->get_user_id();
@@ -459,7 +461,16 @@ class Referral extends MX_Controller
 
         $res = $this->referral_model->requestWithdrawal($referrer_id, $amount, $payment_method, $account_number, $notes, $user_id, $hospital_id);
         if ($res['status'] == 'success') {
-            show_swal($res['message'], 'success', 'Withdrawal Requested');
+            if ($auto_approve && !empty($res['id']) && $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) {
+                $app_res = $this->referral_model->updateWithdrawalStatus($res['id'], 'Approved', $notes, $payment_reference, $user_id);
+                if ($app_res['status'] == 'success') {
+                    show_swal('Withdrawal approved and automatically recorded to Expense (Ref Commission).', 'success', 'Approved & Recorded');
+                } else {
+                    show_swal($res['message'], 'success', 'Withdrawal Requested');
+                }
+            } else {
+                show_swal($res['message'], 'success', 'Withdrawal Requested');
+            }
         } else {
             show_swal($res['message'], 'error', 'Error');
         }
@@ -480,7 +491,11 @@ class Referral extends MX_Controller
 
         $res = $this->referral_model->updateWithdrawalStatus($id, $new_status, $admin_notes, $payment_reference, $user_id);
         if ($res['status'] == 'success') {
-            show_swal($res['message'], 'success', 'Status Updated');
+            $msg = $res['message'];
+            if ($new_status == 'Approved' || $new_status == 'Paid') {
+                $msg .= ' Added to Expense under Ref Commission.';
+            }
+            show_swal($msg, 'success', 'Status Updated');
         } else {
             show_swal($res['message'], 'error', 'Update Failed');
         }

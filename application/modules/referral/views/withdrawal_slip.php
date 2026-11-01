@@ -661,6 +661,13 @@ $print_time = date('d/m/Y h:i A');
                                         <td class="sep">:</td>
                                         <td class="val"><?php echo html_escape($processor_name); ?></td>
                                     </tr>
+                                    <?php if (!empty($withdrawal->expense_id)) { ?>
+                                        <tr>
+                                            <td class="lbl">Expense Voucher</td>
+                                            <td class="sep">:</td>
+                                            <td class="val"><a href="finance/expenseInvoice?id=<?php echo $withdrawal->expense_id; ?>" target="_blank" class="text-primary font-monospace" style="text-decoration: none;"><strong>EXP-<?php echo sprintf('%07d', $withdrawal->expense_id); ?></strong></a></td>
+                                        </tr>
+                                    <?php } ?>
                                     <?php if (!empty($withdrawal->admin_notes)) { ?>
                                         <tr>
                                             <td class="lbl">Remarks</td>

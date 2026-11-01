@@ -154,10 +154,21 @@
                         <input type="text" class="form-control" name="account_number" placeholder="e.g. 01XXXXXXXXX or Bank Account details" required>
                     </div>
 
-                    <div class="form-group mb-0">
+                    <div class="form-group mb-3">
                         <label class="font-weight-bold text-dark small text-uppercase">Notes</label>
                         <textarea class="form-control" name="notes" rows="2" placeholder="Optional notes..."></textarea>
                     </div>
+
+                    <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+                        <div class="form-group mb-0 p-2 rounded border bg-light">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="modal_auto_approve" name="auto_approve" value="1">
+                                <label class="custom-control-label font-weight-bold text-primary small" for="modal_auto_approve">
+                                    <i class="fas fa-magic mr-1"></i> Approve immediately &amp; auto-record to Expense (Ref Commission)
+                                </label>
+                            </div>
+                        </div>
+                    <?php } ?>
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
