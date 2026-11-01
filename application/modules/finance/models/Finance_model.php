@@ -2420,18 +2420,21 @@ class Finance_model extends CI_model
 
         // Payment Method Collection List
         $method_list = [];
-        $std_methods = ['Cash', 'bKash', 'Nagad', 'Rocket', 'Bank', 'Card'];
         $coll_total = $summary['total_collection'];
         $other_total = 0.00;
 
         foreach ($methods as $m_name => $m_amt) {
-            if (in_array($m_name, $std_methods)) {
-                $pct = ($coll_total > 0) ? round(($m_amt / $coll_total) * 100, 1) : 0.0;
-                $method_list[$m_name] = [
-                    'name' => $m_name,
-                    'amount' => $m_amt,
-                    'percentage' => $pct
-                ];
+            $m_clean = (strcasecmp($m_name, 'bkash') === 0) ? 'Bkash' : $m_name;
+            if (in_array($m_clean, ['Cash', 'Card', 'Bkash', 'Nagad', 'Rocket', 'Bank'])) {
+                if (!isset($method_list[$m_clean])) {
+                    $method_list[$m_clean] = [
+                        'name' => $m_clean,
+                        'amount' => 0.00,
+                        'percentage' => 0.0
+                    ];
+                }
+                $method_list[$m_clean]['amount'] += $m_amt;
+                $method_list[$m_clean]['percentage'] = ($coll_total > 0) ? round(($method_list[$m_clean]['amount'] / $coll_total) * 100, 1) : 0.0;
             } else {
                 $other_total += $m_amt;
             }
@@ -2447,7 +2450,7 @@ class Finance_model extends CI_model
 
         // Method collection summary cards
         $summary['cash_collection'] = isset($methods['Cash']) ? $methods['Cash'] : 0.00;
-        $summary['bkash_collection'] = isset($methods['bKash']) ? $methods['bKash'] : 0.00;
+        $summary['bkash_collection'] = (isset($methods['bKash']) ? $methods['bKash'] : 0.00) + (isset($methods['Bkash']) ? $methods['Bkash'] : 0.00);
         $summary['nagad_collection'] = isset($methods['Nagad']) ? $methods['Nagad'] : 0.00;
         $summary['rocket_collection'] = isset($methods['Rocket']) ? $methods['Rocket'] : 0.00;
         $summary['bank_collection'] = isset($methods['Bank']) ? $methods['Bank'] : 0.00;

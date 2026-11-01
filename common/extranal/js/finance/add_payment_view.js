@@ -1143,7 +1143,7 @@ $(document).ready(function () {
       $(".cardsubmit3").addClass("d-none");
       $("#amount_received").prop("required", false);
     }
-    if (v === "Cash") {
+    else {
       $(".insurance_div").addClass("hidden");
       $(".cardPayment").hide();
       $(".cashsubmit").removeClass("d-none");

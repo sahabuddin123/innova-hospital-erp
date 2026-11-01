@@ -564,7 +564,11 @@ $draft = isset($draft) ? $draft : null;
                                                                 <option value="Cash"> <?php echo lang('cash'); ?> </option>
                                                                 <!-- <option value="Insurance"> <?php echo lang('insurance'); ?> -->
                                                                 </option>
-                                                                <option value="Card"> <?php echo lang('card'); ?> </option>
+                                                                <option value="Card">Card</option>
+                                                                <option value="Bkash">Bkash</option>
+                                                                <option value="Nagad">Nagad</option>
+                                                                <option value="Bank">Bank</option>
+                                                                <option value="Others">Others</option>
                                                             <?php } ?>
 
                                                         </select>

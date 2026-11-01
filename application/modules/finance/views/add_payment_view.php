@@ -665,8 +665,12 @@ $can_create_referrer = $this->ion_auth->in_group(array('admin', 'superadmin', 'A
                                     <div class="checkout-field">
                                         <select class="form-control js-example-basic-single selecttype" id="selecttype" name="deposit_type" value=''>
                                             <?php if ($this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) { ?>
-                                                <option value="Cash" <?php if (!empty($payment->deposit_type) && $payment->deposit_type == 'Cash') { echo 'selected'; } ?>><?php echo lang('cash'); ?></option>
-                                                <option value="Card" <?php if (!empty($payment->deposit_type) && $payment->deposit_type == 'Card') { echo 'selected'; } ?>><?php echo lang('card'); ?></option>
+                                                <option value="Cash" <?php if (!empty($payment->deposit_type) && $payment->deposit_type == 'Cash') { echo 'selected'; } ?>>Cash</option>
+                                                <option value="Card" <?php if (!empty($payment->deposit_type) && $payment->deposit_type == 'Card') { echo 'selected'; } ?>>Card</option>
+                                                <option value="Bkash" <?php if (!empty($payment->deposit_type) && in_array(strtolower($payment->deposit_type), array('bkash', 'bkash'))) { echo 'selected'; } ?>>Bkash</option>
+                                                <option value="Nagad" <?php if (!empty($payment->deposit_type) && strtolower($payment->deposit_type) == 'nagad') { echo 'selected'; } ?>>Nagad</option>
+                                                <option value="Bank" <?php if (!empty($payment->deposit_type) && strtolower($payment->deposit_type) == 'bank') { echo 'selected'; } ?>>Bank</option>
+                                                <option value="Others" <?php if (!empty($payment->deposit_type) && in_array(strtolower($payment->deposit_type), array('others', 'other'))) { echo 'selected'; } ?>>Others</option>
                                             <?php } ?>
                                         </select>
                                     </div>

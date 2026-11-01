@@ -124,7 +124,7 @@ $(document).ready(function () {
       $(".cashsubmit").removeClass("d-none");
       $(".cardsubmit").addClass("d-none");
     }
-    if (v == "Cash") {
+    else {
       $(".insurance_div").addClass("hidden");
       $(".cardPayment").hide();
       $(".cashsubmit").removeClass("d-none");
@@ -150,7 +150,7 @@ $(document).ready(function () {
       $(".cashsubmit1").removeClass("hidden");
       $(".cardsubmit1").addClass("hidden");
     }
-    if (v == "Cash") {
+    else {
       $(".insurance_div1").addClass("hidden");
       $(".card1").hide();
       $(".cashsubmit1").removeClass("hidden");

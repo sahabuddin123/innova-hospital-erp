@@ -863,7 +863,11 @@ if (!function_exists('invoiceAmountInWords')) {
                         <label for="exampleInputEmail1"><?php echo lang('deposit_type'); ?></label>
                         <select class="form-control m-bot15 js-example-basic-single selecttype" id="selecttype" name="deposit_type" value=''>
                             <option value="Cash"><?php echo lang('cash'); ?> </option>
-                            <option value="Card"><?php echo lang('card'); ?> </option>
+                            <option value="Card">Card</option>
+                            <option value="Bkash">Bkash</option>
+                            <option value="Nagad">Nagad</option>
+                            <option value="Bank">Bank</option>
+                            <option value="Others">Others</option>
                         </select>
                     </div>
                     <input type="hidden" name="id" value='<?php echo $payment->id; ?>'>

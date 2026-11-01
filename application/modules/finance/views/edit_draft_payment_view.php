@@ -387,7 +387,11 @@
                                                         <select class="form-control form-control-lg m-bot15 js-example-basic-single selecttype" id="selecttype" name="deposit_type" value=''>
                                                             <?php if ($this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist'))) { ?>
                                                                 <option value="Cash"> <?php echo lang('cash'); ?> </option>
-                                                                <option value="Card"> <?php echo lang('card'); ?> </option>
+                                                                <option value="Card">Card</option>
+                                                                <option value="Bkash">Bkash</option>
+                                                                <option value="Nagad">Nagad</option>
+                                                                <option value="Bank">Bank</option>
+                                                                <option value="Others">Others</option>
                                                             <?php } ?>
 
                                                         </select>
