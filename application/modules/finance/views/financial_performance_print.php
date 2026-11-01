@@ -36,9 +36,9 @@ $is_print = !empty($print_mode);
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 16px;
+            margin-bottom: 10px;
             border-bottom: 2px solid #0f172a;
-            padding-bottom: 12px;
+            padding-bottom: 8px;
         }
         .header-table td {
             vertical-align: top;
@@ -66,7 +66,7 @@ $is_print = !empty($print_mode);
         }
         .statement-title-box {
             text-align: center;
-            margin: 14px 0 18px 0;
+            margin: 8px 0 12px 0;
         }
         .statement-title {
             font-size: 15px;
@@ -86,7 +86,7 @@ $is_print = !empty($print_mode);
         .columns-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
         }
         .columns-table > tbody > tr > td {
             vertical-align: top;
@@ -104,14 +104,14 @@ $is_print = !empty($print_mode);
         .section-box {
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
             overflow: hidden;
             background: #ffffff;
         }
         .section-box-header {
             background: #f1f5f9;
-            padding: 6px 10px;
-            font-size: 11px;
+            padding: 5px 8px;
+            font-size: 10.5px;
             font-weight: 700;
             text-transform: uppercase;
             color: #0f172a;
@@ -122,8 +122,8 @@ $is_print = !empty($print_mode);
             border-collapse: collapse;
         }
         .data-table td, .data-table th {
-            padding: 5px 8px;
-            font-size: 10.5px;
+            padding: 4px 7px;
+            font-size: 10px;
         }
         .data-table tr:not(:last-child) td {
             border-bottom: 1px solid #f1f5f9;
@@ -164,8 +164,8 @@ $is_print = !empty($print_mode);
         .signatures-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 36px;
-            margin-bottom: 16px;
+            margin-top: 18px;
+            margin-bottom: 8px;
         }
         .signatures-table td {
             width: 33.33%;
@@ -202,23 +202,32 @@ $is_print = !empty($print_mode);
             cursor: pointer;
         }
         @media print {
+            @page {
+                size: A4 portrait;
+                margin: 6mm 8mm 6mm 8mm;
+            }
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+            }
             .btn-print-bar { display: none !important; }
-            body { padding: 0 !important; background: #ffffff !important; }
-            .statement-wrap { border: none !important; padding: 0 !important; max-width: 100% !important; margin: 0 auto !important; }
-            .page-break {
-                page-break-before: always !important;
-                break-before: page !important;
-                height: 0 !important;
-                display: block !important;
-                visibility: hidden !important;
+            .statement-wrap {
+                border: none !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
             }
             .page-2 {
                 page-break-before: always !important;
                 break-before: page !important;
                 margin-top: 0 !important;
+                padding-top: 0 !important;
             }
             .test-detail-table tr {
                 page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
         }
         .page-2 {
@@ -262,10 +271,10 @@ $is_print = !empty($print_mode);
     </div>
 
     <!-- 2 Column Section Layout -->
-    <table class="columns-table">
+    <table class="columns-table" width="100%">
+        <!-- Row 1: 1. Invoice & Billing Summary (Left) & 3. Commission & Recovery (Right) -->
         <tr>
-            <!-- Left Column -->
-            <td>
+            <td width="50%" valign="top" style="padding-right: 6px;">
                 <!-- 1. Invoice & Billing Summary -->
                 <div class="section-box">
                     <div class="section-box-header">1. Invoice &amp; Billing Summary</div>
@@ -296,92 +305,8 @@ $is_print = !empty($print_mode);
                         </tr>
                     </table>
                 </div>
-
-                <!-- 2. Collection & Due Summary -->
-                <div class="section-box">
-                    <div class="section-box-header">2. Collection &amp; Due Summary</div>
-                    <table class="data-table">
-                        <tr class="highlight-row">
-                            <td>Total Collection</td>
-                            <td class="val-num" style="color: #16a34a;"><?php echo $currency . ' ' . number_format($summary['total_collection'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Cash Collection</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['cash_collection'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>bKash Collection</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['bkash_collection'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Nagad Collection</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['nagad_collection'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Bank Collection</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['bank_collection'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Card Collection</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['card_collection'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Other Collection</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['other_collection'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: 700; color: #dc2626;">Total Due</td>
-                            <td class="val-num" style="color: #dc2626; font-weight: 700;"><?php echo $currency . ' ' . number_format($summary['total_due'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td style="color: #64748b;">Previous Due Collected</td>
-                            <td class="val-num" style="color: #64748b;"><?php echo $currency . ' ' . number_format($summary['prev_due_collected'], 2); ?></td>
-                        </tr>
-                    </table>
-                </div>
-
-                <!-- 5. Profit Calculation -->
-                <div class="section-box">
-                    <div class="section-box-header">5. Profit Calculation</div>
-                    <table class="data-table">
-                        <tr>
-                            <td>Gross Billing</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['gross_billing'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>(-) Discount</td>
-                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['total_discount'], 2); ?></td>
-                        </tr>
-                        <tr style="background: #f8fafc; font-weight: 700;">
-                            <td>Net Billing</td>
-                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['net_billing'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>(-) Doctor Commission</td>
-                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['doctor_commission'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>(-) Referral Commission</td>
-                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['referral_commission'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td>(-) Hospital Expenses</td>
-                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['total_expenses'], 2); ?></td>
-                        </tr>
-                        <tr style="background: #dcfce7; font-weight: 800; font-size: 11.5px;">
-                            <td style="color: #166534;">NET PROFIT</td>
-                            <td class="val-num" style="color: #166534; font-size: 12px;"><?php echo $currency . ' ' . number_format($summary['net_profit'], 2); ?></td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: 700;">Net Margin %</td>
-                            <td class="val-num" style="font-weight: 700; color: #166534;"><?php echo number_format($summary['net_margin'], 2); ?>%</td>
-                        </tr>
-                    </table>
-                </div>
             </td>
-
-            <!-- Right Column -->
-            <td>
+            <td width="50%" valign="top" style="padding-left: 6px;">
                 <!-- 3. Commission & Recovery -->
                 <div class="section-box">
                     <div class="section-box-header">3. Commission &amp; Recovery</div>
@@ -427,7 +352,56 @@ $is_print = !empty($print_mode);
                         </tr>
                     </table>
                 </div>
+            </td>
+        </tr>
 
+        <!-- Row 2: 2. Collection & Due Summary (Left) & 4. Hospital Expenses (Right) -->
+        <tr>
+            <td width="50%" valign="top" style="padding-right: 6px;">
+                <!-- 2. Collection & Due Summary -->
+                <div class="section-box">
+                    <div class="section-box-header">2. Collection &amp; Due Summary</div>
+                    <table class="data-table">
+                        <tr class="highlight-row">
+                            <td>Total Collection</td>
+                            <td class="val-num" style="color: #16a34a;"><?php echo $currency . ' ' . number_format($summary['total_collection'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Cash Collection</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['cash_collection'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>bKash Collection</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['bkash_collection'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Nagad Collection</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['nagad_collection'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Bank Collection</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['bank_collection'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Card Collection</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['card_collection'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Other Collection</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['other_collection'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 700; color: #dc2626;">Total Due</td>
+                            <td class="val-num" style="color: #dc2626; font-weight: 700;"><?php echo $currency . ' ' . number_format($summary['total_due'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td style="color: #64748b;">Previous Due Collected</td>
+                            <td class="val-num" style="color: #64748b;"><?php echo $currency . ' ' . number_format($summary['prev_due_collected'], 2); ?></td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+            <td width="50%" valign="top" style="padding-left: 6px;">
                 <!-- 4. Hospital Expenses -->
                 <div class="section-box">
                     <div class="section-box-header">4. Hospital Expenses</div>
@@ -450,7 +424,52 @@ $is_print = !empty($print_mode);
                         </tr>
                     </table>
                 </div>
+            </td>
+        </tr>
 
+        <!-- Row 3: 5. Profit Calculation (Left) & 6. Payment Method Wise Collection (Right) -->
+        <tr>
+            <td width="50%" valign="top" style="padding-right: 6px;">
+                <!-- 5. Profit Calculation -->
+                <div class="section-box">
+                    <div class="section-box-header">5. Profit Calculation</div>
+                    <table class="data-table">
+                        <tr>
+                            <td>Gross Billing</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['gross_billing'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>(-) Discount</td>
+                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['total_discount'], 2); ?></td>
+                        </tr>
+                        <tr style="background: #f8fafc; font-weight: 700;">
+                            <td>Net Billing</td>
+                            <td class="val-num"><?php echo $currency . ' ' . number_format($summary['net_billing'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>(-) Doctor Commission</td>
+                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['doctor_commission'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>(-) Referral Commission</td>
+                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['referral_commission'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td>(-) Hospital Expenses</td>
+                            <td class="val-num" style="color: #dc2626;">- <?php echo $currency . ' ' . number_format($summary['total_expenses'], 2); ?></td>
+                        </tr>
+                        <tr style="background: #dcfce7; font-weight: 800; font-size: 11px;">
+                            <td style="color: #166534;">NET PROFIT</td>
+                            <td class="val-num" style="color: #166534; font-size: 11.5px;"><?php echo $currency . ' ' . number_format($summary['net_profit'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 700;">Net Margin %</td>
+                            <td class="val-num" style="font-weight: 700; color: #166534;"><?php echo number_format($summary['net_margin'], 2); ?>%</td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+            <td width="50%" valign="top" style="padding-left: 6px;">
                 <!-- 6. Payment Method Wise Collection -->
                 <div class="section-box">
                     <div class="section-box-header">6. Payment Method Wise Collection</div>
@@ -505,8 +524,6 @@ $is_print = !empty($print_mode);
         Computer Generated Financial Statement &bull; Lifecare Diagnostic Center &bull; Page 1 of 2
     </div>
 </div>
-
-<div class="page-break"></div>
 
 <!-- PAGE 2: DETAILED SERVICE & LAB TEST PERFORMANCE -->
 <div class="statement-wrap page-2">
