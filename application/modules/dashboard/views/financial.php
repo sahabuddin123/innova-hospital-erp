@@ -1,487 +1,499 @@
-<!-- Dashboard Styles -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<link rel="stylesheet" href="<?php echo base_url('application/modules/dashboard/views/css/dashboard.css'); ?>">
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+$currency = !empty($settings->currency) ? $settings->currency : '৳';
+$period_label = !empty($summary['period_label']) ? $summary['period_label'] : ucfirst(str_replace('_', ' ', $period_type));
+$prev_label = !empty($summary['prev_label']) ? $summary['prev_label'] : 'vs previous period';
+$trends = !empty($summary['trends']) ? $summary['trends'] : [];
+$date_from_val = !empty($summary['date_from']) ? $summary['date_from'] : date('Y-m-01');
+$date_to_val = !empty($summary['date_to']) ? $summary['date_to'] : date('Y-m-d');
+?>
+
+<!-- Financial Dashboard Styles & Chart.js -->
+<link rel="stylesheet" href="application/modules/dashboard/views/css/financial_dashboard.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-<style>
-    .dashboard-container {
-        padding: 20px;
-        background-color: #f8f9fa;
-        min-height: calc(100vh - 200px);
-    }
-        .metric-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            transition: transform 0.3s ease;
-        }
-        .metric-card:hover {
-            transform: translateY(-5px);
-        }
-        .metric-value {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        .metric-label {
-            color: #7f8c8d;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .metric-change {
-            font-size: 0.8rem;
-            margin-top: 5px;
-        }
-        .positive { color: #27ae60; }
-        .negative { color: #e74c3c; }
-        .warning { color: #f39c12; }
-        .chart-container {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .dashboard-header {
-            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-        }
-        .refresh-btn {
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        .refresh-btn:hover {
-            background: #2ecc71;
-        }
-        .payment-status {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-            background: #f8f9fa;
-        }
-        .payment-paid {
-            background: #d4edda;
-            border-left: 4px solid #27ae60;
-        }
-        .payment-pending {
-            background: #fff3cd;
-            border-left: 4px solid #f39c12;
-        }
-        .payment-overdue {
-            background: #f8d7da;
-            border-left: 4px solid #e74c3c;
-        }
-        .expense-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-            background: #f8f9fa;
-        }
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        .status-good { background-color: #27ae60; }
-        .status-warning { background-color: #f39c12; }
-        .status-danger { background-color: #e74c3c; }
-        .profit-margin {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-        .profit-positive { color: #27ae60; }
-        .profit-negative { color: #e74c3c; }
-    </style>
 
 <div class="content-wrapper">
-    <div class="container-fluid">
-        <div class="dashboard-container">
-        <!-- Dashboard Header -->
-        <div class="dashboard-header">
-            <div class="row">
-                <div class="col-md-8">
-                    <h1><i class="fas fa-chart-line"></i> Financial Dashboard</h1>
-                    <p>Live financial performance and revenue analytics</p>
+    <div class="fin-dashboard-wrapper">
+
+        <!-- Top Header & Controls -->
+        <div class="fin-top-header">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div class="fin-header-title">
+                    <h2>
+                        <i class="fas fa-chart-line text-primary"></i> 
+                        Centralized Financial Dashboard
+                    </h2>
+                    <p>
+                        <i class="far fa-hospital mr-1"></i> Lifecare Diagnostic Center &bull; 
+                        <span id="current_period_label" class="font-weight-bold text-dark"><?php echo html_escape($period_label); ?></span>
+                    </p>
                 </div>
-                <div class="col-md-4 text-right">
-                    <button class="refresh-btn" onclick="refreshDashboard()">
-                        <i class="fas fa-sync-alt"></i> Refresh Data
+                <div class="fin-actions-group">
+                    <button type="button" class="fin-action-btn btn-refresh" id="btn_refresh_dashboard" title="Refresh Dashboard">
+                        <i class="fas fa-sync-alt"></i> Refresh
                     </button>
+                    <button type="button" class="fin-action-btn" onclick="window.print()" title="Print Summary">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <a href="finance/exportFinancialReportPdf?period_type=<?php echo urlencode($period_type); ?>" class="fin-action-btn" target="_blank" title="Export PDF">
+                        <i class="fas fa-file-pdf text-danger"></i> PDF
+                    </a>
+                    <a href="finance/exportFinancialReportExcel?period_type=<?php echo urlencode($period_type); ?>" class="fin-action-btn" target="_blank" title="Export Excel">
+                        <i class="fas fa-file-excel text-success"></i> Excel
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="fin-filter-container">
+                <!-- Period Pills -->
+                <div class="fin-period-pills" id="period_pills">
+                    <button type="button" class="fin-period-btn <?php echo ($period_type === 'today') ? 'active' : ''; ?>" data-period="today">Today</button>
+                    <button type="button" class="fin-period-btn <?php echo ($period_type === 'yesterday') ? 'active' : ''; ?>" data-period="yesterday">Yesterday</button>
+                    <button type="button" class="fin-period-btn <?php echo ($period_type === 'this_week') ? 'active' : ''; ?>" data-period="this_week">This Week</button>
+                    <button type="button" class="fin-period-btn <?php echo ($period_type === 'this_month') ? 'active' : ''; ?>" data-period="this_month">This Month</button>
+                    <button type="button" class="fin-period-btn <?php echo ($period_type === 'last_month') ? 'active' : ''; ?>" data-period="last_month">Last Month</button>
+                    <button type="button" class="fin-period-btn <?php echo ($period_type === 'this_year') ? 'active' : ''; ?>" data-period="this_year">This Year</button>
+                    <button type="button" class="fin-period-btn <?php echo ($period_type === 'custom') ? 'active' : ''; ?>" data-period="custom">Custom Range</button>
+                </div>
+
+                <!-- Custom Date Range Controls -->
+                <div class="fin-custom-range-wrap" id="custom_range_container" style="<?php echo ($period_type === 'custom') ? '' : 'display:none;'; ?>">
+                    <span class="text-muted font-weight-bold" style="font-size: 12px;">From:</span>
+                    <input type="date" id="date_from_input" class="fin-date-picker" value="<?php echo html_escape($date_from_val); ?>">
+                    <span class="text-muted font-weight-bold" style="font-size: 12px;">To:</span>
+                    <input type="date" id="date_to_input" class="fin-date-picker" value="<?php echo html_escape($date_to_val); ?>">
+                    <button type="button" class="fin-btn-apply" id="btn_apply_custom">Apply</button>
                 </div>
             </div>
         </div>
 
-        <!-- Key Financial Metrics -->
-        <div class="row">
-            <div class="col-md-3">
-                <div class="metric-card">
-                    <div class="metric-value">$<?php echo number_format($revenue_metrics['todays_revenue']); ?></div>
-                    <div class="metric-label">Today's Revenue</div>
-                    <div class="metric-change positive">
-                        <i class="fas fa-arrow-up"></i> Today's revenue
+        <!-- 9 Core KPI Cards -->
+        <div class="fin-kpi-grid">
+            <!-- 1. Gross Billing -->
+            <div class="fin-kpi-card kpi-blue">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <?php $t = isset($trends['gross_billing']) ? $trends['gross_billing'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_gross_billing">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Gross Billing</div>
+                <div class="fin-kpi-value" id="kpi_gross_billing"><?php echo $currency; ?> <?php echo number_format($summary['gross_billing'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span>Total Test Invoices</span>
+                    <span class="fin-kpi-pill" id="kpi_total_invoices"><?php echo intval($summary['total_invoices']); ?> Invoices</span>
+                </div>
+            </div>
+
+            <!-- 2. Total Discount -->
+            <div class="fin-kpi-card kpi-rose">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-tags"></i></div>
+                    <?php $t = isset($trends['total_discount']) ? $trends['total_discount'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_total_discount">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Total Discount</div>
+                <div class="fin-kpi-value" id="kpi_total_discount"><?php echo $currency; ?> <?php echo number_format($summary['total_discount'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span>Patient & Referrer Deductions</span>
+                    <span class="fin-kpi-pill">Granted</span>
+                </div>
+            </div>
+
+            <!-- 3. Net Payable -->
+            <div class="fin-kpi-card kpi-cyan">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-receipt"></i></div>
+                    <?php $t = isset($trends['net_billing']) ? $trends['net_billing'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_net_billing">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Net Payable</div>
+                <div class="fin-kpi-value" id="kpi_net_billing"><?php echo $currency; ?> <?php echo number_format($summary['net_billing'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span>Gross - Discount</span>
+                    <span class="fin-kpi-pill">Net Demand</span>
+                </div>
+            </div>
+
+            <!-- 4. Total Collection -->
+            <div class="fin-kpi-card kpi-green">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                    <?php $t = isset($trends['total_collection']) ? $trends['total_collection'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_total_collection">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Total Collection</div>
+                <div class="fin-kpi-value" id="kpi_total_collection"><?php echo $currency; ?> <?php echo number_format($summary['total_collection'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span>Actual Received Deposits</span>
+                    <span class="fin-kpi-pill text-success font-weight-bold">Cleared Cash</span>
+                </div>
+            </div>
+
+            <!-- 5. Outstanding Due -->
+            <div class="fin-kpi-card kpi-amber">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-exclamation-circle"></i></div>
+                    <?php $t = isset($trends['total_due']) ? $trends['total_due'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_total_due">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Outstanding Due</div>
+                <div class="fin-kpi-value" id="kpi_total_due"><?php echo $currency; ?> <?php echo number_format($summary['total_due'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span>Uncollected Receivables</span>
+                    <span class="fin-kpi-pill text-warning font-weight-bold">Unpaid</span>
+                </div>
+            </div>
+
+            <!-- 6. Total Expenses -->
+            <div class="fin-kpi-card kpi-crimson">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-money-bill-wave"></i></div>
+                    <?php $t = isset($trends['total_expenses']) ? $trends['total_expenses'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_total_expenses">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Total Expenses</div>
+                <div class="fin-kpi-value" id="kpi_total_expenses"><?php echo $currency; ?> <?php echo number_format($summary['total_expenses'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span>Hospital Operating Outflow</span>
+                    <span class="fin-kpi-pill">Expenses</span>
+                </div>
+            </div>
+
+            <!-- 7. Doctor Commission -->
+            <div class="fin-kpi-card kpi-purple">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-user-md"></i></div>
+                    <?php $t = isset($trends['doctor_commission']) ? $trends['doctor_commission'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_doctor_commission">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Doctor Commission</div>
+                <div class="fin-kpi-value" id="kpi_doctor_commission"><?php echo $currency; ?> <?php echo number_format($summary['doctor_commission'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span id="kpi_doctor_paid_text">Paid: <?php echo $currency; ?> <?php echo number_format($summary['paid_doctor_comm'], 2); ?></span>
+                    <span class="fin-kpi-pill" id="kpi_doctor_pending_text">Pending: <?php echo $currency; ?> <?php echo number_format($summary['pending_doctor_comm'], 2); ?></span>
+                </div>
+            </div>
+
+            <!-- 8. Referral Commission -->
+            <div class="fin-kpi-card kpi-indigo">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-users-cog"></i></div>
+                    <?php $t = isset($trends['referral_commission']) ? $trends['referral_commission'] : ['dir' => 'neutral', 'text' => '0%']; ?>
+                    <span class="fin-trend-badge trend-<?php echo $t['dir']; ?>" id="trend_referral_commission">
+                        <?php echo ($t['dir'] === 'up') ? '&uarr;' : (($t['dir'] === 'down') ? '&darr;' : '&bull;'); ?> <?php echo $t['text']; ?>
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Referral Commission</div>
+                <div class="fin-kpi-value" id="kpi_referral_commission"><?php echo $currency; ?> <?php echo number_format($summary['referral_commission'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span id="kpi_ref_earned_text">Earned: <?php echo $currency; ?> <?php echo number_format($summary['earned_ref_comm'], 2); ?></span>
+                    <span class="fin-kpi-pill" id="kpi_ref_pending_text">Pending: <?php echo $currency; ?> <?php echo number_format($summary['pending_ref_comm'], 2); ?></span>
+                </div>
+            </div>
+
+            <!-- 9. Net Operating Profit -->
+            <div class="fin-kpi-card kpi-emerald">
+                <div class="fin-kpi-top">
+                    <div class="fin-kpi-icon"><i class="fas fa-chart-pie"></i></div>
+                    <span class="fin-trend-badge trend-up" id="kpi_net_margin_badge">
+                        Margin: <?php echo number_format($summary['net_margin'], 2); ?>%
+                    </span>
+                </div>
+                <div class="fin-kpi-label">Net Operating Profit</div>
+                <div class="fin-kpi-value text-success" id="kpi_net_profit"><?php echo $currency; ?> <?php echo number_format($summary['net_profit'], 2); ?></div>
+                <div class="fin-kpi-meta">
+                    <span>Net Revenue - Expenses - Comm</span>
+                    <span class="fin-kpi-pill text-success font-weight-bold">Operating Margin</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts & Analytics Row 1 -->
+        <div class="fin-chart-grid">
+            <!-- Main Trend Chart -->
+            <div class="fin-chart-card">
+                <div class="fin-chart-header">
+                    <h3><i class="fas fa-chart-area text-primary"></i> Financial Flow &amp; Collection Trend</h3>
+                    <div class="fin-chart-toggle">
+                        <button type="button" class="fin-toggle-btn active" id="btn_toggle_collections" data-mode="collection">Collections Only</button>
+                        <button type="button" class="fin-toggle-btn" id="btn_toggle_comparison" data-mode="comparison">Billing vs Collection vs Expense</button>
+                    </div>
+                </div>
+                <div class="fin-chart-body">
+                    <canvas id="mainTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Payment Method Distribution -->
+            <div class="fin-chart-card">
+                <div class="fin-chart-header">
+                    <h3><i class="fas fa-wallet text-success"></i> Payment Methods</h3>
+                </div>
+                <div class="fin-donut-wrapper">
+                    <div style="height: 190px; width: 100%;">
+                        <canvas id="paymentMethodChart"></canvas>
+                    </div>
+                    <div class="fin-method-list" id="payment_method_list">
+                        <?php 
+                        $method_colors = [
+                            'Cash' => '#10b981',
+                            'Card' => '#3b82f6',
+                            'Bkash' => '#e11d48',
+                            'Nagad' => '#f97316',
+                            'Rocket' => '#8b5cf6',
+                            'Bank' => '#06b6d4',
+                            'Others' => '#64748b'
+                        ];
+                        foreach ($methods as $m_name => $m_data): 
+                            $c = isset($method_colors[$m_name]) ? $method_colors[$m_name] : '#64748b';
+                        ?>
+                        <div class="fin-method-item">
+                            <span class="fin-method-badge">
+                                <span class="fin-method-dot" style="background-color: <?php echo $c; ?>;"></span>
+                                <?php echo html_escape($m_name); ?>
+                            </span>
+                            <span class="fin-method-val">
+                                <?php echo $currency; ?> <?php echo number_format($m_data['amount'], 2); ?>
+                                <small class="text-muted font-weight-normal">(<?php echo $m_data['percentage']; ?>%)</small>
+                            </span>
+                        </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="metric-card">
-                    <div class="metric-value">$<?php echo number_format($revenue_metrics['monthly_revenue']); ?></div>
-                    <div class="metric-label">Monthly Revenue</div>
-                    <div class="metric-change <?php echo $percentage_changes['revenue_change'] >= 0 ? 'positive' : 'negative'; ?>">
-                        <i class="fas fa-arrow-<?php echo $percentage_changes['revenue_change'] >= 0 ? 'up' : 'down'; ?>"></i> 
-                        <?php echo $percentage_changes['revenue_change'] >= 0 ? '+' : ''; ?><?php echo $percentage_changes['revenue_change']; ?>% from last month
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="metric-card">
-                    <div class="metric-value">$<?php echo number_format($revenue_metrics['outstanding_payments']); ?></div>
-                    <div class="metric-label">Outstanding Payments</div>
-                    <div class="metric-change <?php echo $revenue_metrics['outstanding_payments'] > 50000 ? 'warning' : 'positive'; ?>">
-                        <i class="fas fa-<?php echo $revenue_metrics['outstanding_payments'] > 50000 ? 'exclamation-triangle' : 'check-circle'; ?>"></i>
-                        <?php echo $revenue_metrics['outstanding_payments'] > 50000 ? 'High' : 'Normal'; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="metric-card">
-                    <div class="metric-value"><?php echo $profitability['profit_margin'] ?? 0; ?>%</div>
-                    <div class="metric-label">Profit Margin</div>
-                    <div class="metric-change positive">
-                        <i class="fas fa-chart-line"></i> Current margin
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <!-- Revenue Chart -->
-        <div class="row">
-            <div class="col-md-12">
-                <div class="chart-container">
-                    <h4><i class="fas fa-chart-line"></i> Revenue Trend (Last 12 Months)</h4>
-                    <canvas id="revenueChart" width="800" height="300"></canvas>
+        <!-- Charts & Analytics Row 2 -->
+        <div class="fin-chart-grid" style="grid-template-columns: 1fr 1fr;">
+            <!-- Expense Category Distribution -->
+            <div class="fin-chart-card">
+                <div class="fin-chart-header">
+                    <h3><i class="fas fa-receipt text-danger"></i> Expense Categories Breakdown</h3>
                 </div>
-            </div>
-        </div>
-
-        <!-- Payment Status and Cash Flow -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="chart-container">
-                    <h4><i class="fas fa-credit-card"></i> Payment Status Overview</h4>
-                    <div id="paymentStatusList">
-                        <div class="payment-status payment-paid">
-                            <div class="status-indicator status-good"></div>
-                            <div>
-                                <strong>Paid Today:</strong> $<?php echo number_format($payment_status['paid_today'] ?? 0); ?>
-                                <br><small><?php echo $payment_status['paid_count'] ?? 0; ?> transactions</small>
-                            </div>
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div style="height: 220px; width: 100%;">
+                            <canvas id="expenseCategoryChart"></canvas>
                         </div>
-                        <div class="payment-status payment-pending">
-                            <div class="status-indicator status-warning"></div>
-                            <div>
-                                <strong>Pending:</strong> $<?php echo number_format($payment_status['pending'] ?? 0); ?>
-                                <br><small><?php echo $payment_status['pending_count'] ?? 0; ?> transactions</small>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fin-method-list" id="expense_category_list" style="max-height: 220px; overflow-y: auto;">
+                            <?php 
+                            $tot_exp = floatval($summary['total_expenses']);
+                            if (!empty($expense_breakdown)):
+                                foreach ($expense_breakdown as $c_name => $c_amt):
+                                    $pct = ($tot_exp > 0) ? round(($c_amt / $tot_exp) * 100, 1) : 0;
+                            ?>
+                            <div class="fin-method-item">
+                                <span class="fin-method-badge">
+                                    <span class="fin-method-dot" style="background-color: #ef4444;"></span>
+                                    <?php echo html_escape($c_name); ?>
+                                </span>
+                                <span class="fin-method-val">
+                                    <?php echo $currency; ?> <?php echo number_format($c_amt, 2); ?>
+                                    <small class="text-muted font-weight-normal">(<?php echo $pct; ?>%)</small>
+                                </span>
                             </div>
-                        </div>
-                        <div class="payment-status payment-overdue">
-                            <div class="status-indicator status-danger"></div>
-                            <div>
-                                <strong>Overdue:</strong> $<?php echo number_format($payment_status['overdue'] ?? 0); ?>
-                                <br><small><?php echo $payment_status['overdue_count'] ?? 0; ?> transactions</small>
-                            </div>
+                            <?php 
+                                endforeach;
+                            else: 
+                            ?>
+                            <div class="text-muted text-center py-4">No expenses recorded for this period</div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="chart-container">
-                    <h4><i class="fas fa-coins"></i> Cash Flow Analysis</h4>
-                    <canvas id="cashFlowChart" width="400" height="200"></canvas>
+
+            <!-- Income vs Expense Bar Chart -->
+            <div class="fin-chart-card">
+                <div class="fin-chart-header">
+                    <h3><i class="fas fa-balance-scale text-primary"></i> Income vs Expense Summary</h3>
+                </div>
+                <div class="fin-chart-body" style="height: 220px;">
+                    <canvas id="incomeVsExpenseChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Expense Breakdown -->
-        <div class="row">
-            <div class="col-md-12">
-                <div class="chart-container">
-                    <h4><i class="fas fa-receipt"></i> Monthly Expense Breakdown</h4>
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div id="expenseBreakdownList">
-                                <?php foreach($expense_breakdown as $expense): ?>
-                                <div class="expense-item">
-                                    <div>
-                                        <strong><?php echo ucfirst($expense->category); ?></strong>
-                                    </div>
-                                    <div class="metric-value" style="font-size: 1.2rem;">
-                                        $<?php echo number_format($expense->total_amount); ?>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="chart-container">
-                                <h5><i class="fas fa-chart-pie"></i> Expense Distribution</h5>
-                                <canvas id="expenseChart" width="300" height="200"></canvas>
-                            </div>
-                        </div>
-                    </div>
+        <!-- Business Performance & Intelligence Tables Section -->
+        <div class="fin-tables-card">
+            <!-- Tab Navigation -->
+            <div class="fin-nav-tabs">
+                <button type="button" class="fin-tab-link active" data-tab="tab_diagnostic_tests">
+                    <i class="fas fa-microscope text-primary"></i> Top Performing Diagnostic Tests
+                </button>
+                <button type="button" class="fin-tab-link" data-tab="tab_doctor_commissions">
+                    <i class="fas fa-user-md text-purple"></i> Doctor Commission Summary
+                </button>
+                <button type="button" class="fin-tab-link" data-tab="tab_referral_commissions">
+                    <i class="fas fa-users-cog text-indigo"></i> Referral Commission Summary
+                </button>
+            </div>
+
+            <!-- Tab 1: Diagnostic Tests -->
+            <div class="fin-tab-pane active" id="tab_diagnostic_tests">
+                <div class="table-responsive">
+                    <table class="fin-table" id="table_diagnostic_tests">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Diagnostic Test / Service</th>
+                                <th class="text-center">Frequency (Qty)</th>
+                                <th class="text-right">Gross Billing</th>
+                                <th class="text-right">Discount</th>
+                                <th class="text-right">Net Billing</th>
+                                <th class="text-right">Ref. Commission</th>
+                                <th class="text-right">Hospital Net Share</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_diagnostic_tests">
+                            <?php 
+                            if (!empty($service_perf)):
+                                $rank = 1;
+                                foreach ($service_perf as $test):
+                                    $rank_class = ($rank <= 3) ? 'fin-rank-' . $rank : '';
+                            ?>
+                            <tr>
+                                <td><span class="fin-rank-badge <?php echo $rank_class; ?>"><?php echo $rank++; ?></span></td>
+                                <td class="font-weight-bold text-dark"><?php echo html_escape($test['name']); ?></td>
+                                <td class="text-center font-weight-bold"><?php echo intval($test['qty']); ?></td>
+                                <td class="text-right"><?php echo $currency; ?> <?php echo number_format($test['gross'], 2); ?></td>
+                                <td class="text-right text-danger">- <?php echo $currency; ?> <?php echo number_format($test['discount'], 2); ?></td>
+                                <td class="text-right font-weight-bold text-dark"><?php echo $currency; ?> <?php echo number_format($test['net'], 2); ?></td>
+                                <td class="text-right text-purple">- <?php echo $currency; ?> <?php echo number_format($test['ref_comm'], 2); ?></td>
+                                <td class="text-right font-weight-bold text-success"><?php echo $currency; ?> <?php echo number_format($test['hospital_net'], 2); ?></td>
+                            </tr>
+                            <?php 
+                                endforeach;
+                            else: 
+                            ?>
+                            <tr><td colspan="8" class="text-center py-4 text-muted">No diagnostic services recorded for this period</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 2: Doctor Commissions -->
+            <div class="fin-tab-pane" id="tab_doctor_commissions">
+                <div class="table-responsive">
+                    <table class="fin-table" id="table_doctor_commissions">
+                        <thead>
+                            <tr>
+                                <th>Doctor Name</th>
+                                <th class="text-center">Total Invoices</th>
+                                <th class="text-right">Total Billing</th>
+                                <th class="text-right">Commission Generated</th>
+                                <th class="text-right">Paid Commission</th>
+                                <th class="text-right">Pending Commission</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_doctor_commissions">
+                            <?php 
+                            if (!empty($doctor_breakdown)):
+                                foreach ($doctor_breakdown as $doc):
+                                    $is_clear = ($doc['pending_commission'] <= 0 && $doc['commission'] > 0);
+                            ?>
+                            <tr>
+                                <td class="font-weight-bold text-dark"><?php echo html_escape($doc['name']); ?></td>
+                                <td class="text-center"><?php echo intval($doc['invoices']); ?></td>
+                                <td class="text-right"><?php echo $currency; ?> <?php echo number_format($doc['billing'], 2); ?></td>
+                                <td class="text-right font-weight-bold text-purple"><?php echo $currency; ?> <?php echo number_format($doc['commission'], 2); ?></td>
+                                <td class="text-right text-success"><?php echo $currency; ?> <?php echo number_format($doc['paid_commission'], 2); ?></td>
+                                <td class="text-right text-warning font-weight-bold"><?php echo $currency; ?> <?php echo number_format($doc['pending_commission'], 2); ?></td>
+                                <td class="text-center">
+                                    <?php if ($doc['commission'] <= 0): ?>
+                                        <span class="badge-status badge-eligible">None</span>
+                                    <?php elseif ($is_clear): ?>
+                                        <span class="badge-status badge-paid">Fully Cleared</span>
+                                    <?php else: ?>
+                                        <span class="badge-status badge-pending">Pending</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php 
+                                endforeach;
+                            else: 
+                            ?>
+                            <tr><td colspan="7" class="text-center py-4 text-muted">No doctor commission records for this period</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 3: Referral Commissions -->
+            <div class="fin-tab-pane" id="tab_referral_commissions">
+                <div class="table-responsive">
+                    <table class="fin-table" id="table_referral_commissions">
+                        <thead>
+                            <tr>
+                                <th>Referrer Name</th>
+                                <th class="text-center">Patients Referred</th>
+                                <th class="text-center">Invoices</th>
+                                <th class="text-right">Referred Billing</th>
+                                <th class="text-right">Commission Earned</th>
+                                <th class="text-right">Pending Commission</th>
+                                <th class="text-right">Available Wallet Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_referral_commissions">
+                            <?php 
+                            if (!empty($referrer_breakdown)):
+                                foreach ($referrer_breakdown as $ref):
+                            ?>
+                            <tr>
+                                <td class="font-weight-bold text-dark"><?php echo html_escape($ref['name']); ?></td>
+                                <td class="text-center"><?php echo intval($ref['patient_count']); ?></td>
+                                <td class="text-center"><?php echo intval($ref['invoice_count']); ?></td>
+                                <td class="text-right"><?php echo $currency; ?> <?php echo number_format($ref['billing'], 2); ?></td>
+                                <td class="text-right text-success font-weight-bold"><?php echo $currency; ?> <?php echo number_format($ref['earned'], 2); ?></td>
+                                <td class="text-right text-warning font-weight-bold"><?php echo $currency; ?> <?php echo number_format($ref['pending'], 2); ?></td>
+                                <td class="text-right text-primary font-weight-bold"><?php echo $currency; ?> <?php echo number_format($ref['wallet_balance'], 2); ?></td>
+                            </tr>
+                            <?php 
+                                endforeach;
+                            else: 
+                            ?>
+                            <tr><td colspan="7" class="text-center py-4 text-muted">No referral commission records for this period</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- Profitability Analysis -->
-        <div class="row">
-            <div class="col-md-12">
-                <div class="chart-container">
-                    <h4><i class="fas fa-chart-bar"></i> Profitability Analysis</h4>
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="metric-card">
-                                <div class="metric-value">$<?php echo number_format($profitability['gross_profit'] ?? 0); ?></div>
-                                <div class="metric-label">Gross Profit</div>
-                                <div class="metric-change positive">
-                                    <i class="fas fa-chart-line"></i> Current month
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="metric-card">
-                                <div class="metric-value">$<?php echo number_format($profitability['net_profit'] ?? 0); ?></div>
-                                <div class="metric-label">Net Profit</div>
-                                <div class="metric-change positive">
-                                    <i class="fas fa-chart-line"></i> Current month
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="metric-card">
-                                <div class="metric-value profit-margin <?php echo ($profitability['profit_margin'] ?? 0) > 0 ? 'profit-positive' : 'profit-negative'; ?>">
-                                    <?php echo $profitability['profit_margin'] ?? 0; ?>%
-                                </div>
-                                <div class="metric-label">Profit Margin</div>
-                                <div class="metric-change positive">
-                                    <i class="fas fa-chart-line"></i> Current margin
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="metric-card">
-                                <div class="metric-value">$<?php echo number_format($profitability['roi'] ?? 0); ?></div>
-                                <div class="metric-label">ROI</div>
-                                <div class="metric-change positive">
-                                    <i class="fas fa-chart-line"></i> Current ROI
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Budget vs Actual -->
-        <div class="row">
-            <div class="col-md-12">
-                <div class="chart-container">
-                    <h4><i class="fas fa-balance-scale"></i> Budget vs Actual Performance</h4>
-                    <canvas id="budgetChart" width="800" height="300"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Financial Alerts -->
-        <div class="row">
-            <div class="col-md-12">
-                <div class="chart-container">
-                    <h4><i class="fas fa-exclamation-triangle"></i> Financial Alerts & Recommendations</h4>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <strong>High Outstanding:</strong> $<?php echo number_format($revenue_metrics['outstanding_payments']); ?> in unpaid invoices
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i>
-                                <strong>Budget Alert:</strong> 85% of monthly budget utilized
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="alert alert-success">
-                                <i class="fas fa-check-circle"></i>
-                                <strong>Positive Trend:</strong> Revenue up 12.3% this month
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="<?php echo base_url('application/modules/dashboard/views/js/dashboard.js'); ?>"></script>
-    <script>
-        // Revenue Trend Chart
-        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-        const revenueChart = new Chart(revenueCtx, {
-            type: 'line',
-            data: {
-                labels: <?php echo json_encode(array_column($revenue_data, 'month')); ?>,
-                datasets: [{
-                    label: 'Revenue',
-                    data: <?php echo json_encode(array_column($revenue_data, 'revenue')); ?>,
-                    borderColor: '#27ae60',
-                    backgroundColor: 'rgba(39, 174, 96, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // Expense Breakdown Chart
-        const expenseCtx = document.getElementById('expenseChart').getContext('2d');
-        const expenseChart = new Chart(expenseCtx, {
-            type: 'doughnut',
-            data: {
-                labels: <?php echo json_encode(array_column($expense_breakdown, 'category')); ?>,
-                datasets: [{
-                    data: <?php echo json_encode(array_column($expense_breakdown, 'total_amount')); ?>,
-                    backgroundColor: ['#e74c3c', '#f39c12', '#3498db', '#9b59b6', '#1abc9c', '#f1c40f', '#e67e22']
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-
-        // Cash Flow Chart
-        const cashFlowCtx = document.getElementById('cashFlowChart').getContext('2d');
-        const cashFlowChart = new Chart(cashFlowCtx, {
-            type: 'bar',
-            data: {
-                labels: <?php echo json_encode(array_column($cash_flow, 'date')); ?>,
-                datasets: [{
-                    label: 'Inflow',
-                    data: <?php echo json_encode(array_column($cash_flow, 'revenue')); ?>,
-                    backgroundColor: '#27ae60'
-                }, {
-                    label: 'Outflow',
-                    data: <?php echo json_encode(array_column($cash_flow, 'expenses')); ?>,
-                    backgroundColor: '#e74c3c'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // Budget vs Actual Chart
-        const budgetCtx = document.getElementById('budgetChart').getContext('2d');
-        const budgetChart = new Chart(budgetCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Revenue', 'Expenses'],
-                datasets: [{
-                    label: 'Budget',
-                    data: [<?php echo $budget_vs_actual['budgeted_revenue']; ?>, <?php echo $budget_vs_actual['budgeted_expenses']; ?>],
-                    backgroundColor: '#3498db'
-                }, {
-                    label: 'Actual',
-                    data: [<?php echo $budget_vs_actual['actual_revenue']; ?>, <?php echo $budget_vs_actual['actual_expenses']; ?>],
-                    backgroundColor: '#27ae60'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // Auto-refresh function
-        function refreshDashboard() {
-            location.reload();
-        }
-
-        // Auto-refresh every 5 minutes for financial data
-        setInterval(refreshDashboard, 300000);
-
-        // Real-time updates for critical financial metrics
-        setInterval(function() {
-            fetch('dashboard/getRealTimeMetrics', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'dashboard_type=financial'
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Update financial metrics without full page refresh
-                console.log('Financial metrics updated:', data);
-            });
-        }, 60000); // Update every minute
-    </script>
-        </div>
     </div>
 </div>
+
+<!-- Embedded Server State & Dynamic Chart Setup Script -->
+<script>
+window.financialDashboardData = {
+    currency: <?php echo json_encode($currency); ?>,
+    periodType: <?php echo json_encode($period_type); ?>,
+    chartData: <?php echo json_encode($chart_data); ?>,
+    summary: <?php echo json_encode($summary); ?>,
+    methods: <?php echo json_encode($methods); ?>,
+    expenseBreakdown: <?php echo json_encode($expense_breakdown); ?>
+};
+</script>
+
+<script src="<?php echo base_url('application/modules/dashboard/views/js/financial_dashboard.js'); ?>"></script>

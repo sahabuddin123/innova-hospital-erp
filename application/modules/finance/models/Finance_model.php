@@ -1924,13 +1924,14 @@ class Finance_model extends CI_model
      * LIFECARE HOSPITAL - Financial Performance & Profit/Loss Report Data Aggregator
      * Supports Daily, Weekly, Monthly, Yearly reporting with 100% database-driven reconciliation.
      */
-    public function getFinancialPerformanceReportData($period_type = 'monthly', $selected_date = null, $date_from = null, $date_to = null, $hospital_id = null)
+    public function getFinancialPerformanceReportData($period_type = 'this_month', $selected_date = null, $date_from = null, $date_to = null, $hospital_id = null)
     {
         if (empty($hospital_id)) {
             $hospital_id = $this->session->userdata('hospital_id');
         }
         if (empty($hospital_id)) {
-            $hospital_id = 1;
+            $h_row = $this->db->select('id')->order_by('id', 'ASC')->limit(1)->get('hospital')->row();
+            $hospital_id = $h_row ? $h_row->id : 1;
         }
 
         $this->db->reset_query();
@@ -1941,45 +1942,75 @@ class Finance_model extends CI_model
             $selected_date = $today_str;
         }
 
-        if ($period_type == 'daily') {
-            $selected_date = date('Y-m-d', strtotime($selected_date));
-            $start_time = strtotime($selected_date . ' 00:00:00');
-            $end_time = strtotime($selected_date . ' 23:59:59');
+        $norm_period = strtolower(trim($period_type));
+        if ($norm_period === 'today' || $norm_period === 'daily') {
+            $target_d = (!empty($selected_date) && $norm_period === 'daily') ? date('Y-m-d', strtotime($selected_date)) : $today_str;
+            $start_time = strtotime($target_d . ' 00:00:00');
+            $end_time = strtotime($target_d . ' 23:59:59');
             $prev_start = $start_time - 86400;
             $prev_end = $end_time - 86400;
-            $period_label = date('d F Y', $start_time);
-            $prev_label = 'vs previous day';
-        } elseif ($period_type == 'weekly') {
-            if (!empty($date_from) && !empty($date_to)) {
-                $start_time = strtotime(date('Y-m-d 00:00:00', strtotime($date_from)));
-                $end_time = strtotime(date('Y-m-d 23:59:59', strtotime($date_to)));
-                $span = $end_time - $start_time + 1;
-                $prev_start = $start_time - $span;
-                $prev_end = $start_time - 1;
-                $selected_date = date('Y-m-d', $start_time);
-            } else {
-                $ts = strtotime($selected_date);
-                $w_start = strtotime('monday this week', $ts);
-                if ($w_start > $ts) {
-                    $w_start = strtotime('-7 days', $w_start);
-                }
-                $start_time = strtotime(date('Y-m-d 00:00:00', $w_start));
-                $end_time = $start_time + (7 * 86400) - 1;
-                $prev_start = $start_time - (7 * 86400);
-                $prev_end = $start_time - 1;
+            $period_label = 'Today (' . date('d M Y', $start_time) . ')';
+            $prev_label = 'vs yesterday';
+            $period_type = 'today';
+        } elseif ($norm_period === 'yesterday') {
+            $start_time = strtotime(date('Y-m-d 00:00:00', strtotime('-1 day')));
+            $end_time = strtotime(date('Y-m-d 23:59:59', strtotime('-1 day')));
+            $prev_start = $start_time - 86400;
+            $prev_end = $end_time - 86400;
+            $period_label = 'Yesterday (' . date('d M Y', $start_time) . ')';
+            $prev_label = 'vs day before';
+            $period_type = 'yesterday';
+        } elseif ($norm_period === 'this_week' || $norm_period === 'weekly') {
+            $ts = strtotime($selected_date);
+            $w_start = strtotime('monday this week', $ts);
+            if ($w_start > $ts) {
+                $w_start = strtotime('-7 days', $w_start);
             }
-            $period_label = date('d M Y', $start_time) . ' - ' . date('d M Y', $end_time);
+            $start_time = strtotime(date('Y-m-d 00:00:00', $w_start));
+            $end_time = $start_time + (7 * 86400) - 1;
+            $prev_start = $start_time - (7 * 86400);
+            $prev_end = $start_time - 1;
+            $period_label = 'This Week (' . date('d M', $start_time) . ' - ' . date('d M Y', $end_time) . ')';
             $prev_label = 'vs previous week';
-        } elseif ($period_type == 'yearly') {
+            $period_type = 'this_week';
+        } elseif ($norm_period === 'last_month') {
+            $first_day_last_month = date('Y-m-01', strtotime('first day of last month'));
+            $ts = strtotime($first_day_last_month);
+            $start_time = strtotime(date('Y-m-01 00:00:00', $ts));
+            $end_time = strtotime(date('Y-m-t 23:59:59', $ts));
+            $prev_start = strtotime(date('Y-m-01 00:00:00', strtotime('-1 month', $start_time)));
+            $prev_end = strtotime(date('Y-m-t 23:59:59', $prev_start));
+            $period_label = 'Last Month (' . date('F Y', $start_time) . ')';
+            $prev_label = 'vs month prior';
+            $period_type = 'last_month';
+        } elseif ($norm_period === 'this_year' || $norm_period === 'yearly') {
             $year = date('Y', strtotime($selected_date));
             $start_time = strtotime($year . '-01-01 00:00:00');
             $end_time = strtotime($year . '-12-31 23:59:59');
             $prev_start = strtotime(($year - 1) . '-01-01 00:00:00');
             $prev_end = strtotime(($year - 1) . '-12-31 23:59:59');
-            $period_label = $year;
+            $period_label = 'Year ' . $year;
             $prev_label = 'vs previous year';
+            $period_type = 'this_year';
+        } elseif ($norm_period === 'custom' || (!empty($date_from) && !empty($date_to))) {
+            $d_from = preg_replace('/(\\d{2})\\/(\\d{2})\\/(\\d{4})/', '$3-$2-$1', $date_from);
+            $d_to = preg_replace('/(\\d{2})\\/(\\d{2})\\/(\\d{4})/', '$3-$2-$1', $date_to);
+            $start_time = strtotime(date('Y-m-d 00:00:00', strtotime($d_from)));
+            $end_time = strtotime(date('Y-m-d 23:59:59', strtotime($d_to)));
+            if ($end_time < $start_time) {
+                $tmp = $start_time;
+                $start_time = $end_time;
+                $end_time = $tmp + 86399;
+            }
+            $span = $end_time - $start_time + 1;
+            $prev_start = $start_time - $span;
+            $prev_end = $start_time - 1;
+            $period_label = date('d M Y', $start_time) . ' - ' . date('d M Y', $end_time);
+            $days = max(1, round($span / 86400));
+            $prev_label = 'vs previous ' . $days . ' days';
+            $period_type = 'custom';
         } else {
-            $period_type = 'monthly';
+            // Default: this_month / monthly
             $ts = strtotime($selected_date);
             $start_time = strtotime(date('Y-m-01 00:00:00', $ts));
             $end_time = strtotime(date('Y-m-t 23:59:59', $ts));
@@ -1987,6 +2018,7 @@ class Finance_model extends CI_model
             $prev_end = strtotime(date('Y-m-t 23:59:59', $prev_start));
             $period_label = date('F Y', $start_time);
             $prev_label = 'vs previous month';
+            $period_type = 'this_month';
         }
 
         // Run Aggregation Engine for Target Period
@@ -2001,16 +2033,31 @@ class Finance_model extends CI_model
         $current_data['summary']['period_label'] = $period_label;
         $current_data['summary']['start_time'] = $start_time;
         $current_data['summary']['end_time'] = $end_time;
+        $current_data['summary']['date_from'] = date('Y-m-d', $start_time);
+        $current_data['summary']['date_to'] = date('Y-m-d', $end_time);
         $current_data['summary']['date_from_formatted'] = date('d/m/Y', $start_time);
         $current_data['summary']['date_to_formatted'] = date('d/m/Y', $end_time);
         $current_data['summary']['prev_label'] = $prev_label;
 
-        // Card trend badges
-        $cards = ['total_invoices', 'gross_billing', 'total_discount', 'net_billing', 'total_collection', 'total_due', 'doctor_commission', 'referral_commission', 'total_expenses', 'gross_profit', 'net_profit', 'net_margin'];
+        // Card trend badges (all 9 KPIs)
+        $cards = [
+            'gross_billing',
+            'total_discount',
+            'net_billing',
+            'total_collection',
+            'total_due',
+            'total_expenses',
+            'doctor_commission',
+            'referral_commission',
+            'net_profit',
+            'total_invoices',
+            'gross_profit',
+            'net_margin'
+        ];
         $trends = [];
         foreach ($cards as $c) {
-            $curr_val = floatval($current_data['summary'][$c]);
-            $p_val = floatval($prev_data['summary'][$c]);
+            $curr_val = isset($current_data['summary'][$c]) ? floatval($current_data['summary'][$c]) : 0.0;
+            $p_val = isset($prev_data['summary'][$c]) ? floatval($prev_data['summary'][$c]) : 0.0;
             if ($p_val > 0) {
                 $pct = round((($curr_val - $p_val) / $p_val) * 100, 1);
                 $dir = ($pct >= 0) ? 'up' : 'down';
@@ -2027,15 +2074,24 @@ class Finance_model extends CI_model
     }
 
     /**
-     * Internal period calculator engine: provides exact reconciliation
+     * Internal period calculator engine: provides exact reconciliation and 100% database accuracy
      */
     protected function _calculateFinancialPeriod($start_time, $end_time, $period_type, $hospital_id)
     {
         $this->db->reset_query();
 
-        // 1. Initialize Breakdown slots
+        // 1. Determine slot granularity: hourly, daily, or monthly
+        $span_seconds = $end_time - $start_time + 1;
+        $slot_type = 'daily';
+        if (in_array($period_type, ['today', 'yesterday', 'daily']) || ($period_type === 'custom' && $span_seconds <= 86400)) {
+            $slot_type = 'hourly';
+        } elseif (in_array($period_type, ['this_year', 'yearly']) || ($period_type === 'custom' && $span_seconds > 45 * 86400)) {
+            $slot_type = 'monthly';
+        }
+
+        // Initialize Breakdown slots
         $breakdown = [];
-        if ($period_type == 'daily') {
+        if ($slot_type === 'hourly') {
             for ($h = 0; $h < 24; $h++) {
                 $slot_key = sprintf('%02d:00', $h);
                 $breakdown[$slot_key] = [
@@ -2046,33 +2102,46 @@ class Finance_model extends CI_model
                     'expense' => 0.00, 'net_profit' => 0.00
                 ];
             }
-        } elseif ($period_type == 'weekly' || $period_type == 'monthly') {
+        } elseif ($slot_type === 'monthly') {
+            $m_cur = strtotime(date('Y-m-01', $start_time));
+            while ($m_cur <= $end_time) {
+                $slot_key = date('Y-m', $m_cur);
+                $breakdown[$slot_key] = [
+                    'key' => $slot_key,
+                    'label' => date('M Y', $m_cur),
+                    'invoices' => 0, 'gross_billing' => 0.00, 'discount' => 0.00, 'net_billing' => 0.00,
+                    'collection' => 0.00, 'due' => 0.00, 'doctor_comm' => 0.00, 'referral_comm' => 0.00,
+                    'expense' => 0.00, 'net_profit' => 0.00
+                ];
+                $m_cur = strtotime('+1 month', $m_cur);
+            }
+        } else {
+            // Daily slots
             $cur = $start_time;
             while ($cur <= $end_time) {
                 $slot_key = date('Y-m-d', $cur);
                 $breakdown[$slot_key] = [
                     'key' => $slot_key,
-                    'label' => ($period_type == 'weekly') ? date('D, d M', $cur) : date('d M', $cur),
+                    'label' => ($period_type === 'this_week' || $period_type === 'weekly') ? date('D, d M', $cur) : date('d M', $cur),
                     'invoices' => 0, 'gross_billing' => 0.00, 'discount' => 0.00, 'net_billing' => 0.00,
                     'collection' => 0.00, 'due' => 0.00, 'doctor_comm' => 0.00, 'referral_comm' => 0.00,
                     'expense' => 0.00, 'net_profit' => 0.00
                 ];
                 $cur += 86400;
             }
-        } elseif ($period_type == 'yearly') {
-            for ($m = 1; $m <= 12; $m++) {
-                $slot_key = sprintf('%s-%02d', date('Y', $start_time), $m);
-                $breakdown[$slot_key] = [
-                    'key' => $slot_key,
-                    'label' => date('F', strtotime($slot_key . '-01')),
-                    'invoices' => 0, 'gross_billing' => 0.00, 'discount' => 0.00, 'net_billing' => 0.00,
-                    'collection' => 0.00, 'due' => 0.00, 'doctor_comm' => 0.00, 'referral_comm' => 0.00,
-                    'expense' => 0.00, 'net_profit' => 0.00
-                ];
-            }
         }
 
-        // 2. Fetch Invoices / Payments
+        // Helper lambda to get slot key for a given timestamp
+        $get_slot_key = function($ts) use ($slot_type) {
+            if ($slot_type === 'hourly') {
+                return sprintf('%02d:00', date('G', $ts));
+            } elseif ($slot_type === 'monthly') {
+                return date('Y-m', $ts);
+            }
+            return date('Y-m-d', $ts);
+        };
+
+        // 2. Fetch Invoices / Payments for target period
         $this->db->reset_query();
         $this->db->select('*');
         $this->db->from('payment');
@@ -2081,7 +2150,7 @@ class Finance_model extends CI_model
         $this->db->where('date <=', $end_time);
         $payments = $this->db->get()->result();
 
-        // AUDIT-008 FIX: Preload all payment_items for this batch in a single query (O(1) instead of O(N))
+        // Bulk preload payment items (O(1) bulk fetch)
         $payment_ids = array();
         foreach ($payments as $p) {
             $payment_ids[] = $p->id;
@@ -2107,6 +2176,18 @@ class Finance_model extends CI_model
             $all_categories_cached[$cat->id] = trim($cat->category);
         }
 
+        // Preload all Referrer Wallets for balance lookup
+        $this->db->reset_query();
+        $wallets = $this->db->get_where('referral_wallet', array('hospital_id' => $hospital_id))->result();
+        $wallet_by_ref = [];
+        $total_available_wallet = 0.00;
+        $total_withdrawn_wallet = 0.00;
+        foreach ($wallets as $w) {
+            $wallet_by_ref[$w->referrer_id] = floatval($w->available_balance);
+            $total_available_wallet += floatval($w->available_balance);
+            $total_withdrawn_wallet += floatval($w->total_withdrawn);
+        }
+
         // Pre-fetch Referral Commissions for the period
         $this->db->reset_query();
         $this->db->select('rcl.*, r.name as referrer_name');
@@ -2129,13 +2210,13 @@ class Finance_model extends CI_model
             if ($rl->status === 'Reversed') continue;
             $comm = floatval($rl->commission_amount);
             $earned = floatval($rl->earned_amount);
-            $slot_key = ($period_type == 'daily') ? date('H:00', $rl->created_date) : (($period_type == 'yearly') ? date('Y-m', $rl->created_date) : date('Y-m-d', $rl->created_date));
-            if (isset($breakdown[$slot_key])) {
-                $breakdown[$slot_key]['referral_comm'] += $comm;
+            $slot_k = $get_slot_key($rl->created_date);
+            if (isset($breakdown[$slot_k])) {
+                $breakdown[$slot_k]['referral_comm'] += $comm;
             }
             $total_ref_comm += $comm;
             $earned_ref_comm += $earned;
-            $pending_ref_comm += ($comm - $earned);
+            $pending_ref_comm += max(0, $comm - $earned);
 
             if (!empty($rl->invoice_item_id)) {
                 if (!isset($ref_comm_by_item[$rl->invoice_item_id])) {
@@ -2159,7 +2240,10 @@ class Finance_model extends CI_model
                     'patients' => [],
                     'invoices' => [],
                     'billing' => 0.00,
-                    'commission' => 0.00
+                    'commission' => 0.00,
+                    'earned' => 0.00,
+                    'pending' => 0.00,
+                    'wallet_balance' => isset($wallet_by_ref[$ref_id]) ? $wallet_by_ref[$ref_id] : 0.00
                 ];
             }
             if (!empty($rl->patient_id)) {
@@ -2170,6 +2254,8 @@ class Finance_model extends CI_model
             }
             $referrer_breakdown[$ref_id]['billing'] += floatval($rl->item_price);
             $referrer_breakdown[$ref_id]['commission'] += $comm;
+            $referrer_breakdown[$ref_id]['earned'] += $earned;
+            $referrer_breakdown[$ref_id]['pending'] += max(0, $comm - $earned);
         }
 
         $cancelled_invoices = 0;
@@ -2178,6 +2264,7 @@ class Finance_model extends CI_model
         $service_perf = [];
         $paid_doctor_comm = 0.00;
         $pending_doctor_comm = 0.00;
+        $eligible_doctor_comm = 0.00;
 
         foreach ($payments as $p) {
             if (strtolower(trim($p->status)) === 'cancelled') {
@@ -2186,7 +2273,7 @@ class Finance_model extends CI_model
                 continue;
             }
 
-            $slot_key = ($period_type == 'daily') ? date('H:00', $p->date) : (($period_type == 'yearly') ? date('Y-m', $p->date) : date('Y-m-d', $p->date));
+            $slot_k = $get_slot_key($p->date);
 
             $disc = 0.00;
             if (isset($p->flat_discount) && is_numeric($p->flat_discount) && floatval($p->flat_discount) > 0) {
@@ -2202,20 +2289,27 @@ class Finance_model extends CI_model
             $net = $gross - $disc;
             $d_comm = floatval($p->doctor_amount);
 
-            if (isset($breakdown[$slot_key])) {
-                $breakdown[$slot_key]['invoices']++;
-                $breakdown[$slot_key]['gross_billing'] += $gross;
-                $breakdown[$slot_key]['discount'] += $disc;
-                $breakdown[$slot_key]['net_billing'] += $net;
-                $breakdown[$slot_key]['doctor_comm'] += $d_comm;
+            if (isset($breakdown[$slot_k])) {
+                $breakdown[$slot_k]['invoices']++;
+                $breakdown[$slot_k]['gross_billing'] += $gross;
+                $breakdown[$slot_k]['discount'] += $disc;
+                $breakdown[$slot_k]['net_billing'] += $net;
+                $breakdown[$slot_k]['doctor_comm'] += $d_comm;
             }
 
-            // Doctor Paid/Pending status
+            // Doctor Paid/Pending/Eligible logic
             $is_paid = (strtolower(trim($p->status)) === 'paid' || floatval($p->amount_received) >= floatval($p->gross_total));
+            $hosp_share = max(0, floatval($p->gross_total) - $d_comm);
+            $is_eligible = ($is_paid || (floatval($p->amount_received) >= $hosp_share && floatval($p->amount_received) > 0));
+
             if ($is_paid) {
                 $paid_doctor_comm += $d_comm;
+                $eligible_doctor_comm += $d_comm;
             } else {
                 $pending_doctor_comm += $d_comm;
+                if ($is_eligible) {
+                    $eligible_doctor_comm += $d_comm;
+                }
             }
 
             // Doctor Breakdown
@@ -2227,14 +2321,26 @@ class Finance_model extends CI_model
                     'name' => $doc_name,
                     'invoices' => 0,
                     'billing' => 0.00,
-                    'commission' => 0.00
+                    'commission' => 0.00,
+                    'eligible_commission' => 0.00,
+                    'paid_commission' => 0.00,
+                    'pending_commission' => 0.00
                 ];
             }
             $doctor_breakdown[$doc_id]['invoices']++;
             $doctor_breakdown[$doc_id]['billing'] += $net;
             $doctor_breakdown[$doc_id]['commission'] += $d_comm;
+            if ($is_paid) {
+                $doctor_breakdown[$doc_id]['paid_commission'] += $d_comm;
+                $doctor_breakdown[$doc_id]['eligible_commission'] += $d_comm;
+            } else {
+                $doctor_breakdown[$doc_id]['pending_commission'] += $d_comm;
+                if ($is_eligible) {
+                    $doctor_breakdown[$doc_id]['eligible_commission'] += $d_comm;
+                }
+            }
 
-            // Service Performance: Use preloaded in-memory items (Zero queries inside loop)
+            // Service Performance: Preloaded in-memory items (Zero SQL in loop)
             $items = isset($items_by_payment[$p->id]) ? $items_by_payment[$p->id] : array();
             if (!empty($items)) {
                 foreach ($items as $item) {
@@ -2313,7 +2419,7 @@ class Finance_model extends CI_model
             }
         }
 
-        // 3. Fetch Deposits / Collections
+        // 3. Fetch Deposits / Collections for target period (Actual Received Cash)
         $this->db->reset_query();
         $this->db->select('pd.*, p.date as invoice_date');
         $this->db->from('patient_deposit pd');
@@ -2330,9 +2436,9 @@ class Finance_model extends CI_model
         foreach ($deposits as $d) {
             $amt = floatval($d->deposited_amount);
             $total_collection += $amt;
-            $slot_key = ($period_type == 'daily') ? date('H:00', $d->date) : (($period_type == 'yearly') ? date('Y-m', $d->date) : date('Y-m-d', $d->date));
-            if (isset($breakdown[$slot_key])) {
-                $breakdown[$slot_key]['collection'] += $amt;
+            $slot_k = $get_slot_key($d->date);
+            if (isset($breakdown[$slot_k])) {
+                $breakdown[$slot_k]['collection'] += $amt;
             }
 
             $m = !empty($d->deposit_type) ? trim($d->deposit_type) : (!empty($d->gateway) ? trim($d->gateway) : 'Cash');
@@ -2347,13 +2453,7 @@ class Finance_model extends CI_model
             }
         }
 
-        // Referral Wallet Metrics
-        $this->db->reset_query();
-        $w_row = $this->db->select_sum('available_balance')->select_sum('total_withdrawn')->where('hospital_id', $hospital_id)->get('referral_wallet')->row();
-        $available_wallet = $w_row ? floatval($w_row->available_balance) : 0.00;
-        $total_withdrawn = $w_row ? floatval($w_row->total_withdrawn) : 0.00;
-
-        // 5. Fetch Hospital Expenses
+        // 4. Fetch Hospital Expenses for target period
         $this->db->reset_query();
         $this->db->select('*');
         $this->db->from('expense');
@@ -2367,16 +2467,16 @@ class Finance_model extends CI_model
         foreach ($expenses as $e) {
             $amt = floatval($e->amount);
             $total_expenses += $amt;
-            $slot_key = ($period_type == 'daily') ? date('H:00', $e->date) : (($period_type == 'yearly') ? date('Y-m', $e->date) : date('Y-m-d', $e->date));
-            if (isset($breakdown[$slot_key])) {
-                $breakdown[$slot_key]['expense'] += $amt;
+            $slot_k = $get_slot_key($e->date);
+            if (isset($breakdown[$slot_k])) {
+                $breakdown[$slot_k]['expense'] += $amt;
             }
             $cat = !empty($e->category) ? trim($e->category) : 'Other Expenses';
             if (!isset($expense_breakdown[$cat])) $expense_breakdown[$cat] = 0.00;
             $expense_breakdown[$cat] += $amt;
         }
 
-        // 6. Final Summary Aggregation & Complete Reconciliation
+        // 5. Final Summary Aggregation & Complete Reconciliation
         $summary = [
             'total_invoices' => 0,
             'gross_billing' => 0.00,
@@ -2395,10 +2495,12 @@ class Finance_model extends CI_model
             'prev_due_collected' => $prev_due_collected,
             'paid_doctor_comm' => $paid_doctor_comm,
             'pending_doctor_comm' => $pending_doctor_comm,
+            'eligible_doctor_comm' => $eligible_doctor_comm,
+            'generated_ref_comm' => $total_ref_comm,
             'earned_ref_comm' => $earned_ref_comm,
             'pending_ref_comm' => $pending_ref_comm,
-            'withdrawn_ref_comm' => $total_withdrawn,
-            'available_wallet_balance' => $available_wallet
+            'withdrawn_ref_comm' => $total_withdrawn_wallet,
+            'available_wallet_balance' => $total_available_wallet
         ];
 
         // Format chart data arrays
@@ -2406,6 +2508,8 @@ class Finance_model extends CI_model
         $chart_billing = [];
         $chart_collection = [];
         $chart_due = [];
+        $chart_expense = [];
+        $chart_profit = [];
 
         foreach ($breakdown as $k => &$row) {
             $row['due'] = max(0.00, $row['net_billing'] - $row['collection']);
@@ -2425,12 +2529,15 @@ class Finance_model extends CI_model
             $chart_billing[] = round($row['net_billing'], 2);
             $chart_collection[] = round($row['collection'], 2);
             $chart_due[] = round($row['due'], 2);
+            $chart_expense[] = round($row['expense'], 2);
+            $chart_profit[] = round($row['net_profit'], 2);
         }
         unset($row);
 
-        // Reconcile total_due with actual period net billing and collections
+        // Strict accounting rule: Outstanding Due = Net Payable - Actual Collection
         $summary['total_due'] = max(0.00, $summary['net_billing'] - ($summary['total_collection'] - $summary['prev_due_collected']));
 
+        // Gross Profit = Net Billing - Doctor Commission - Referral Commission
         $summary['gross_profit'] = $summary['net_billing'] - $summary['doctor_commission'] - $summary['referral_commission'];
         $summary['net_margin'] = ($summary['net_billing'] > 0) ? round(($summary['net_profit'] / $summary['net_billing']) * 100, 2) : 0.00;
 
@@ -2481,11 +2588,25 @@ class Finance_model extends CI_model
         $summary['card_collection'] = isset($methods['Card']) ? $methods['Card'] : 0.00;
         $summary['other_collection'] = $other_total;
 
+        // Ensure array lists for referrer and doctor breakdown
+        $clean_referrers = [];
+        foreach ($referrer_breakdown as $r_row) {
+            $r_row['patient_count'] = count($r_row['patients']);
+            $r_row['invoice_count'] = count($r_row['invoices']);
+            unset($r_row['patients'], $r_row['invoices']);
+            $clean_referrers[] = $r_row;
+        }
+
+        $clean_doctors = [];
+        foreach ($doctor_breakdown as $d_row) {
+            $clean_doctors[] = $d_row;
+        }
+
         return [
             'summary' => $summary,
             'breakdown' => $breakdown,
-            'doctor_breakdown' => $doctor_breakdown,
-            'referrer_breakdown' => $referrer_breakdown,
+            'doctor_breakdown' => $clean_doctors,
+            'referrer_breakdown' => $clean_referrers,
             'expense_breakdown' => $expense_breakdown,
             'service_perf' => array_values($service_perf),
             'methods' => $method_list,
@@ -2493,7 +2614,28 @@ class Finance_model extends CI_model
                 'labels' => $chart_labels,
                 'billing' => $chart_billing,
                 'collection' => $chart_collection,
-                'due' => $chart_due
+                'due' => $chart_due,
+                'expense' => $chart_expense,
+                'net_profit' => $chart_profit,
+                'income_vs_expense' => [
+                    'labels' => ['Gross Billing', 'Net Billing', 'Collection', 'Expenses', 'Net Profit'],
+                    'data' => [
+                        round($summary['gross_billing'], 2),
+                        round($summary['net_billing'], 2),
+                        round($summary['total_collection'], 2),
+                        round($summary['total_expenses'], 2),
+                        round($summary['net_profit'], 2),
+                    ]
+                ],
+                'payment_methods' => [
+                    'labels' => array_keys($method_list),
+                    'data' => array_map(function($m) { return round($m['amount'], 2); }, array_values($method_list)),
+                    'percentages' => array_map(function($m) { return $m['percentage']; }, array_values($method_list)),
+                ],
+                'expense_categories' => [
+                    'labels' => array_keys($expense_breakdown),
+                    'data' => array_map(function($a) { return round($a, 2); }, array_values($expense_breakdown)),
+                ]
             ]
         ];
     }

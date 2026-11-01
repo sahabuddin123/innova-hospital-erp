@@ -33,13 +33,25 @@
             var mm = String(today.getMonth() + 1).padStart(2, '0');
             var dd = String(today.getDate()).padStart(2, '0');
 
-            if (period === 'daily') {
+            if (period === 'daily' || period === 'today') {
                 $('#date_input').val(yyyy + '-' + mm + '-' + dd);
-            } else if (period === 'weekly') {
+            } else if (period === 'yesterday') {
+                var yDate = new Date();
+                yDate.setDate(yDate.getDate() - 1);
+                var y_yyyy = yDate.getFullYear();
+                var y_mm = String(yDate.getMonth() + 1).padStart(2, '0');
+                var y_dd = String(yDate.getDate()).padStart(2, '0');
+                $('#date_input').val(y_yyyy + '-' + y_mm + '-' + y_dd);
+            } else if (period === 'weekly' || period === 'this_week') {
                 $('#date_input').val(yyyy + '-' + mm + '-' + dd);
-            } else if (period === 'monthly') {
+            } else if (period === 'monthly' || period === 'this_month') {
                 $('#date_input').val(yyyy + '-' + mm);
-            } else if (period === 'yearly') {
+            } else if (period === 'last_month') {
+                var lmDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                var lm_yyyy = lmDate.getFullYear();
+                var lm_mm = String(lmDate.getMonth() + 1).padStart(2, '0');
+                $('#date_input').val(lm_yyyy + '-' + lm_mm);
+            } else if (period === 'yearly' || period === 'this_year') {
                 $('#date_input').val(yyyy);
             }
 

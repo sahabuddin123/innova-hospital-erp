@@ -58,10 +58,12 @@ $trends = !empty($summary['trends']) ? $summary['trends'] : [];
                         <div class="d-flex flex-wrap align-items-center" style="gap: 10px;">
                             <!-- Period Switcher Buttons -->
                             <div class="fin-btn-group">
-                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'daily') ? 'active' : ''; ?>" data-period="daily">Daily</button>
-                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'weekly') ? 'active' : ''; ?>" data-period="weekly">Weekly</button>
-                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'monthly') ? 'active' : ''; ?>" data-period="monthly">Monthly</button>
-                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'yearly') ? 'active' : ''; ?>" data-period="yearly">Yearly</button>
+                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'today' || $period_type == 'daily') ? 'active' : ''; ?>" data-period="today">Today</button>
+                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'yesterday') ? 'active' : ''; ?>" data-period="yesterday">Yesterday</button>
+                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'this_week' || $period_type == 'weekly') ? 'active' : ''; ?>" data-period="this_week">This Week</button>
+                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'this_month' || $period_type == 'monthly') ? 'active' : ''; ?>" data-period="this_month">This Month</button>
+                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'last_month') ? 'active' : ''; ?>" data-period="last_month">Last Month</button>
+                                <button type="button" class="fin-btn-period <?php echo ($period_type == 'this_year' || $period_type == 'yearly') ? 'active' : ''; ?>" data-period="this_year">This Year</button>
                             </div>
 
                             <!-- Date Picker -->

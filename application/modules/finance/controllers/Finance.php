@@ -5057,8 +5057,9 @@ class Finance extends MX_Controller
         }
 
         $period_type = $this->input->get_post('period_type');
-        if (empty($period_type) || !in_array($period_type, ['daily', 'weekly', 'monthly', 'yearly'])) {
-            $period_type = 'monthly';
+        $valid_periods = ['today', 'yesterday', 'this_week', 'weekly', 'this_month', 'monthly', 'last_month', 'this_year', 'yearly', 'custom', 'daily'];
+        if (empty($period_type) || !in_array($period_type, $valid_periods)) {
+            $period_type = 'this_month';
         }
 
         $selected_date = $this->input->get_post('date');
@@ -5119,8 +5120,9 @@ class Finance extends MX_Controller
         }
 
         $period_type = $this->input->get_post('period_type');
-        if (empty($period_type) || !in_array($period_type, ['daily', 'weekly', 'monthly', 'yearly'])) {
-            $period_type = 'monthly';
+        $valid_periods = ['today', 'yesterday', 'this_week', 'weekly', 'this_month', 'monthly', 'last_month', 'this_year', 'yearly', 'custom', 'daily'];
+        if (empty($period_type) || !in_array($period_type, $valid_periods)) {
+            $period_type = 'this_month';
         }
 
         $selected_date = $this->input->get_post('date');
