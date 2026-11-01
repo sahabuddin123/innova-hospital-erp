@@ -389,17 +389,24 @@ class Home_model extends CI_model
 
     function getTotalDepositToday()
     {
-        $today_start = strtotime('today');
-        $today_end = strtotime('tomorrow') - 1;
+        $hospital_id = $this->session->userdata('hospital_id');
+        $today_start = strtotime(date('Y-m-d 00:00:00'));
+        $today_end = strtotime(date('Y-m-d 23:59:59'));
 
-        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $this->db->where('date >=', $today_start);
-        $this->db->where('date <=', $today_end);
-        $query = $this->db->get('patient_deposit')->result();
+        $this->db->select('pd.*');
+        $this->db->from('patient_deposit pd');
+        $this->db->join('payment p', 'p.id = pd.payment_id', 'left');
+        if (!empty($hospital_id)) {
+            $this->db->where("(pd.hospital_id = '$hospital_id' OR p.hospital_id = '$hospital_id')", NULL, FALSE);
+        }
+        $query = $this->db->get()->result();
 
-        $total_deposit = 0;
+        $total_deposit = 0.0;
         foreach ($query as $deposit) {
-            $total_deposit += $deposit->deposited_amount; // Assuming 'amount' is the field for deposit amount
+            $dep_time = is_numeric($deposit->date) ? intval($deposit->date) : strtotime($deposit->date);
+            if ($dep_time >= $today_start && $dep_time <= $today_end) {
+                $total_deposit += (float)($deposit->deposited_amount ?? 0);
+            }
         }
 
         return $total_deposit;
@@ -408,17 +415,24 @@ class Home_model extends CI_model
 
     function getTotalDepositThisMonth()
     {
-        $startOfMonth = strtotime('first day of this month');
-        $endOfMonth = strtotime('last day of this month 23:59:59');
+        $hospital_id = $this->session->userdata('hospital_id');
+        $startOfMonth = strtotime(date('Y-m-01 00:00:00'));
+        $endOfMonth = strtotime(date('Y-m-t 23:59:59'));
 
-        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $this->db->where('date >=', $startOfMonth);
-        $this->db->where('date <=', $endOfMonth);
-        $query = $this->db->get('patient_deposit')->result();
+        $this->db->select('pd.*');
+        $this->db->from('patient_deposit pd');
+        $this->db->join('payment p', 'p.id = pd.payment_id', 'left');
+        if (!empty($hospital_id)) {
+            $this->db->where("(pd.hospital_id = '$hospital_id' OR p.hospital_id = '$hospital_id')", NULL, FALSE);
+        }
+        $query = $this->db->get()->result();
 
-        $total_deposit = 0;
+        $total_deposit = 0.0;
         foreach ($query as $deposit) {
-            $total_deposit += $deposit->deposited_amount; // Assuming 'amount' is the field for deposit amount
+            $dep_time = is_numeric($deposit->date) ? intval($deposit->date) : strtotime($deposit->date);
+            if ($dep_time >= $startOfMonth && $dep_time <= $endOfMonth) {
+                $total_deposit += (float)($deposit->deposited_amount ?? 0);
+            }
         }
 
         return $total_deposit;
@@ -426,17 +440,24 @@ class Home_model extends CI_model
 
     function getTotalDepositThisYear()
     {
-        $startOfYear = strtotime('first day of January this year');
-        $endOfYear = strtotime('last day of December this year 23:59:59');
+        $hospital_id = $this->session->userdata('hospital_id');
+        $startOfYear = strtotime(date('Y-01-01 00:00:00'));
+        $endOfYear = strtotime(date('Y-12-31 23:59:59'));
 
-        $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
-        $this->db->where('date >=', $startOfYear);
-        $this->db->where('date <=', $endOfYear);
-        $query = $this->db->get('patient_deposit')->result();
+        $this->db->select('pd.*');
+        $this->db->from('patient_deposit pd');
+        $this->db->join('payment p', 'p.id = pd.payment_id', 'left');
+        if (!empty($hospital_id)) {
+            $this->db->where("(pd.hospital_id = '$hospital_id' OR p.hospital_id = '$hospital_id')", NULL, FALSE);
+        }
+        $query = $this->db->get()->result();
 
-        $total_deposit = 0;
+        $total_deposit = 0.0;
         foreach ($query as $deposit) {
-            $total_deposit += $deposit->deposited_amount; // Assuming 'amount' is the field for deposit amount
+            $dep_time = is_numeric($deposit->date) ? intval($deposit->date) : strtotime($deposit->date);
+            if ($dep_time >= $startOfYear && $dep_time <= $endOfYear) {
+                $total_deposit += (float)($deposit->deposited_amount ?? 0);
+            }
         }
 
         return $total_deposit;
@@ -458,7 +479,7 @@ class Home_model extends CI_model
     // Fetch last month's payments
     $this->db->where('hospital_id', $hospitalId);
     $this->db->where('date >=', strtotime(date('Y-m-01', $lastMonthDate)));
-    $this->db->where('date <=', strtotime(date('Y-m-t', $lastMonthDate)));
+    $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $lastMonthDate)));
     $queryLastMonth = $this->db->get('payment')->result();
 
     $totalLastMonth = 0;
@@ -470,7 +491,7 @@ class Home_model extends CI_model
     // Fetch current month's payments
     $this->db->where('hospital_id', $hospitalId);
     $this->db->where('date >=', strtotime(date('Y-m-01', $currentDate)));
-    $this->db->where('date <=', strtotime(date('Y-m-t', $currentDate)));
+    $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $currentDate)));
     $queryCurrentMonth = $this->db->get('payment')->result();
 
     $totalCurrentMonth = 0;
@@ -501,7 +522,7 @@ class Home_model extends CI_model
 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $lastMonthDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $lastMonthDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $lastMonthDate)));
         $queryLastMonth = $this->db->get('patient_deposit')->result();
 
         $totalLastMonth = 0;
@@ -511,7 +532,7 @@ class Home_model extends CI_model
 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $currentDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $currentDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $currentDate)));
         $queryCurrentMonth = $this->db->get('patient_deposit')->result();
 
         $totalCurrentMonth = 0;
@@ -539,7 +560,7 @@ class Home_model extends CI_model
         // last month due 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $lastMonthDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $lastMonthDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $lastMonthDate)));
         $bill_queryLastMonth = $this->db->get('payment')->result();
 
         $bill_totalLastMonth = 0;
@@ -549,7 +570,7 @@ class Home_model extends CI_model
 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $lastMonthDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $lastMonthDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $lastMonthDate)));
         $deposit_queryLastMonth = $this->db->get('patient_deposit')->result();
 
         $deposit_totalLastMonth = 0;
@@ -562,7 +583,7 @@ class Home_model extends CI_model
         // current month due 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $currentDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $currentDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $currentDate)));
         $bill_queryCurrentMonth = $this->db->get('payment')->result();
 
         $bill_totalCurrentMonth = 0;
@@ -572,7 +593,7 @@ class Home_model extends CI_model
 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $currentDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $currentDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $currentDate)));
         $deposit_queryCurrentMonth = $this->db->get('patient_deposit')->result();
 
         $deposit_totalCurrentMonth = 0;
@@ -600,7 +621,7 @@ class Home_model extends CI_model
 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $lastMonthDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $lastMonthDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $lastMonthDate)));
         $queryLastMonth = $this->db->get('expense')->result();
 
         $totalLastMonth = 0;
@@ -610,7 +631,7 @@ class Home_model extends CI_model
 
         $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
         $this->db->where('date >=', strtotime(date('Y-m-01', $currentDate)));
-        $this->db->where('date <=', strtotime(date('Y-m-t', $currentDate)));
+        $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $currentDate)));
         $queryCurrentMonth = $this->db->get('expense')->result();
 
         $totalCurrentMonth = 0;
@@ -638,7 +659,7 @@ function getTotalDueLastMonth(): float
 
     $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
     $this->db->where('date >=', strtotime(date('Y-m-01', $lastMonthDate)));
-    $this->db->where('date <=', strtotime(date('Y-m-t', $lastMonthDate)));
+    $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $lastMonthDate)));
     $queryLastMonth = $this->db->get('payment')->result();
 
     $totalLastMonth = 0.0;
@@ -648,7 +669,7 @@ function getTotalDueLastMonth(): float
 
     $this->db->where('hospital_id', $this->session->userdata('hospital_id'));
     $this->db->where('date >=', strtotime(date('Y-m-01', $lastMonthDate)));
-    $this->db->where('date <=', strtotime(date('Y-m-t', $lastMonthDate)));
+    $this->db->where('date <=', strtotime(date('Y-m-t 23:59:59', $lastMonthDate)));
     $queryLastMonthDeposit = $this->db->get('patient_deposit')->result();
 
     $totalLastMonthDeposit = 0.0;

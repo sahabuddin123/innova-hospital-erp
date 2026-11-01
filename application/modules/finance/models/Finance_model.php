@@ -2340,7 +2340,6 @@ class Finance_model extends CI_model
             $summary['total_discount'] += $row['discount'];
             $summary['net_billing'] += $row['net_billing'];
             $summary['total_collection'] += $row['collection'];
-            $summary['total_due'] += $row['due'];
             $summary['doctor_commission'] += $row['doctor_comm'];
             $summary['referral_commission'] += $row['referral_comm'];
             $summary['total_expenses'] += $row['expense'];
@@ -2352,6 +2351,9 @@ class Finance_model extends CI_model
             $chart_due[] = round($row['due'], 2);
         }
         unset($row);
+
+        // Reconcile total_due with actual period net billing and collections
+        $summary['total_due'] = max(0.00, $summary['net_billing'] - ($summary['total_collection'] - $summary['prev_due_collected']));
 
         $summary['gross_profit'] = $summary['net_billing'] - $summary['doctor_commission'] - $summary['referral_commission'];
         $summary['net_margin'] = ($summary['net_billing'] > 0) ? round(($summary['net_profit'] / $summary['net_billing']) * 100, 2) : 0.00;
