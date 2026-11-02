@@ -777,7 +777,24 @@ $sidebar_hidden_modules = array(
 }
 </style>
 
-<?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Doctor', 'Laboratorist', 'Nurse'))) { ?>
+<?php
+if (!isset($this->rbac) && function_exists('get_instance')) {
+    $this->load->library('Rbac');
+}
+$can_view_any_report = $this->ion_auth->in_group(['superadmin']) || 
+    (isset($this->rbac) ? (
+        $this->rbac->canViewGroup('financial_dashboard') ||
+        $this->rbac->canViewGroup('income_collection') ||
+        $this->rbac->canViewGroup('expense_accounts') ||
+        $this->rbac->canViewGroup('doctor_commission') ||
+        $this->rbac->canViewGroup('referral_commission') ||
+        $this->rbac->canViewGroup('profit_loss') ||
+        $this->rbac->canViewGroup('diagnostic_performance') ||
+        $this->rbac->canViewGroup('financial_audit_logs') ||
+        $this->rbac->canViewGroup('user_activity_reports')
+    ) : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Doctor', 'Laboratorist', 'Nurse')));
+?>
+<?php if ($can_view_any_report) { ?>
     <li class="nav-item has-treeview">
         <a class="nav-link text-white" href="#">
             <i class="text-secondary nav-icon fas fa-chart-pie" style="color: #17a2b8 !important;"></i>
@@ -786,7 +803,7 @@ $sidebar_hidden_modules = array(
         <ul class="nav nav-treeview">
 
             <!-- 1. FINANCIAL DASHBOARD -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('financial_dashboard') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant')))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
                     <li class="nav-item has-treeview">
                         <a class="nav-link text-white" href="#">
@@ -805,7 +822,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 2. INCOME & COLLECTION REPORTS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('income_collection') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant')))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
                     <li class="nav-item has-treeview">
                         <a class="nav-link text-white" href="#">
@@ -829,7 +846,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 3. EXPENSE & ACCOUNTS REPORTS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('expense_accounts') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant')))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
                     <li class="nav-item has-treeview">
                         <a class="nav-link text-white" href="#">
@@ -854,7 +871,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 4. DOCTOR COMMISSION REPORTS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('doctor_commission') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant')))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
                     <li class="nav-item has-treeview">
                         <a class="nav-link text-white" href="#">
@@ -878,7 +895,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 5. REFERRAL COMMISSION REPORTS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('referral_commission') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant')))) { ?>
                 <?php if (in_array('referral', $this->modules)) { ?>
                     <li class="nav-item has-treeview">
                         <a class="nav-link text-white" href="#">
@@ -903,7 +920,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 6. PROFIT & LOSS REPORTS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('profit_loss') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant')))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
                     <li class="nav-item has-treeview">
                         <a class="nav-link text-white" href="#">
@@ -928,7 +945,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 7. DIAGNOSTIC PERFORMANCE REPORTS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Doctor', 'Laboratorist', 'Accountant', 'Nurse'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('diagnostic_performance') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Doctor', 'Laboratorist', 'Accountant', 'Nurse')))) { ?>
                 <li class="nav-item has-treeview">
                     <a class="nav-link text-white" href="#">
                         <i class="text-secondary nav-icon fas fa-microscope"></i>
@@ -963,7 +980,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 8. FINANCIAL AUDIT LOGS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('financial_audit_logs') : $this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant')))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
                     <li class="nav-item has-treeview">
                         <a class="nav-link text-white" href="#">
@@ -985,7 +1002,7 @@ $sidebar_hidden_modules = array(
             <?php } ?>
 
             <!-- 9. USER ACTIVITY REPORTS -->
-            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin'))) { ?>
+            <?php if ($this->ion_auth->in_group(['superadmin']) || (isset($this->rbac) ? $this->rbac->canViewGroup('user_activity_reports') : $this->ion_auth->in_group(array('admin', 'superadmin')))) { ?>
                 <li class="nav-item has-treeview">
                     <a class="nav-link text-white" href="#">
                         <i class="text-secondary nav-icon fas fa-user-shield"></i>
@@ -1734,6 +1751,11 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
             <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
                 <li class="nav-item"><a class="nav-link text-white" href="import"><i class="text-secondary nav-icon far fa-circle"></i>
                         <p><?php echo lang('bulk'); ?> <?php echo lang('import'); ?></p>
+                    </a></li>
+            <?php } ?>
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin'))) { ?>
+                <li class="nav-item"><a class="nav-link text-white" href="auth/permissions"><i class="text-secondary nav-icon fas fa-user-lock"></i>
+                        <p><?php echo lang('role_permissions') ?: 'Role Permissions'; ?></p>
                     </a></li>
             <?php } ?>
             <li class="nav-item"><a class="nav-link text-white" href="transactionLogs"><i class="text-secondary nav-icon far fa-circle"></i>

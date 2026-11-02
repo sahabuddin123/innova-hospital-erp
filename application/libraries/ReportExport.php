@@ -37,6 +37,7 @@ class ReportExport
     {
         if (function_exists('get_instance')) {
             $this->ci =& get_instance();
+            $this->ci->load->library('Rbac');
             $this->ci->load->library('ReportPrint');
             $this->ci->load->library('ReportPdf');
             $this->ci->load->library('ReportExcel');
@@ -60,14 +61,42 @@ class ReportExport
      * Intercept and handle export request in any controller method
      * 
      * @param string $report_key Report key identifier
-     * @param array  $data       Controller data array
+     * @param array  $data       Controller data array (passed by reference)
      * @param array  $options    Optional schema overrides
      * @return bool True if export was handled, False if regular HTML page should render
      */
-    public function handle($report_key, array $data = [], array $options = [])
+    public function handle($report_key, array &$data = [], array $options = [])
     {
+        // 1. Enforce VIEW permission on backend
+        if (isset($this->ci->rbac) && !$this->ci->rbac->hasPermission($report_key, 'VIEW')) {
+            if ($this->ci->input->is_ajax_request()) {
+                $this->ci->output->set_status_header(403);
+                echo json_encode(['status' => 'error', 'message' => '403 Forbidden: You do not have permission to view this report.']);
+                exit;
+            }
+            redirect('home/permission');
+            exit;
+        }
+
+        // 2. Sensitive Data Protection: Sanitize dataset in-place if lacking VIEW_SENSITIVE_DATA
+        if (isset($this->ci->rbac) && isset($data['data']) && is_array($data['data'])) {
+            $this->ci->rbac->sanitizeDataset($report_key, $data['data']);
+        }
+
+        // 3. Handle Export Request if format specified
         $format = $this->ci->input->get_post('export_format');
         if (!empty($format)) {
+            // Enforce EXPORT format permission
+            if (isset($this->ci->rbac) && !$this->ci->rbac->canExport($report_key, $format)) {
+                if ($this->ci->input->is_ajax_request()) {
+                    $this->ci->output->set_status_header(403);
+                    echo json_encode(['status' => 'error', 'message' => '403 Forbidden: Unauthorized export format.']);
+                    exit;
+                }
+                show_error('You do not have permission to export this report in ' . strtoupper($format) . ' format.', 403, '403 Forbidden');
+                exit;
+            }
+
             $this->export($report_key, $format, $data, $options);
             return true;
         }
@@ -91,7 +120,23 @@ class ReportExport
             return;
         }
 
-        // 2. Normalize Format
+        // 2. Validate RBAC Export Permission
+        if (isset($this->ci->rbac) && !$this->ci->rbac->canExport($report_key, $format)) {
+            if ($this->ci->input->is_ajax_request()) {
+                $this->ci->output->set_status_header(403);
+                echo json_encode(['status' => 'error', 'message' => '403 Forbidden: Unauthorized export format.']);
+                exit;
+            }
+            redirect('home/permission');
+            return;
+        }
+
+        // 3. Sensitive Data Protection
+        if (isset($this->ci->rbac) && isset($data['data']) && is_array($data['data'])) {
+            $this->ci->rbac->sanitizeDataset($report_key, $data['data']);
+        }
+
+        // 4. Normalize Format
         $format = strtolower(trim($format));
         if ($format === 'xlsx') {
             $format = 'excel';

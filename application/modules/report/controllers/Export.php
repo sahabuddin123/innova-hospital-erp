@@ -16,6 +16,7 @@ class Export extends MX_Controller
     {
         parent::__construct();
         $this->load->library('Ion_auth');
+        $this->load->library('Rbac');
         $this->load->library('ReportExport');
         $this->load->model('settings/settings_model');
         $this->load->model('finance/finance_model');
@@ -27,20 +28,37 @@ class Export extends MX_Controller
     }
 
     /**
-     * Centralized download endpoint
+     * Centralized download endpoint with granular RBAC validation
      */
     public function download()
     {
-        $report_key = $this->input->get_post('report_key');
-        $format = $this->input->get_post('format') ?: ($this->input->get_post('export_format') ?: 'pdf');
+        $report_key = strtolower(trim($this->input->get_post('report_key')));
+        $format     = strtolower(trim($this->input->get_post('format') ?: ($this->input->get_post('export_format') ?: 'pdf')));
 
         if (empty($report_key)) {
-            show_error('Report key parameter is missing.', 400);
+            show_error('Report key parameter is missing.', 400, '400 Bad Request');
             return;
         }
 
-        // Check view permissions
-        if (!$this->checkExportPermission($report_key)) {
+        // Validate format parameter
+        if ($format === 'xlsx') {
+            $format = 'excel';
+        }
+        if (!in_array($format, ['print', 'pdf', 'excel', 'csv'])) {
+            show_error('Invalid export format requested.', 400, '400 Bad Request');
+            return;
+        }
+
+        // Granular RBAC Permission Check
+        if (!$this->checkExportPermission($report_key, $format)) {
+            if ($this->input->is_ajax_request()) {
+                $this->output->set_status_header(403);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => '403 Forbidden: You do not have permission to export ' . htmlspecialchars($report_key) . ' in ' . strtoupper($format) . ' format.'
+                ]);
+                return;
+            }
             redirect('home/permission');
             return;
         }
@@ -48,15 +66,24 @@ class Export extends MX_Controller
         // Fetch Data via Report Data Provider
         $data = $this->resolveReportData($report_key);
 
+        // Sensitive Data Protection
+        if (isset($data['data']) && is_array($data['data'])) {
+            $this->rbac->sanitizeDataset($report_key, $data['data']);
+        }
+
         // Execute Export
         $this->reportexport->export($report_key, $format, $data);
     }
 
     /**
-     * Role-based permission verification per report family
+     * Role-based permission verification per report and format
      */
-    protected function checkExportPermission($report_key)
+    protected function checkExportPermission($report_key, $format = 'pdf')
     {
+        if (isset($this->rbac)) {
+            return $this->rbac->canExport($report_key, $format);
+        }
+
         if ($this->ion_auth->in_group(['admin', 'superadmin'])) {
             return true;
         }
@@ -177,3 +204,4 @@ class Export extends MX_Controller
         return $data;
     }
 }
+

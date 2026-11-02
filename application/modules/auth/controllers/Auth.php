@@ -812,4 +812,195 @@ class Auth extends MX_Controller {
             return $view_html;
     }
 
+
+    /**
+     * Phase 12: Role Permissions Overview
+     */
+    public function permissions()
+    {
+        if (!$this->ion_auth->logged_in() || !$this->ion_auth->in_group(array('admin', 'superadmin'))) {
+            redirect('home/permission');
+            return;
+        }
+
+        $this->load->model('rbac_model');
+        $this->load->library('Rbac');
+
+        $groups = $this->rbac_model->getAllGroups();
+        $group_stats = [];
+
+        foreach ($groups as $g) {
+            $user_count = $this->db->where('group_id', $g->id)->count_all_results('users_groups');
+            $perms = $this->rbac_model->getPermissionsByGroup($g->id);
+            $view_count = 0;
+            $export_count = 0;
+            foreach ($perms as $p) {
+                if (!empty($p['can_view'])) $view_count++;
+                if (!empty($p['can_print']) || !empty($p['can_export_pdf']) || !empty($p['can_export_excel']) || !empty($p['can_export_csv'])) $export_count++;
+            }
+
+            $group_stats[$g->id] = [
+                'user_count'   => $user_count,
+                'view_count'   => $view_count,
+                'export_count' => $export_count,
+                'total_perms'  => count($perms)
+            ];
+        }
+
+        $data['groups'] = $groups;
+        $data['group_stats'] = $group_stats;
+        $data['total_audit_logs'] = $this->rbac_model->countAuditLogs();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('auth/permissions', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * Phase 12: Interactive Role Permission Matrix Editor
+     */
+    public function role_permissions($group_id = null)
+    {
+        if (!$this->ion_auth->logged_in() || !$this->ion_auth->in_group(array('admin', 'superadmin'))) {
+            redirect('home/permission');
+            return;
+        }
+
+        if (empty($group_id)) {
+            redirect('auth/permissions');
+            return;
+        }
+
+        $this->load->model('rbac_model');
+        $this->load->library('Rbac');
+
+        $group = $this->rbac_model->getGroupById($group_id);
+        if (!$group) {
+            $this->session->set_flashdata('feedback', 'Role not found.');
+            redirect('auth/permissions');
+            return;
+        }
+
+        // Prevent non-superadmin from modifying superadmin permissions
+        $is_superadmin = $this->ion_auth->in_group('superadmin');
+        if ($group->name === 'superadmin' && !$is_superadmin) {
+            $this->session->set_flashdata('feedback', 'Unauthorized: Only Super Administrators can configure Super Admin permissions.');
+            redirect('auth/permissions');
+            return;
+        }
+
+        // Fetch existing permissions for this group
+        $raw_perms = $this->rbac_model->getPermissionsByGroup($group_id);
+        $existing_perms = [];
+        foreach ($raw_perms as $rp) {
+            $existing_perms[$rp['permission_group']] = $rp;
+        }
+
+        $permission_groups = $this->rbac->getPermissionGroups();
+        $audit_logs = $this->rbac_model->getAuditLogs($group_id, 20);
+
+        $data['group']             = $group;
+        $data['permission_groups'] = $permission_groups;
+        $data['existing_perms']    = $existing_perms;
+        $data['audit_logs']        = $audit_logs;
+        $data['is_superadmin']     = $is_superadmin;
+
+        $this->load->view('home/dashboard');
+        $this->load->view('auth/role_permissions', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * Phase 12: Save Role Permissions (with Transaction & Audit Trail)
+     */
+    public function save_role_permissions()
+    {
+        if (!$this->ion_auth->logged_in() || !$this->ion_auth->in_group(array('admin', 'superadmin'))) {
+            if ($this->input->is_ajax_request()) {
+                $this->output->set_status_header(403);
+                echo json_encode(['status' => 'error', 'message' => '403 Forbidden']);
+                return;
+            }
+            redirect('home/permission');
+            return;
+        }
+
+        $group_id = (int)$this->input->post('group_id');
+        $permissions = $this->input->post('permissions');
+        $reason = trim($this->input->post('reason') ?: '');
+
+        if (!$group_id || empty($permissions)) {
+            if ($this->input->is_ajax_request()) {
+                $this->output->set_status_header(400);
+                echo json_encode(['status' => 'error', 'message' => 'Invalid group or empty permissions matrix.']);
+                return;
+            }
+            redirect('auth/permissions');
+            return;
+        }
+
+        $this->load->model('rbac_model');
+        $group = $this->rbac_model->getGroupById($group_id);
+        if (!$group) {
+            if ($this->input->is_ajax_request()) {
+                $this->output->set_status_header(404);
+                echo json_encode(['status' => 'error', 'message' => 'Role not found.']);
+                return;
+            }
+            redirect('auth/permissions');
+            return;
+        }
+
+        // Privilege escalation check
+        if ($group->name === 'superadmin' && !$this->ion_auth->in_group('superadmin')) {
+            if ($this->input->is_ajax_request()) {
+                $this->output->set_status_header(403);
+                echo json_encode(['status' => 'error', 'message' => 'Only Super Admin can modify Super Admin permissions.']);
+                return;
+            }
+            redirect('auth/permissions');
+            return;
+        }
+
+        $current_user_id = $this->ion_auth->get_user_id();
+        $success = $this->rbac_model->saveRolePermissions($group_id, $permissions, $current_user_id, $reason);
+
+        if ($this->input->is_ajax_request()) {
+            if ($success) {
+                echo json_encode(['status' => 'success', 'message' => 'Permissions for ' . htmlspecialchars($group->name) . ' successfully updated and audit logged.']);
+            } else {
+                $this->output->set_status_header(500);
+                echo json_encode(['status' => 'error', 'message' => 'Failed to save permissions due to database error.']);
+            }
+            return;
+        }
+
+        $this->session->set_flashdata('feedback', $success ? 'Permissions updated successfully.' : 'Failed to update permissions.');
+        redirect('auth/role_permissions/' . $group_id);
+    }
+
+    /**
+     * Phase 12: Permission Audit Trail
+     */
+    public function permission_audit()
+    {
+        if (!$this->ion_auth->logged_in() || !$this->ion_auth->in_group(array('admin', 'superadmin'))) {
+            redirect('home/permission');
+            return;
+        }
+
+        $this->load->model('rbac_model');
+        $group_id = $this->input->get('group_id') ? (int)$this->input->get('group_id') : null;
+        $limit = 100;
+        $offset = (int)($this->input->get('per_page') ?: 0);
+
+        $data['audit_logs'] = $this->rbac_model->getAuditLogs($group_id, $limit, $offset);
+        $data['total_logs'] = $this->rbac_model->countAuditLogs($group_id);
+        $data['groups']     = $this->rbac_model->getAllGroups();
+        $data['selected_group_id'] = $group_id;
+
+        $this->load->view('home/dashboard');
+        $this->load->view('auth/permission_audit', $data);
+        $this->load->view('home/footer');
+    }
 }

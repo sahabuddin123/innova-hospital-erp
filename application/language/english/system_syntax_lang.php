@@ -2871,3 +2871,18 @@ $lang['expense_analysis'] = 'Expense Analysis';
 $lang['income_vs_expense'] = 'Income vs Expense';
 $lang['home_sample_collection_report'] = 'Home Sample Collection Report';
 
+
+
+// Phase 12: Role-Based Permissions Enhancement
+$lang['role_permissions'] = 'Role Permissions';
+$lang['role_permission_management'] = 'Role & Permission Management';
+$lang['permission_matrix'] = 'Permission Matrix';
+$lang['permission_audit_trail'] = 'Permission Audit Trail';
+$lang['select_group'] = 'Select All';
+$lang['clear_group'] = 'Clear All';
+$lang['expand_all'] = 'Expand All';
+$lang['collapse_all'] = 'Collapse All';
+$lang['sensitive_data'] = 'Sensitive Details';
+$lang['save_permissions'] = 'Save Permissions';
+$lang['permission_audit'] = 'Permission Audit';
+
