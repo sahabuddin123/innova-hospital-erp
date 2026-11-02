@@ -1,0 +1,289 @@
+/* ========================================================
+   LIFECARE DIAGNOSTIC CENTER - DIAGNOSTIC PERFORMANCE REPORTS
+   Phase 7 Professional Stylesheet & Print Layout
+   ======================================================== */
+
+.diag-report-wrapper {
+    padding: 20px;
+    background-color: #f4f6f9;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Nav Pills Bar */
+.diag-nav-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #ffffff;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+}
+.diag-nav-pills a {
+    color: #475569;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+.diag-nav-pills a:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+.diag-nav-pills a.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    box-shadow: 0 2px 4px rgba(2, 132, 199, 0.25);
+}
+
+/* Header & Filter Card */
+.diag-card-header {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.diag-header-title h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.diag-header-title p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 13px;
+}
+.diag-filter-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* KPI Cards Grid */
+.diag-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 25px;
+}
+.diag-kpi-card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.diag-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+.diag-kpi-card .kpi-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+.diag-kpi-card .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+}
+.diag-kpi-card .kpi-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+.diag-kpi-card .kpi-icon {
+    position: absolute;
+    right: 15px;
+    top: 18px;
+    font-size: 24px;
+    opacity: 0.18;
+}
+
+/* Color Accents */
+.kpi-accent-blue { border-left: 4px solid #0284c7; }
+.kpi-accent-emerald { border-left: 4px solid #10b981; }
+.kpi-accent-amber { border-left: 4px solid #f59e0b; }
+.kpi-accent-rose { border-left: 4px solid #f43f5e; }
+.kpi-accent-purple { border-left: 4px solid #8b5cf6; }
+.kpi-accent-indigo { border-left: 4px solid #6366f1; }
+.kpi-accent-cyan { border-left: 4px solid #06b6d4; }
+.kpi-accent-gray { border-left: 4px solid #64748b; }
+
+/* Status Badges */
+.badge-diag {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+    text-transform: uppercase;
+}
+.badge-diag-pending { background: #fef3c7; color: #92400e; }
+.badge-diag-collected { background: #e0f2fe; color: #075985; }
+.badge-diag-waiting { background: #ede9fe; color: #5b21b6; }
+.badge-diag-done { background: #dcfce7; color: #166534; }
+.badge-diag-delivered { background: #dbeafe; color: #1e40af; }
+.badge-diag-cancelled { background: #fee2e2; color: #991b1b; }
+
+/* Main Table Container */
+.diag-table-card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 25px;
+}
+.diag-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 12px;
+}
+.diag-table-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Custom Table Styling */
+.table-diag {
+    width: 100%;
+    margin-bottom: 0;
+    color: #334155;
+    font-size: 13px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.table-diag th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #cbd5e1;
+    border-top: none;
+}
+.table-diag td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+}
+.table-diag tbody tr:hover {
+    background: #f8fafc;
+}
+.table-diag tfoot th {
+    background: #f1f5f9;
+    font-weight: 700;
+    color: #0f172a;
+    border-top: 2px solid #cbd5e1;
+    padding: 12px 14px;
+}
+
+/* Informational Card */
+.diag-info-box {
+    background: #f8fafc;
+    border-left: 4px solid #3b82f6;
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #475569;
+}
+
+/* Print Layout & 3-Tier Signatures */
+.diag-print-header {
+    display: none;
+    text-align: center;
+    margin-bottom: 20px;
+}
+.diag-print-signatures {
+    display: none;
+    margin-top: 50px;
+    justify-content: space-between;
+}
+.diag-signature-box {
+    text-align: center;
+    width: 28%;
+    border-top: 1px solid #334155;
+    padding-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+}
+
+@media print {
+    body {
+        background: #ffffff !important;
+        font-size: 11px !important;
+        color: #000000 !important;
+    }
+    .main-sidebar, .main-header, .diag-nav-pills, .diag-filter-form, .btn, .dt-buttons, .dataTables_filter, .dataTables_length, .dataTables_paginate, .dataTables_info, .no-print {
+        display: none !important;
+    }
+    .content-wrapper, .diag-report-wrapper {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #ffffff !important;
+    }
+    .diag-print-header {
+        display: block !important;
+    }
+    .diag-print-signatures {
+        display: flex !important;
+    }
+    .diag-table-card, .diag-kpi-card {
+        box-shadow: none !important;
+        border: 1px solid #cccccc !important;
+        page-break-inside: avoid !important;
+    }
+    table {
+        page-break-inside: auto !important;
+    }
+    tr {
+        page-break-inside: avoid !important;
+        page-break-after: auto !important;
+    }
+    thead {
+        display: table-header-group !important;
+    }
+    tfoot {
+        display: table-footer-group !important;
+    }
+    @page {
+        size: auto;
+        margin: 12mm 10mm;
+    }
+}

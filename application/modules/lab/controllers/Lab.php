@@ -3735,7 +3735,457 @@ class Lab extends MX_Controller
             redirect("lab/viewReport?id=" . "$id");
         }
     }
-}
 
-/* End of file lab.php */
-/* Location: ./application/modules/lab/controllers/lab.php */
+// ==========================================
+    // PHASE 7: DIAGNOSTIC PERFORMANCE REPORTS
+    // ==========================================
+
+    /**
+     * 1. Diagnostic Overview Dashboard
+     */
+    public function diagnosticDashboard()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type   = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $selected_date = $this->input->get('selected_date');
+        $date_from     = $this->input->get('date_from');
+        $date_to       = $this->input->get('date_to');
+
+        $data = $this->lab_model->getDiagnosticDashboardData($period_type, $selected_date, $date_from, $date_to);
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['period_type'] = $period_type;
+        $data['date_from']   = $date_from;
+        $data['date_to']     = $date_to;
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diagnostic_dashboard', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 2. Daily Diagnostic Performance
+     */
+    public function dailyDiagnosticPerformance()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $selected_date = $this->input->get('date') ? $this->input->get('date') : date('Y-m-d');
+        $filters = [
+            'department_id' => $this->input->get('department_id'),
+            'category_id'   => $this->input->get('category_id'),
+            'doctor_id'     => $this->input->get('doctor_id'),
+            'status'        => $this->input->get('status')
+        ];
+
+        $data = $this->lab_model->getDailyDiagnosticPerformanceReport($selected_date, $filters);
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+        $data['categories']  = $this->finance_model->getCategory();
+        $data['doctors']     = $this->doctor_model->getDoctor();
+        $data['filters']     = $filters;
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_daily_performance', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 3. Monthly Diagnostic Performance
+     */
+    public function monthlyDiagnosticPerformance()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $selected_month = $this->input->get('month') ? $this->input->get('month') : date('Y-m');
+
+        $data = $this->lab_model->getMonthlyDiagnosticPerformanceReport($selected_month);
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_monthly_performance', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 4. Yearly Diagnostic Performance
+     */
+    public function yearlyDiagnosticPerformance()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $selected_year = $this->input->get('year') ? $this->input->get('year') : date('Y');
+
+        $data = $this->lab_model->getYearlyDiagnosticPerformanceReport($selected_year);
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_yearly_performance', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 5. Test-wise Performance
+     */
+    public function testPerformanceReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+        $preset = $this->input->get('preset') ? $this->input->get('preset') : 'all';
+
+        $filters = [
+            'department_id' => $this->input->get('department_id'),
+            'category_id'   => $this->input->get('category_id')
+        ];
+
+        $data = $this->lab_model->getTestPerformanceReport($period['start_time'], $period['end_time'], $preset, $filters);
+        $data['period']      = $period;
+        $data['preset']      = $preset;
+        $data['filters']     = $filters;
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+        $data['categories']  = $this->finance_model->getCategory();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_test_performance', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 6. Category-wise Performance
+     */
+    public function categoryPerformanceReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $filters = [
+            'category_id' => $this->input->get('category_id')
+        ];
+
+        $data = $this->lab_model->getCategoryPerformanceReport($period['start_time'], $period['end_time'], $filters);
+        $data['period']     = $period;
+        $data['filters']    = $filters;
+        $data['settings']   = $this->settings_model->getSettings();
+        $data['categories'] = $this->finance_model->getCategory();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_category_performance', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 7. Department-wise Performance
+     */
+    public function departmentPerformanceReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $filters = [
+            'department_id' => $this->input->get('department_id')
+        ];
+
+        $data = $this->lab_model->getDepartmentPerformanceReport($period['start_time'], $period['end_time'], $filters);
+        $data['period']      = $period;
+        $data['filters']     = $filters;
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_department_performance', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 8. Sample Collection Report
+     */
+    public function sampleCollectionReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $filters = [
+            'department_id' => $this->input->get('department_id'),
+            'sample_status' => $this->input->get('sample_status')
+        ];
+
+        $data = $this->lab_model->getSampleCollectionReport($period['start_time'], $period['end_time'], $filters);
+        $data['period']      = $period;
+        $data['filters']     = $filters;
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_sample_collection', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 9. Pending Test Report
+     */
+    public function pendingTestReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $filters = [
+            'department_id' => $this->input->get('department_id'),
+            'category_id'   => $this->input->get('category_id'),
+            'stage'         => $this->input->get('stage')
+        ];
+
+        $data = $this->lab_model->getPendingTestReport($filters);
+        $data['filters']     = $filters;
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+        $data['categories']  = $this->finance_model->getCategory();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_pending_tests', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 10. Report Delivery Report
+     */
+    public function reportDeliveryReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $filters = [
+            'delivery_status' => $this->input->get('delivery_status')
+        ];
+
+        $data = $this->lab_model->getReportDeliveryReport($period['start_time'], $period['end_time'], $filters);
+        $data['period']   = $period;
+        $data['filters']  = $filters;
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_report_delivery', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 11. Report Verification Report
+     */
+    public function reportVerificationReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $data = $this->lab_model->getReportVerificationReport($period['start_time'], $period['end_time']);
+        $data['period']   = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_report_verification', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 12. Turnaround Time (TAT) Report
+     */
+    public function turnaroundTimeReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $filters = [
+            'department_id' => $this->input->get('department_id'),
+            'category_id'   => $this->input->get('category_id')
+        ];
+
+        $data = $this->lab_model->getTurnaroundTimeReport($period['start_time'], $period['end_time'], $filters);
+        $data['period']      = $period;
+        $data['filters']     = $filters;
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+        $data['categories']  = $this->finance_model->getCategory();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_turnaround_time', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 13. Cancelled Test Report
+     */
+    public function cancelledTestReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $filters = [
+            'department_id' => $this->input->get('department_id')
+        ];
+
+        $data = $this->lab_model->getCancelledTestReport($period['start_time'], $period['end_time'], $filters);
+        $data['period']      = $period;
+        $data['filters']     = $filters;
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_cancelled_tests', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 14. Home Sample Collection Report (Documented as Unavailable)
+     */
+    public function homeCollectionReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_home_collection', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 15. Doctor-wise Diagnostic Performance
+     */
+    public function doctorDiagnosticPerformance()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $filters = [
+            'doctor_id'     => $this->input->get('doctor_id'),
+            'department_id' => $this->input->get('department_id')
+        ];
+
+        $data = $this->lab_model->getDoctorDiagnosticPerformanceReport($period['start_time'], $period['end_time'], $filters);
+        $data['period']      = $period;
+        $data['filters']     = $filters;
+        $data['settings']    = $this->settings_model->getSettings();
+        $data['doctors']     = $this->doctor_model->getDoctor();
+        $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_doctor_performance', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 16. Diagnostic Operational Efficiency Report
+     */
+    public function diagnosticOperationalEfficiency()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if ($this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $period = $this->lab_model->resolveReportPeriod($period_type, $this->input->get('date_from'), $this->input->get('date_to'));
+
+        $data = $this->lab_model->getDiagnosticOperationalEfficiencyData($period['start_time'], $period['end_time']);
+        $data['period']   = $period;
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('diag_operational_efficiency', $data);
+        $this->load->view('home/footer');
+    }
+
+}

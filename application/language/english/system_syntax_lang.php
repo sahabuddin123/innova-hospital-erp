@@ -2693,3 +2693,38 @@ $lang['accrual_basis'] = 'Billing (Accrual) Basis';
 $lang['net_cash_operating_surplus'] = 'Net Cash Operating Surplus';
 $lang['net_operating_profit'] = 'Net Operating Profit';
 $lang['contribution_margin'] = 'Contribution Margin';
+
+
+// ==========================================
+// PHASE 7: DIAGNOSTIC PERFORMANCE REPORTS
+// ==========================================
+$lang['diagnostic_dashboard'] = 'Diagnostic Overview Dashboard';
+$lang['diagnostic_reports'] = 'Diagnostic Performance Reports';
+$lang['daily_diagnostic_performance'] = 'Daily Diagnostic Performance';
+$lang['monthly_diagnostic_performance'] = 'Monthly Diagnostic Performance';
+$lang['yearly_diagnostic_performance'] = 'Yearly Diagnostic Performance';
+$lang['test_performance_report'] = 'Test-wise Performance';
+$lang['category_performance_report'] = 'Category-wise Performance';
+$lang['department_performance_report'] = 'Department-wise Performance';
+$lang['sample_collection_report'] = 'Sample Collection Report';
+$lang['pending_test_report'] = 'Pending Test Report';
+$lang['report_delivery_report'] = 'Report Delivery Report';
+$lang['report_verification_report'] = 'Report Verification Report';
+$lang['turnaround_time_report'] = 'Turnaround Time (TAT) Report';
+$lang['cancelled_test_report'] = 'Cancelled Test Report';
+$lang['home_collection_report'] = 'Home Sample Collection Report';
+$lang['doctor_diagnostic_performance'] = 'Doctor-wise Diagnostic Performance';
+$lang['diagnostic_operational_efficiency'] = 'Diagnostic Operational Efficiency';
+$lang['operational_metrics'] = 'Operational Metrics';
+$lang['sla_target'] = 'SLA Target';
+$lang['average_tat'] = 'Average Turnaround Time';
+$lang['completion_rate'] = 'Completion Rate';
+$lang['verification_rate'] = 'Verification Rate';
+$lang['delivery_rate'] = 'Delivery Rate';
+$lang['cancellation_rate'] = 'Cancellation Rate';
+$lang['samples_collected'] = 'Samples Collected';
+$lang['samples_pending'] = 'Samples Pending';
+$lang['tests_completed'] = 'Tests Completed';
+$lang['reports_verified'] = 'Reports Verified';
+$lang['reports_delivered'] = 'Reports Delivered';
+$lang['on_time_performance'] = 'On-Time Performance';

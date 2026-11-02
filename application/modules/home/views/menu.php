@@ -1018,6 +1018,64 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 
 
+<?php if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Laboratorist', 'Accountant'))) { ?>
+    <li class="nav-item">
+        <a class="nav-link text-white" href="#">
+            <i class="text-secondary nav-icon fas fa-microscope"></i>
+            <p><?php echo lang('diagnostic_reports'); ?><i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+            <?php if (in_array('lab', $this->modules)) { ?>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticDashboard"><i class="text-secondary nav-icon fas fa-chart-line"></i>
+                        <p><?php echo lang('diagnostic_dashboard'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/dailyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('daily_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/monthlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('monthly_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/yearlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('yearly_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/testPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('test_performance_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/categoryPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('category_performance_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/departmentPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('department_performance_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/sampleCollectionReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('sample_collection_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/pendingTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('pending_test_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/reportDeliveryReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('report_delivery_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/reportVerificationReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('report_verification_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/turnaroundTimeReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('turnaround_time_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/cancelledTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('cancelled_test_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/doctorDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('doctor_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticOperationalEfficiency"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('diagnostic_operational_efficiency'); ?></p>
+                    </a></li>
+            <?php } ?>
+        </ul>
+    </li>
+<?php } ?>
+
 <?php if (empty($sidebar_hidden_modules['bed'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
     <li class="nav-item">
@@ -1682,6 +1740,64 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 
 
+
+<?php if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Laboratorist', 'Accountant'))) { ?>
+    <li class="nav-item">
+        <a class="nav-link text-white" href="#">
+            <i class="text-secondary nav-icon fas fa-microscope"></i>
+            <p><?php echo lang('diagnostic_reports'); ?><i class="right fas fa-angle-left"></i></p>
+        </a>
+        <ul class="nav nav-treeview">
+            <?php if (in_array('lab', $this->modules)) { ?>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticDashboard"><i class="text-secondary nav-icon fas fa-chart-line"></i>
+                        <p><?php echo lang('diagnostic_dashboard'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/dailyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('daily_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/monthlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('monthly_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/yearlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('yearly_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/testPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('test_performance_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/categoryPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('category_performance_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/departmentPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('department_performance_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/sampleCollectionReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('sample_collection_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/pendingTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('pending_test_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/reportDeliveryReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('report_delivery_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/reportVerificationReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('report_verification_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/turnaroundTimeReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('turnaround_time_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/cancelledTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('cancelled_test_report'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/doctorDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('doctor_diagnostic_performance'); ?></p>
+                    </a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticOperationalEfficiency"><i class="text-secondary nav-icon far fa-circle"></i>
+                        <p><?php echo lang('diagnostic_operational_efficiency'); ?></p>
+                    </a></li>
+            <?php } ?>
+        </ul>
+    </li>
+<?php } ?>
 
 <?php if (empty($sidebar_hidden_modules['bed'])) { ?>
 <?php if ($this->ion_auth->in_group(array('Nurse', 'Receptionist'))) { ?>
