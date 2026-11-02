@@ -718,6 +718,28 @@ class ReportExport
                 ]
             ],
 
+            'diag_test_item_selected' => [
+                'title'       => 'Selected Test Item Report',
+                'subtitle'    => 'Chronological date-wise breakdown of performed diagnostic tests',
+                'orientation' => 'portrait',
+                'columns'     => [
+                    ['key' => 'date_formatted', 'label' => 'Date', 'align' => 'center', 'type' => 'string', 'width' => 25],
+                    ['key' => 'test_name', 'label' => 'Test Name', 'align' => 'left', 'type' => 'string', 'width' => 45],
+                    ['key' => 'total_performed', 'label' => 'Total Performed', 'align' => 'right', 'type' => 'integer', 'width' => 30, 'total' => true]
+                ]
+            ],
+
+            'diag_test_items_summary' => [
+                'title'       => 'All Test Items Summary Report',
+                'subtitle'    => 'Summary of performed diagnostic tests ranked by volume',
+                'orientation' => 'portrait',
+                'columns'     => [
+                    ['key' => 'sl', 'label' => 'SL', 'align' => 'center', 'type' => 'integer', 'width' => 15],
+                    ['key' => 'test_name', 'label' => 'Test Name', 'align' => 'left', 'type' => 'string', 'width' => 55],
+                    ['key' => 'total_performed', 'label' => 'Total Performed', 'align' => 'right', 'type' => 'integer', 'width' => 30, 'total' => true]
+                ]
+            ],
+
             // =================================================================
             // 8. FINANCIAL AUDIT LOGS
             // =================================================================

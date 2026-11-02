@@ -194,6 +194,28 @@ class Export extends MX_Controller
                 $data['summary'] = isset($result['summary']) ? $result['summary'] : [];
                 break;
 
+            case 'diag_test_item_selected':
+                $this->load->model('lab/lab_model');
+                $test_id = $this->input->get_post('test_id');
+                if (empty($test_id)) {
+                    $active_tests = $this->lab_model->getActiveDiagnosticTests();
+                    if (!empty($active_tests)) {
+                        $test_id = $active_tests[0]->id;
+                    }
+                }
+                $result = $this->lab_model->getSelectedTestItemReport($test_id, $period['start_time'], $period['end_time']);
+                $data['records'] = isset($result['records']) ? $result['records'] : [];
+                $data['summary'] = isset($result['summary']) ? $result['summary'] : [];
+                $data['test_name'] = isset($result['test_name']) ? $result['test_name'] : '';
+                break;
+
+            case 'diag_test_items_summary':
+                $this->load->model('lab/lab_model');
+                $result = $this->lab_model->getAllTestItemsSummaryReport($period['start_time'], $period['end_time']);
+                $data['records'] = isset($result['records']) ? $result['records'] : [];
+                $data['summary'] = isset($result['summary']) ? $result['summary'] : [];
+                break;
+
             default:
                 // Generic fallback for any other registered report
                 $data['records'] = [];

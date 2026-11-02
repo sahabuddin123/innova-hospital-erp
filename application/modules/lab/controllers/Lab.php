@@ -4238,4 +4238,158 @@ class Lab extends MX_Controller
         $this->load->view('home/footer');
     }
 
+
+    // =========================================================================
+    // TEST ITEM-WISE REPORT MODULE CONTROLLER ACTIONS
+    // =========================================================================
+
+    /**
+     * 1. Selected Test Item Report
+     * Allows selecting a specific test item and viewing its chronological date-wise performed count
+     */
+    public function selectedTestItemReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (isset($this->rbac) && !$this->rbac->hasPermission('diag_test_item_selected', 'VIEW')) {
+            redirect('home/permission');
+        } elseif (!isset($this->rbac) && $this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $date_from   = $this->input->get('date_from');
+        $date_to     = $this->input->get('date_to');
+        $test_id     = $this->input->get('test_id');
+
+        // Validation: From Date cannot be later than To Date
+        $validation_error = null;
+        if (!empty($date_from) && !empty($date_to) && strtotime($date_from) > strtotime($date_to)) {
+            $validation_error = 'From Date cannot be later than To Date. Please adjust your date range.';
+            $temp = $date_from;
+            $date_from = $date_to;
+            $date_to = $temp;
+        }
+
+        $period = $this->lab_model->resolveReportPeriod($period_type, $date_from, $date_to);
+        $active_tests = $this->lab_model->getActiveDiagnosticTests();
+
+        // If no test_id chosen, default to CBC if available, or first active test
+        if (empty($test_id) && !empty($active_tests)) {
+            foreach ($active_tests as $at) {
+                if (stripos($at->name, 'CBC') !== false) {
+                    $test_id = $at->id;
+                    break;
+                }
+            }
+            if (empty($test_id)) {
+                $test_id = $active_tests[0]->id;
+            }
+        }
+
+        $report_data = !empty($test_id) ? 
+            $this->lab_model->getSelectedTestItemReport($test_id, $period['start_time'], $period['end_time']) : 
+            ['test_id' => null, 'test_name' => '', 'records' => [], 'summary' => ['total_performed' => 0, 'active_days' => 0]];
+
+        $data = [
+            'period'           => $period,
+            'period_label'     => $period['label'],
+            'active_tests'     => $active_tests,
+            'selected_test_id' => $test_id,
+            'test_name'        => $report_data['test_name'],
+            'test_info'        => isset($report_data['test_info']) ? $report_data['test_info'] : null,
+            'records'          => $report_data['records'],
+            'summary'          => $report_data['summary'],
+            'settings'         => $this->settings_model->getSettings(),
+            'validation_error' => $validation_error,
+            'active_report'    => 'diag_test_item_selected'
+        ];
+
+        // Centralized Export Engine Hook
+        if (isset($this->reportexport) && $this->reportexport->handle('diag_test_item_selected', $data)) {
+            return;
+        }
+
+        $this->load->view('home/dashboard');
+        $this->load->view('lab/diag_selected_test_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 2. All Test Items Summary Report
+     * Summary of all performed diagnostic test items in period, ranked by volume descending
+     */
+    public function allTestItemsSummaryReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (isset($this->rbac) && !$this->rbac->hasPermission('diag_test_items_summary', 'VIEW')) {
+            redirect('home/permission');
+        } elseif (!isset($this->rbac) && $this->ion_auth->in_group(array('Patient'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $date_from   = $this->input->get('date_from');
+        $date_to     = $this->input->get('date_to');
+
+        // Validation: From Date cannot be later than To Date
+        $validation_error = null;
+        if (!empty($date_from) && !empty($date_to) && strtotime($date_from) > strtotime($date_to)) {
+            $validation_error = 'From Date cannot be later than To Date. Please adjust your date range.';
+            $temp = $date_from;
+            $date_from = $date_to;
+            $date_to = $temp;
+        }
+
+        $period = $this->lab_model->resolveReportPeriod($period_type, $date_from, $date_to);
+        $report_data = $this->lab_model->getAllTestItemsSummaryReport($period['start_time'], $period['end_time']);
+
+        $data = [
+            'period'           => $period,
+            'period_label'     => $period['label'],
+            'records'          => $report_data['records'],
+            'summary'          => $report_data['summary'],
+            'settings'         => $this->settings_model->getSettings(),
+            'validation_error' => $validation_error,
+            'active_report'    => 'diag_test_items_summary'
+        ];
+
+        // Centralized Export Engine Hook
+        if (isset($this->reportexport) && $this->reportexport->handle('diag_test_items_summary', $data)) {
+            return;
+        }
+
+        $this->load->view('home/dashboard');
+        $this->load->view('lab/diag_all_test_summary_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * AJAX endpoint: Date-wise breakdown for a specific test item (Modal detail view in Report 2)
+     */
+    public function getTestItemBreakdownAjax()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+            return;
+        }
+        $test_id     = $this->input->get('test_id');
+        $period_type = $this->input->get('period_type') ? $this->input->get('period_type') : 'this_month';
+        $date_from   = $this->input->get('date_from');
+        $date_to     = $this->input->get('date_to');
+
+        $period = $this->lab_model->resolveReportPeriod($period_type, $date_from, $date_to);
+        $result = $this->lab_model->getSelectedTestItemReport($test_id, $period['start_time'], $period['end_time']);
+
+        echo json_encode([
+            'status'    => 'success',
+            'period'    => $period,
+            'test_name' => $result['test_name'],
+            'records'   => $result['records'],
+            'summary'   => $result['summary']
+        ]);
+    }
 }

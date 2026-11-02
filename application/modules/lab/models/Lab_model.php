@@ -1599,7 +1599,21 @@ class Lab_model extends CI_model
                     'start_time' => $y_start,
                     'end_time'   => $y_end,
                     'label'      => 'This Year (' . date('Y') . ')',
-                    'type'       => 'this_year'
+                    'type'       => 'this_year',
+                    'date_from'  => date('Y-01-01', $y_start),
+                    'date_to'    => date('Y-12-31', $y_end)
+                ];
+            case 'last_year':
+                $ly = date('Y') - 1;
+                $ly_start = strtotime("{$ly}-01-01 00:00:00");
+                $ly_end   = strtotime("{$ly}-12-31 23:59:59");
+                return [
+                    'start_time' => $ly_start,
+                    'end_time'   => $ly_end,
+                    'label'      => 'Last Year (' . $ly . ')',
+                    'type'       => 'last_year',
+                    'date_from'  => date('Y-01-01', $ly_start),
+                    'date_to'    => date('Y-12-31', $ly_end)
                 ];
             case 'custom':
             default:
@@ -3014,4 +3028,142 @@ class Lab_model extends CI_model
         ];
     }
 
+
+    // =========================================================================
+    // TEST ITEM-WISE REPORT MODULE METHODS
+    // =========================================================================
+
+    /**
+     * Get active diagnostic tests from payment_category for searchable dropdown
+     */
+    public function getActiveDiagnosticTests($hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+        $this->db->select('id, category as name, code, c_price, payment_category_name');
+        $this->db->from('payment_category');
+        $this->db->where('(hospital_id = ' . $this->db->escape($hospital_id) . ' OR hospital_id IS NULL)', NULL, FALSE);
+        $this->db->where('type', 'diagnostic');
+        $this->db->where('status', 'Active');
+        $this->db->order_by('category', 'ASC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * REPORT 1: Selected Test Item Report
+     * Allows selecting a specific test item and viewing its chronological date-wise performed count
+     */
+    public function getSelectedTestItemReport($test_id, $start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        // Fetch test details
+        $this->db->select('id, category as name, code, c_price, payment_category_name');
+        $this->db->from('payment_category');
+        $this->db->where('id', $test_id);
+        $test_info = $this->db->get()->row();
+        $test_name = !empty($test_info) ? $test_info->name : 'Unknown Test';
+
+        $this->db->reset_query();
+        $sql = "
+            SELECT 
+                DATE(FROM_UNIXTIME(CASE WHEN (l.test_status_date IS NOT NULL AND l.test_status_date > 0) THEN l.test_status_date ELSE l.date END)) AS report_date,
+                MAX(COALESCE(pc.category, l.category_name, " . $this->db->escape($test_name) . ")) AS test_name,
+                CAST(ROUND(SUM(COALESCE(pi_sub.quantity, 1))) AS UNSIGNED) AS total_performed
+            FROM lab l
+            LEFT JOIN payment_category pc ON pc.id = l.category_id
+            LEFT JOIN (
+                SELECT payment_id, item_id, SUM(quantity) / COUNT(*) AS quantity
+                FROM payment_items
+                GROUP BY payment_id, item_id
+            ) pi_sub ON pi_sub.payment_id = l.invoice_id AND pi_sub.item_id = l.category_id
+            WHERE l.category_id = " . $this->db->escape($test_id) . "
+              AND (l.test_status != 'cancelled' AND (l.status != 'cancelled' OR l.status IS NULL))
+              AND (l.test_status = 'done' OR l.status IN ('complete', 'completed', 'delivery_pending', 'delivered'))
+              AND (CASE WHEN (l.test_status_date IS NOT NULL AND l.test_status_date > 0) THEN l.test_status_date ELSE l.date END) >= " . intval($start_time) . "
+              AND (CASE WHEN (l.test_status_date IS NOT NULL AND l.test_status_date > 0) THEN l.test_status_date ELSE l.date END) <= " . intval($end_time) . "
+              AND (l.hospital_id = " . $this->db->escape($hospital_id) . " OR l.hospital_id IS NULL)
+            GROUP BY report_date
+            ORDER BY report_date ASC
+        ";
+
+        $records = $this->db->query($sql)->result();
+
+        $grand_total = 0;
+        foreach ($records as $r) {
+            $r->date_formatted = date('d-m-Y', strtotime($r->report_date));
+            $r->total_performed = intval($r->total_performed);
+            $grand_total += $r->total_performed;
+        }
+
+        return [
+            'test_id'   => $test_id,
+            'test_name' => $test_name,
+            'test_info' => $test_info,
+            'records'   => $records,
+            'summary'   => [
+                'total_performed' => $grand_total,
+                'active_days'     => count($records)
+            ]
+        ];
+    }
+
+    /**
+     * REPORT 2: All Test Items Summary Report
+     * Summary of all performed diagnostic test items in period, ranked by volume descending
+     */
+    public function getAllTestItemsSummaryReport($start_time, $end_time, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $sql = "
+            SELECT 
+                l.category_id AS test_id,
+                COALESCE(pc.category, l.category_name, 'Unknown Test') AS test_name,
+                COALESCE(pc.code, '') AS test_code,
+                COALESCE(pc.c_price, 0) AS unit_price,
+                CAST(ROUND(SUM(COALESCE(pi_sub.quantity, 1))) AS UNSIGNED) AS total_performed
+            FROM lab l
+            LEFT JOIN payment_category pc ON pc.id = l.category_id
+            LEFT JOIN (
+                SELECT payment_id, item_id, SUM(quantity) / COUNT(*) AS quantity
+                FROM payment_items
+                GROUP BY payment_id, item_id
+            ) pi_sub ON pi_sub.payment_id = l.invoice_id AND pi_sub.item_id = l.category_id
+            WHERE (l.test_status != 'cancelled' AND (l.status != 'cancelled' OR l.status IS NULL))
+              AND (l.test_status = 'done' OR l.status IN ('complete', 'completed', 'delivery_pending', 'delivered'))
+              AND (CASE WHEN (l.test_status_date IS NOT NULL AND l.test_status_date > 0) THEN l.test_status_date ELSE l.date END) >= " . intval($start_time) . "
+              AND (CASE WHEN (l.test_status_date IS NOT NULL AND l.test_status_date > 0) THEN l.test_status_date ELSE l.date END) <= " . intval($end_time) . "
+              AND (l.hospital_id = " . $this->db->escape($hospital_id) . " OR l.hospital_id IS NULL)
+            GROUP BY l.category_id, test_name, test_code, unit_price
+            ORDER BY total_performed DESC, test_name ASC
+        ";
+
+        $records = $this->db->query($sql)->result();
+
+        $grand_total = 0;
+        $sl = 1;
+        foreach ($records as $r) {
+            $r->sl = $sl++;
+            $r->total_performed = intval($r->total_performed);
+            $grand_total += $r->total_performed;
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_performed' => $grand_total,
+                'distinct_tests'  => count($records),
+                'top_test'        => !empty($records) ? $records[0]->test_name : 'None'
+            ]
+        ];
+    }
+
+    /**
+     * Date-wise breakdown for modal detail view in Report 2
+     */
+    public function getTestItemDateBreakdown($test_id, $start_time, $end_time, $hospital_id = null)
+    {
+        return $this->getSelectedTestItemReport($test_id, $start_time, $end_time, $hospital_id);
+    }
 }

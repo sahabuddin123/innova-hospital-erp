@@ -132,6 +132,8 @@ class Rbac
         'diag_home_collection'             => 'diagnostic_performance',
         'diag_doctor'                      => 'diagnostic_performance',
         'diag_efficiency'                  => 'diagnostic_performance',
+        'diag_test_item_selected'          => 'diagnostic_performance',
+        'diag_test_items_summary'          => 'diagnostic_performance',
         'birth'                            => 'diagnostic_performance',
         'operation'                        => 'diagnostic_performance',
         'expire'                           => 'diagnostic_performance',
@@ -556,3 +558,4 @@ class Rbac
         ];
     }
 }
+

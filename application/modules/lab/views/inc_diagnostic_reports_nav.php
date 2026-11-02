@@ -17,6 +17,12 @@ $current_page = $this->router->fetch_method();
     <a href="lab/testPerformanceReport" class="<?php echo ($current_page == 'testPerformanceReport') ? 'active' : ''; ?>">
         <i class="fas fa-vial mr-1"></i> <?php echo lang('test_performance_report'); ?>
     </a>
+    <a href="lab/selectedTestItemReport" class="<?php echo ($current_page == 'selectedTestItemReport') ? 'active' : ''; ?>">
+        <i class="fas fa-filter mr-1"></i> <?php echo lang('selected_test_item_report'); ?>
+    </a>
+    <a href="lab/allTestItemsSummaryReport" class="<?php echo ($current_page == 'allTestItemsSummaryReport') ? 'active' : ''; ?>">
+        <i class="fas fa-list-ol mr-1"></i> <?php echo lang('all_test_items_report'); ?>
+    </a>
     <a href="lab/categoryPerformanceReport" class="<?php echo ($current_page == 'categoryPerformanceReport') ? 'active' : ''; ?>">
         <i class="fas fa-tags mr-1"></i> <?php echo lang('category_performance_report'); ?>
     </a>

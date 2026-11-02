@@ -2886,3 +2886,17 @@ $lang['sensitive_data'] = 'Sensitive Details';
 $lang['save_permissions'] = 'Save Permissions';
 $lang['permission_audit'] = 'Permission Audit';
 
+
+// Test Item-Wise Report Module
+$lang['selected_test_item_report'] = 'Selected Test Item Report';
+$lang['all_test_items_report'] = 'All Test Items Report';
+$lang['all_test_items_summary_report'] = 'All Test Items Summary Report';
+$lang['test_item'] = 'Test Item';
+$lang['select_test_item'] = 'Select Test Item';
+$lang['total_performed'] = 'Total Performed';
+$lang['performed_date'] = 'Performed Date';
+$lang['test_details'] = 'Test Details';
+$lang['view_details'] = 'View Details';
+$lang['distinct_tests'] = 'Distinct Tests';
+$lang['top_performed_test'] = 'Top Performed Test';
+$lang['active_days'] = 'Active Days';
