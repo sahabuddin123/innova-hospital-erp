@@ -45,9 +45,7 @@
                             <h3 class="card-title">All the department names and related informations</h3>
                             <div class="float-right">
                                 <a data-toggle="modal" href="#myModal">
-                                    <button id="" class="btn btn-success btn-sm" onclick="javascript:window.print();">
-                                        <i class="fa fa-print"></i> <?php echo lang('print'); ?>
-                                    </button>
+                                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'financial']); ?>
                                 </a>
                             </div>
                         </div> -->

@@ -27,7 +27,7 @@ $selected_aging = !empty($selected_aging) ? $selected_aging : 'all';
                     <p>Unsettled diagnostic invoice receivables categorized by aging intervals &bull; <span class="badge badge-warning text-dark px-2 py-1"><?php echo number_format($summary['total_invoices']); ?> Invoices Due</span></p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'due']); ?>
                 </div>
             </div>
 

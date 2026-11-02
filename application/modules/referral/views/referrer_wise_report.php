@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Comprehensive portfolio breakdown of each referrer, referral volume, discount absorption, and payouts &bull; <strong><?php echo $period['period_label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Report</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'referrer_wise']); ?>
                     <a href="referral/statement" class="rep-action-btn"><i class="fas fa-file-invoice"></i> Statements</a>
                 </div>
             </div>

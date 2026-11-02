@@ -34,6 +34,7 @@
                             <i class="fas fa-filter mr-1"></i> Apply Filter
                         </button>
                         <a href="finance/financialAuditDashboard" class="btn btn-sm btn-outline-secondary ml-2">Reset</a>
+                        <div class="ml-auto"><?php $this->load->view("report/inc_export_toolbar", ["export_report_key" => "fin_audit_dashboard"]); ?></div>
                     </form>
                 </div>
             </div>

@@ -28,7 +28,7 @@ $selected_vendor = !empty($selected_vendor) ? $selected_vendor : '';
                     <p>Disbursements to external diagnostic equipment, reagents, and service suppliers &bull; <span class="font-weight-bold text-dark"><?php echo html_escape($period_label); ?></span></p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'vendor_payment']); ?>
                 </div>
             </div>
 

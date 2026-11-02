@@ -11,9 +11,7 @@
                     <small class="text-muted">Lifecare Diagnostic Center &bull; Accrual-Based Double-Entry Income Statement</small>
                 </div>
                 <div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm" onclick="window.print();">
-                        <i class="fas fa-print mr-1"></i> Print
-                    </button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'acc_pnl_statement']); ?>
                 </div>
             </div>
         </div>

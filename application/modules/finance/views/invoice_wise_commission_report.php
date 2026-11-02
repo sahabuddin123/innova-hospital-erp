@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Invoice-level doctor commission breakdown, payment status, and net payable calculations &bull; <strong><?php echo $period['label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Report</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'invoice_wise_commission']); ?>
                     <a href="finance/commissionPayableReport" class="rep-action-btn"><i class="fas fa-hand-holding-usd"></i> Commission Payable</a>
                 </div>
             </div>

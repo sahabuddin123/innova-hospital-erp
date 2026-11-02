@@ -31,7 +31,7 @@ $selected_user = !empty($selected_user) ? $selected_user : '';
                 </div>
                 <div class="rep-actions">
                     <a href="finance/addExpenseView" class="rep-action-btn text-primary font-weight-bold"><i class="fas fa-plus-circle"></i> Add Expense</a>
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'daily_expense']); ?>
                 </div>
             </div>
 

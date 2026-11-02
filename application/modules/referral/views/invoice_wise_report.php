@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Granular invoice-level audit tracking hospital share recovery, referral commission entitlement, and collection backing &bull; <strong><?php echo $period['period_label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Report</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'invoice_wise']); ?>
                     <a href="referral/discountReconciliationReport" class="rep-action-btn"><i class="fas fa-percent"></i> Discount Absorption</a>
                 </div>
             </div>

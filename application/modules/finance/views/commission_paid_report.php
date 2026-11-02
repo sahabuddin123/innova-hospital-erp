@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Actual recorded commission disbursements, vouchers, and payment method audit trail &bull; <strong><?php echo $period['label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Report</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'commission_paid']); ?>
                     <a href="finance/commissionPayableReport" class="rep-action-btn"><i class="fas fa-hand-holding-usd"></i> Commission Payable</a>
                 </div>
             </div>

@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Automated mathematical and categorical verification engine validating financial accounting integrity &bull; <strong><?php echo $period['period_label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Audit</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'pnl_reconciliation']); ?>
                     <a href="finance/profitLossDashboard" class="rep-action-btn"><i class="fas fa-chart-pie"></i> Back to Dashboard</a>
                 </div>
             </div>

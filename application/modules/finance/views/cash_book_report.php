@@ -27,7 +27,7 @@ $period_label = !empty($period['period_label']) ? $period['period_label'] : 'Sel
                     <p>Chronological receipts vs disbursements of physical currency in drawer &bull; <span class="font-weight-bold text-dark"><?php echo html_escape($period_label); ?></span></p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print Cash Book</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'cash_book']); ?>
                 </div>
             </div>
 

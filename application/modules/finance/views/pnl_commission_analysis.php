@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Unified diagnostic commission audit distinguishing accrual obligations from completed cash disbursements &bull; <strong><?php echo $period['period_label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'pnl_commission_analysis']); ?>
                     <a href="finance/doctorsCommissionSummary" class="rep-action-btn"><i class="fas fa-user-md"></i> Doctor Suite</a>
                     <a href="referral/commissionSummary" class="rep-action-btn"><i class="fas fa-user-friends"></i> Referral Suite</a>
                 </div>

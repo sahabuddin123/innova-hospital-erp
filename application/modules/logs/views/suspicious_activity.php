@@ -19,6 +19,7 @@
             <?php $this->load->view('logs/inc_activity_nav', ['active_report' => 'suspicious_activity']); ?>
 
             <!-- Filter Card -->
+            <div class="d-flex justify-content-end mb-2"><?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => 'suspicious_activity']); ?></div>
             <div class="act-filter-card">
                 <form method="GET" action="logs/suspiciousActivity" class="act-filter-row">
                     <div class="act-filter-group">

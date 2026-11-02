@@ -11,6 +11,7 @@ class Logs extends MX_Controller
         parent::__construct();
 
         $this->load->model('logs_model');
+        $this->load->library('ReportExport');
         if (!$this->ion_auth->in_group(array('admin', 'superadmin'))) {
             redirect('home/permission');
         }
@@ -245,6 +246,10 @@ class Logs extends MX_Controller
             'active_report' => 'activity_dashboard'
         ]);
 
+        if (isset($this->reportexport) && $this->reportexport->handle('activity_dashboard', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/activity_dashboard', $data);
         $this->load->view('home/footer');
@@ -278,6 +283,10 @@ class Logs extends MX_Controller
             'end_date' => $end_date,
             'active_report' => 'login_history'
         ]);
+
+        if (isset($this->reportexport) && $this->reportexport->handle('login_history', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/login_history', $data);
@@ -313,6 +322,10 @@ class Logs extends MX_Controller
             'active_report' => 'logout_history'
         ]);
 
+        if (isset($this->reportexport) && $this->reportexport->handle('logout_history', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/logout_history', $data);
         $this->load->view('home/footer');
@@ -345,6 +358,10 @@ class Logs extends MX_Controller
             'end_date' => $end_date,
             'active_report' => 'failed_logins'
         ]);
+
+        if (isset($this->reportexport) && $this->reportexport->handle('failed_logins', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/failed_logins', $data);
@@ -380,6 +397,10 @@ class Logs extends MX_Controller
             'active_report' => 'user_activity'
         ]);
 
+        if (isset($this->reportexport) && $this->reportexport->handle('user_activity', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/user_activity', $data);
         $this->load->view('home/footer');
@@ -408,6 +429,10 @@ class Logs extends MX_Controller
             'end_date' => $end_date,
             'active_report' => 'module_access'
         ]);
+
+        if (isset($this->reportexport) && $this->reportexport->handle('module_access', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/module_access', $data);
@@ -445,6 +470,10 @@ class Logs extends MX_Controller
             'active_report' => 'data_entry'
         ]);
 
+        if (isset($this->reportexport) && $this->reportexport->handle('data_entry', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/data_entry', $data);
         $this->load->view('home/footer');
@@ -477,6 +506,10 @@ class Logs extends MX_Controller
             'end_date' => $end_date,
             'active_report' => 'session_report'
         ]);
+
+        if (isset($this->reportexport) && $this->reportexport->handle('session_report', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/session_report', $data);
@@ -516,6 +549,10 @@ class Logs extends MX_Controller
             'active_report' => 'print_export'
         ]);
 
+        if (isset($this->reportexport) && $this->reportexport->handle('print_export', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/print_export', $data);
         $this->load->view('home/footer');
@@ -549,6 +586,10 @@ class Logs extends MX_Controller
             'end_date' => $end_date,
             'active_report' => 'suspicious_activity'
         ]);
+
+        if (isset($this->reportexport) && $this->reportexport->handle('suspicious_activity', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('logs/suspicious_activity', $data);

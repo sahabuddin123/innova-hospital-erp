@@ -38,7 +38,7 @@ $is_accrual = ($accounting_basis === 'accrual');
                         </a>
                     </div>
                     <div class="rep-actions d-print-none">
-                        <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print</button>
+                        <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'pnl_dashboard']); ?>
                         <a href="finance/profitLossReconciliation" class="rep-action-btn" style="border-color: #dc2626; color: #dc2626;"><i class="fas fa-check-double"></i> Audit Checks</a>
                     </div>
                 </div>

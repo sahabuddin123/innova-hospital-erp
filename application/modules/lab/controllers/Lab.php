@@ -20,6 +20,7 @@ class Lab extends MX_Controller
         $this->load->model('accountant/accountant_model');
         $this->load->model('receptionist/receptionist_model');
         $this->load->model('macro/macro_model');
+        $this->load->library('ReportExport');
         if ($this->router->fetch_method() != 'barcode') {
             if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'Receptionist', 'Nurse', 'Laboratorist', 'Doctor', 'Patient'))) {
                 redirect('home/permission');
@@ -3795,6 +3796,13 @@ class Lab extends MX_Controller
         $data['doctors']     = $this->doctor_model->getDoctor();
         $data['filters']     = $filters;
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
+
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_daily_performance', $data);
         $this->load->view('home/footer');
@@ -3817,6 +3825,9 @@ class Lab extends MX_Controller
         $data = $this->lab_model->getMonthlyDiagnosticPerformanceReport($selected_month);
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_monthly_performance', $data);
         $this->load->view('home/footer');
@@ -3839,6 +3850,9 @@ class Lab extends MX_Controller
         $data = $this->lab_model->getYearlyDiagnosticPerformanceReport($selected_year);
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_yearly_performance', $data);
         $this->load->view('home/footer');
@@ -3873,6 +3887,9 @@ class Lab extends MX_Controller
         $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
         $data['categories']  = $this->finance_model->getCategory();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_test_performance', $data);
         $this->load->view('home/footer');
@@ -3903,6 +3920,9 @@ class Lab extends MX_Controller
         $data['settings']   = $this->settings_model->getSettings();
         $data['categories'] = $this->finance_model->getCategory();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_category_performance', $data);
         $this->load->view('home/footer');
@@ -3933,6 +3953,9 @@ class Lab extends MX_Controller
         $data['settings']    = $this->settings_model->getSettings();
         $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_department_performance', $data);
         $this->load->view('home/footer');
@@ -3964,6 +3987,9 @@ class Lab extends MX_Controller
         $data['settings']    = $this->settings_model->getSettings();
         $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_sample_collection', $data);
         $this->load->view('home/footer');
@@ -3993,6 +4019,9 @@ class Lab extends MX_Controller
         $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
         $data['categories']  = $this->finance_model->getCategory();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_pending_tests', $data);
         $this->load->view('home/footer');
@@ -4022,6 +4051,9 @@ class Lab extends MX_Controller
         $data['filters']  = $filters;
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_report_delivery', $data);
         $this->load->view('home/footer');
@@ -4046,6 +4078,9 @@ class Lab extends MX_Controller
         $data['period']   = $period;
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_report_verification', $data);
         $this->load->view('home/footer');
@@ -4078,6 +4113,9 @@ class Lab extends MX_Controller
         $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
         $data['categories']  = $this->finance_model->getCategory();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_turnaround_time', $data);
         $this->load->view('home/footer');
@@ -4108,6 +4146,9 @@ class Lab extends MX_Controller
         $data['settings']    = $this->settings_model->getSettings();
         $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_cancelled_tests', $data);
         $this->load->view('home/footer');
@@ -4127,6 +4168,9 @@ class Lab extends MX_Controller
 
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_home_collection', $data);
         $this->load->view('home/footer');
@@ -4159,6 +4203,9 @@ class Lab extends MX_Controller
         $data['doctors']     = $this->doctor_model->getDoctor();
         $data['departments'] = $this->db->get_where('department', ['hospital_id' => $this->session->userdata('hospital_id')])->result();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_doctor_performance', $data);
         $this->load->view('home/footer');
@@ -4183,6 +4230,9 @@ class Lab extends MX_Controller
         $data['period']   = $period;
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('diagnostic_volume', $data)) {
+            return;
+        }
         $this->load->view('home/dashboard');
         $this->load->view('diag_operational_efficiency', $data);
         $this->load->view('home/footer');

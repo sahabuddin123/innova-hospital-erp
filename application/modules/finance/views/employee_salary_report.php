@@ -29,7 +29,7 @@ $selected_month = !empty($month) ? $month : 'all';
                 </div>
                 <div class="rep-actions">
                     <a href="payroll" class="rep-action-btn text-primary font-weight-bold"><i class="fas fa-money-check-alt"></i> Payroll Module</a>
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'employee_salary']); ?>
                 </div>
             </div>
 

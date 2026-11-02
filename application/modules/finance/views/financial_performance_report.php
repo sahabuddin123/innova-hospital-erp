@@ -85,6 +85,9 @@ $trends = !empty($summary['trends']) ? $summary['trends'] : [];
                             <button type="button" id="btn_excel_report" class="fin-btn-action">
                                 <i class="fas fa-file-excel text-success"></i> Excel
                             </button>
+                            <button type="button" id="btn_csv_report" class="fin-btn-action">
+                                <i class="fas fa-file-csv text-info"></i> CSV
+                            </button>
                         </div>
                     </div>
                 </form>

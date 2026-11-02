@@ -11,9 +11,7 @@
                     <small class="text-muted">Chronological authentication logs, devices, browsers, and IP tracking</small>
                 </div>
                 <div class="col-sm-6 text-right">
-                    <a href="logs/exportLoginCsv?start_date=<?php echo urlencode($start_date); ?>&end_date=<?php echo urlencode($end_date); ?>&user_id=<?php echo urlencode($filters['user_id'] ?? ''); ?>&login_status=<?php echo urlencode($filters['login_status'] ?? ''); ?>" class="btn btn-success btn-sm">
-                        <i class="fas fa-file-csv mr-1"></i> Export Login CSV
-                    </a>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => 'login_history']); ?>
                 </div>
             </div>
         </div>

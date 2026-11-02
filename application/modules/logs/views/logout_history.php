@@ -19,6 +19,7 @@
             <?php $this->load->view('logs/inc_activity_nav', ['active_report' => 'logout_history']); ?>
 
             <!-- Filter Card -->
+            <div class="d-flex justify-content-end mb-2"><?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => 'logout_history']); ?></div>
             <div class="act-filter-card">
                 <form method="GET" action="logs/userLogoutHistory" class="act-filter-row">
                     <div class="act-filter-group">

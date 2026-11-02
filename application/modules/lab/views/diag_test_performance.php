@@ -40,7 +40,7 @@
                     <?php endforeach; ?>
                 </select>
                 <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter"></i> Apply</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'diag_test_performance']); ?>
             </form>
         </div>
 

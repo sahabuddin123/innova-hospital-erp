@@ -28,7 +28,7 @@ $selected_utility_cat = !empty($selected_utility_cat) ? $selected_utility_cat : 
                     <p>Electricity (DESCO/DPDC), Water (WASA), Gas, Internet, and Telephone utility bills &bull; <span class="font-weight-bold text-dark"><?php echo html_escape($period_label); ?></span></p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'utility_bill']); ?>
                 </div>
             </div>
 

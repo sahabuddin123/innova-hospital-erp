@@ -1,0 +1,72 @@
+/**
+ * Lifecare Diagnostic Center — Standard Export Engine Styles
+ */
+.rep-export-toolbar {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+
+.rep-export-group {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.rep-export-btn {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    padding: 5px 11px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    transition: all 0.15s ease-in-out !important;
+    border-color: #cbd5e1 !important;
+    background-color: #ffffff;
+}
+
+.rep-export-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.rep-export-btn.rep-btn-print:hover {
+    background-color: #f1f5f9 !important;
+    color: #1e293b !important;
+    border-color: #94a3b8 !important;
+}
+
+.rep-export-btn.rep-btn-pdf:hover {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border-color: #ef4444 !important;
+}
+
+.rep-export-btn.rep-btn-excel:hover {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border-color: #22c55e !important;
+}
+
+.rep-export-btn.rep-btn-csv:hover {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+    border-color: #0ea5e9 !important;
+}
+
+.rep-export-btn:active {
+    transform: translateY(0);
+}
+
+.rep-export-btn:disabled, .rep-export-btn.is-loading {
+    opacity: 0.7;
+    cursor: wait !important;
+    pointer-events: none;
+}
+
+/* Hide toolbar when browser print dialog is open */
+@media print {
+    .rep-export-toolbar {
+        display: none !important;
+    }
+}

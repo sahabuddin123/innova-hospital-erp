@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Referred patient volume, investigation counts, discount impact, and commission reconciliation &bull; <strong><?php echo $period['label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Report</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'doctor_wise_commission']); ?>
                     <a href="finance/doctorsCommissionSummary" class="rep-action-btn"><i class="fas fa-chart-line"></i> Summary View</a>
                 </div>
             </div>

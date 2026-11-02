@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Audit of test-wise doctor commission rates, standard pricing, and zero-commission compliance flags</p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Configuration</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'commission_configuration']); ?>
                     <a href="finance/paymentCategory" class="rep-action-btn"><i class="fas fa-edit"></i> Edit Categories</a>
                 </div>
             </div>

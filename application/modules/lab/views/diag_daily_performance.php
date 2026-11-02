@@ -35,7 +35,7 @@
                     <option value="cancelled" <?php echo ($filters['status'] == 'cancelled') ? 'selected' : ''; ?>>Cancelled</option>
                 </select>
                 <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter"></i> Filter</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'diag_daily_performance']); ?>
             </form>
         </div>
 

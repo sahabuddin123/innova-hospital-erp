@@ -11,9 +11,7 @@
                     <small class="text-muted">Master user action logs, module navigation, and operational audit trail</small>
                 </div>
                 <div class="col-sm-6 text-right">
-                    <a href="logs/exportActivityCsv?start_date=<?php echo urlencode($start_date); ?>&end_date=<?php echo urlencode($end_date); ?>&user_id=<?php echo urlencode($filters['user_id'] ?? ''); ?>&module_name=<?php echo urlencode($filters['module_name'] ?? ''); ?>&action_type=<?php echo urlencode($filters['action_type'] ?? ''); ?>" class="btn btn-success btn-sm">
-                        <i class="fas fa-file-csv mr-1"></i> Export Activity CSV
-                    </a>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => 'user_activity']); ?>
                 </div>
             </div>
         </div>

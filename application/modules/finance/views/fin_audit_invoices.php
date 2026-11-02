@@ -56,6 +56,7 @@
                                 <i class="fas fa-filter mr-1"></i> Filter Invoices
                             </button>
                         </div>
+                    <div class="ml-auto"><?php $this->load->view("report/inc_export_toolbar", ["export_report_key" => "fin_audit_invoices"]); ?></div>
                     </form>
                 </div>
             </div>

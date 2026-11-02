@@ -22,6 +22,7 @@ class Finance extends MX_Controller
         $this->load->model('testpkz/testpkz_model');
         $this->load->model('insurance/insurance_model');
         $this->load->model('referral/referral_model');
+        $this->load->library('ReportExport');
         $this->load->module('sms');
         require_once APPPATH . 'third_party/stripe/stripe-php/init.php';
         $this->load->module('paypal');
@@ -5047,6 +5048,10 @@ class Finance extends MX_Controller
         $data['date_to'] = $date_to;
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('financial_performance', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/financial_performance_report', $data);
         $this->load->view('home/footer');
@@ -5261,6 +5266,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'daily_collection';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('daily_collection', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/daily_collection_report', $data);
         $this->load->view('home/footer');
@@ -5295,6 +5304,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'monthly_sales';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('monthly_sales', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/monthly_sales_report', $data);
         $this->load->view('home/footer');
@@ -5327,6 +5340,10 @@ class Finance extends MX_Controller
         $data['period'] = $period;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'payment_methods';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('payment_methods', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/payment_method_report', $data);
@@ -5370,6 +5387,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'due_report';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('due_report', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/due_report', $data);
         $this->load->view('home/footer');
@@ -5404,6 +5425,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'partial_payment';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('partial_payment', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/partial_payment_report', $data);
         $this->load->view('home/footer');
@@ -5436,6 +5461,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'advance_payment';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('advance_payment', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/advance_payment_report', $data);
         $this->load->view('home/footer');
@@ -5467,6 +5496,10 @@ class Finance extends MX_Controller
         $data['period'] = $period;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'refund_report';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('refund_report', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/refund_report', $data);
@@ -5506,6 +5539,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'discount_report';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('discount_report', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/discount_report', $data);
         $this->load->view('home/footer');
@@ -5544,6 +5581,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'cashier_report';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('cashier_report', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/cashier_report', $data);
         $this->load->view('home/footer');
@@ -5574,6 +5615,10 @@ class Finance extends MX_Controller
         $data['period'] = $period;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'collection_summary';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('collection_summary', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/collection_summary_report', $data);
@@ -5625,6 +5670,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'daily_expense';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('daily_expense', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/daily_expense_report', $data);
         $this->load->view('home/footer');
@@ -5657,6 +5706,10 @@ class Finance extends MX_Controller
         $data['month'] = $month;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'monthly_expense';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('monthly_expense', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/monthly_expense_report', $data);
@@ -5695,6 +5748,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'expense_ledger';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('expense_ledger', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/expense_ledger_report', $data);
         $this->load->view('home/footer');
@@ -5726,6 +5783,10 @@ class Finance extends MX_Controller
         $data['period'] = $period;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'expense_category';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('expense_category', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/expense_category_report', $data);
@@ -5766,6 +5827,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'vendor_payment';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('vendor_payment', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/vendor_payment_report', $data);
         $this->load->view('home/footer');
@@ -5802,6 +5867,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'employee_salary';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('employee_salary', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/employee_salary_report', $data);
         $this->load->view('home/footer');
@@ -5836,6 +5905,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'utility_bills';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('utility_bills', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/utility_bill_report', $data);
         $this->load->view('home/footer');
@@ -5867,6 +5940,10 @@ class Finance extends MX_Controller
         $data['period'] = $period;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'asset_purchase';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('asset_purchase', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/asset_purchase_report', $data);
@@ -5900,6 +5977,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'petty_cash';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('petty_cash', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/petty_cash_report', $data);
         $this->load->view('home/footer');
@@ -5931,6 +6012,10 @@ class Finance extends MX_Controller
         $data['period'] = $period;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'cash_book';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('cash_book', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/cash_book_report', $data);
@@ -5964,6 +6049,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'bank_book';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('bank_book', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/bank_book_report', $data);
         $this->load->view('home/footer');
@@ -5995,6 +6084,10 @@ class Finance extends MX_Controller
         $data['period'] = $period;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'expense_approval';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('expense_approval', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/expense_approval_report', $data);
@@ -6051,6 +6144,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'doctor_summary';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('doctor_summary', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/doctor_commission_summary', $data);
         $this->load->view('home/footer');
@@ -6096,6 +6193,10 @@ class Finance extends MX_Controller
         $data['selected_department'] = $department;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'doctor_wise';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('doctor_wise', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/doctor_wise_commission_report', $data);
@@ -6145,6 +6246,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'test_wise';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('test_wise', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/test_wise_commission_report', $data);
         $this->load->view('home/footer');
@@ -6189,6 +6294,10 @@ class Finance extends MX_Controller
         $data['selected_status'] = $status;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'invoice_wise';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('invoice_wise', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/invoice_wise_commission_report', $data);
@@ -6235,6 +6344,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'payable';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('payable', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/commission_payable_report', $data);
         $this->load->view('home/footer');
@@ -6280,6 +6393,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'paid';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('paid', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/commission_paid_report', $data);
         $this->load->view('home/footer');
@@ -6322,6 +6439,10 @@ class Finance extends MX_Controller
         $data['selected_doctor'] = $doctor_id;
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'ledger';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('ledger', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/doctor_commission_ledger', $data);
@@ -6370,6 +6491,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'statement';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('statement', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/doctor_commission_statement', $data);
         $this->load->view('home/footer');
@@ -6405,6 +6530,10 @@ class Finance extends MX_Controller
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'adjustment';
 
+        if (isset($this->reportexport) && $this->reportexport->handle('adjustment', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/commission_adjustment_report', $data);
         $this->load->view('home/footer');
@@ -6429,6 +6558,10 @@ class Finance extends MX_Controller
         $data['summary'] = $result['summary'];
         $data['settings'] = $this->settings_model->getSettings();
         $data['active_report'] = 'config';
+
+        if (isset($this->reportexport) && $this->reportexport->handle('config', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard', $data);
         $this->load->view('finance/commission_configuration_report', $data);
@@ -7372,7 +7505,9 @@ class Finance extends MX_Controller
 
         $data['settings'] = $this->settings_model->getSettings();
 
-
+        if (isset($this->reportexport) && $this->reportexport->handle('financial_audit_logs', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard');
 

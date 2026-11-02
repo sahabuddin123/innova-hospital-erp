@@ -30,7 +30,7 @@ $disbs = !empty($statement['disbursements']) ? $statement['disbursements'] : [];
                     <p>Official statement of investigation referrals, commission entitlements, and disbursements</p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Statement</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'doctor_commission_statement']); ?>
                     <a href="finance/doctorsCommissionSummary" class="rep-action-btn"><i class="fas fa-chart-line"></i> Summary View</a>
                 </div>
             </div>

@@ -17,7 +17,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳';
                     <p>Investigation test line items, configured test-specific rates, and collection-backed eligibility &bull; <strong><?php echo $period['label']; ?></strong></p>
                 </div>
                 <div class="rep-actions d-print-none">
-                    <button type="button" onclick="window.print()" class="rep-action-btn"><i class="fas fa-print"></i> Print Report</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'test_wise_commission']); ?>
                     <a href="finance/commissionConfigurationReport" class="rep-action-btn"><i class="fas fa-cogs"></i> Rate Config</a>
                 </div>
             </div>

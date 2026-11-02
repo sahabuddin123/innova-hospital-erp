@@ -26,7 +26,7 @@ $currency = !empty($settings->currency) ? $settings->currency : '৳ ';
                     <p>Annual month-by-month expense trend, payment channels, and vendor analysis &bull; <span class="font-weight-bold text-dark">Year <?php echo html_escape($year); ?></span></p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'monthly_expense']); ?>
                 </div>
             </div>
 

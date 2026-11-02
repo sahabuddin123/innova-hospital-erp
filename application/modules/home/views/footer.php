@@ -271,6 +271,9 @@ if (!empty($lang) && file_exists(FCPATH . $fc_locale)) {
 
 <script src="common/extranal/js/footer.js?v=<?php echo time(); ?>"></script>
 <script src="common/extranal/js/pwa_offline.js?v=<?php echo time(); ?>"></script>
+<!-- Phase 11: Centralized Standard Report Export Engine CSS & JS -->
+<link rel="stylesheet" href="common/extranal/css/report_export.css?v=<?php echo time(); ?>">
+<script src="common/extranal/js/report_export.js?v=<?php echo time(); ?>"></script>
 
 
 

@@ -59,9 +59,7 @@
 
                     <div class="act-filter-group ml-auto">
                         <label>&nbsp;</label>
-                        <a href="logs/exportActivityCsv?start_date=<?php echo urlencode($start_date); ?>&end_date=<?php echo urlencode($end_date); ?>" class="btn btn-outline-success" style="height:35px; padding: 4px 12px;">
-                            <i class="fas fa-file-csv mr-1"></i> Export Activity CSV
-                        </a>
+                        <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => 'activity_dashboard']); ?>
                     </div>
                 </form>
             </div>

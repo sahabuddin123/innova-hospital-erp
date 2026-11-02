@@ -76,6 +76,7 @@
                                 <i class="fas fa-search mr-1"></i> Search Logs
                             </button>
                         </div>
+                    <div class="ml-auto"><?php $this->load->view("report/inc_export_toolbar", ["export_report_key" => "fin_audit_trail"]); ?></div>
                     </form>
                 </div>
             </div>

@@ -28,7 +28,7 @@ $period_label = !empty($period['period_label']) ? $period['period_label'] : 'Sel
                     <p>Collections by payment channel (Cash, bKash, Nagad, Rocket, Bank, Card, Others) &bull; <span class="font-weight-bold text-dark"><?php echo html_escape($period_label); ?></span></p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'payment_method']); ?>
                 </div>
             </div>
 

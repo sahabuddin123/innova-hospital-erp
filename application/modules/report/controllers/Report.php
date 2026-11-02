@@ -12,6 +12,7 @@ class Report extends MX_Controller
         $this->load->model('report_model');
         $this->load->model('doctor/doctor_model');
         $this->load->model('patient/patient_model');
+        $this->load->library('ReportExport');
         if (!$this->ion_auth->in_group(array('admin', 'Nurse', 'Doctor', 'Laboratorist', 'Patient'))) {
             redirect('home/permission');
         }

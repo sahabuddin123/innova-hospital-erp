@@ -239,7 +239,7 @@ $is_print = !empty($print_mode);
 
 <?php if ($is_print): ?>
 <div class="statement-wrap btn-print-bar">
-    <button class="btn-print" onclick="window.print();"><i class="fas fa-print"></i> Print Statement</button>
+    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'financial_performance_print']); ?>
 </div>
 <?php endif; ?>
 

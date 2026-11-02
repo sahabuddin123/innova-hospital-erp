@@ -291,7 +291,13 @@
 
         $('#btn_excel_report').on('click', function(e) {
             e.preventDefault();
-            var url = 'finance/exportFinancialReportExcel?' + getParams();
+            var url = 'finance/financialPerformanceReport?' + getParams() + '&export_format=excel';
+            window.location.href = url;
+        });
+
+        $('#btn_csv_report').on('click', function(e) {
+            e.preventDefault();
+            var url = 'finance/financialPerformanceReport?' + getParams() + '&export_format=csv';
             window.location.href = url;
         });
     }

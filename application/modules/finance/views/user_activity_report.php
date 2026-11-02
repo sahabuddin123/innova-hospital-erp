@@ -93,7 +93,7 @@
 
                                     <section class="col-md-1 float-right">
                                         <div class="">
-                                            <button class="btn btn-sm btn-secondary green no-print float-right" onclick="javascript:window.print();"><?php echo lang('print'); ?></button>
+                                            <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'user_activity']); ?>
                                         </div>
                                     </section>
 

@@ -13,6 +13,7 @@ class Referral extends MX_Controller
         $this->load->model('doctor/doctor_model');
         $this->load->model('patient/patient_model');
         $this->load->model('settings/settings_model');
+        $this->load->library('ReportExport');
 
         if (!$this->ion_auth->logged_in()) {
             redirect('auth/login', 'refresh');
@@ -755,6 +756,10 @@ class Referral extends MX_Controller
         $data['active_report'] = 'summary';
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('summary', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard');
         $this->load->view('referral/commission_summary', $data);
         $this->load->view('home/footer');
@@ -785,6 +790,10 @@ class Referral extends MX_Controller
         $data['selected_referrer'] = $referrer_id;
         $data['active_report'] = 'referrer_wise';
         $data['settings'] = $this->settings_model->getSettings();
+
+        if (isset($this->reportexport) && $this->reportexport->handle('referrer_wise', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard');
         $this->load->view('referral/referrer_wise_report', $data);
@@ -818,6 +827,10 @@ class Referral extends MX_Controller
         $data['selected_status'] = $allocation_status;
         $data['active_report'] = 'invoice_wise';
         $data['settings'] = $this->settings_model->getSettings();
+
+        if (isset($this->reportexport) && $this->reportexport->handle('invoice_wise', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard');
         $this->load->view('referral/invoice_wise_report', $data);
@@ -853,6 +866,10 @@ class Referral extends MX_Controller
         $data['active_report'] = 'test_wise';
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('test_wise', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard');
         $this->load->view('referral/test_wise_report', $data);
         $this->load->view('home/footer');
@@ -884,6 +901,10 @@ class Referral extends MX_Controller
         $data['active_report'] = 'payable';
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('payable', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard');
         $this->load->view('referral/commission_payable_report', $data);
         $this->load->view('home/footer');
@@ -906,6 +927,10 @@ class Referral extends MX_Controller
         $data['selected_referrer'] = $referrer_id;
         $data['active_report'] = 'wallets';
         $data['settings'] = $this->settings_model->getSettings();
+
+        if (isset($this->reportexport) && $this->reportexport->handle('wallets', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard');
         $this->load->view('referral/wallet_report', $data);
@@ -940,6 +965,10 @@ class Referral extends MX_Controller
         $data['active_report'] = 'ledger';
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('ledger', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard');
         $this->load->view('referral/commission_ledger', $data);
         $this->load->view('home/footer');
@@ -973,6 +1002,10 @@ class Referral extends MX_Controller
         $data['active_report'] = 'withdrawals';
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('withdrawals', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard');
         $this->load->view('referral/withdrawal_report', $data);
         $this->load->view('home/footer');
@@ -1003,6 +1036,10 @@ class Referral extends MX_Controller
         $data['selected_referrer'] = $referrer_id;
         $data['active_report'] = 'adjustments';
         $data['settings'] = $this->settings_model->getSettings();
+
+        if (isset($this->reportexport) && $this->reportexport->handle('adjustments', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard');
         $this->load->view('referral/adjustment_report', $data);
@@ -1035,6 +1072,10 @@ class Referral extends MX_Controller
         $data['active_report'] = 'discount_recon';
         $data['settings'] = $this->settings_model->getSettings();
 
+        if (isset($this->reportexport) && $this->reportexport->handle('discount_recon', $data)) {
+            return;
+        }
+
         $this->load->view('home/dashboard');
         $this->load->view('referral/discount_reconciliation_report', $data);
         $this->load->view('home/footer');
@@ -1053,6 +1094,10 @@ class Referral extends MX_Controller
         $data['discrepancies'] = $report['discrepancies'];
         $data['active_report'] = 'recon_dashboard';
         $data['settings'] = $this->settings_model->getSettings();
+
+        if (isset($this->reportexport) && $this->reportexport->handle('recon_dashboard', $data)) {
+            return;
+        }
 
         $this->load->view('home/dashboard');
         $this->load->view('referral/reconciliation_dashboard', $data);

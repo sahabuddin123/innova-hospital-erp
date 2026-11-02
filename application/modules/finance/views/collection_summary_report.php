@@ -30,7 +30,7 @@ $due_pct = ($summary['net_payable'] > 0) ? round(($summary['outstanding_due'] / 
                     <p>Executive reconciliation of billing, actual realized collections, dues, advance deposits, and refunds &bull; <span class="font-weight-bold text-dark"><?php echo html_escape($period_label); ?></span></p>
                 </div>
                 <div class="rep-actions">
-                    <button type="button" class="rep-action-btn" onclick="window.print()"><i class="fas fa-print"></i> Print Statement</button>
+                    <?php $this->load->view('report/inc_export_toolbar', ['export_report_key' => isset($active_report) ? $active_report : 'collection_summary']); ?>
                 </div>
             </div>
 
