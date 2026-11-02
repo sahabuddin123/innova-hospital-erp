@@ -1512,4 +1512,1001 @@ class Referral_model extends CI_Model
         );
         $this->db->insert('referral_audit_log', $data);
     }
+
+    // ==========================================
+    // PHASE 5: REFERRAL REPORTING & RECONCILIATION
+    // ==========================================
+
+
+    public function resolveHospitalId($hospital_id = null)
+    {
+        if (!empty($hospital_id)) return $hospital_id;
+        if ($this->session && $this->session->userdata('hospital_id')) {
+            return $this->session->userdata('hospital_id');
+        }
+        return 98;
+    }
+
+    /**
+     * 1. REFERRAL COMMISSION SUMMARY
+     */
+    public function getReferralCommissionSummaryReport($start_time, $end_time, $referrer_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        // Fetch referrers
+        $this->db->reset_query();
+        $this->db->select("r.*, rw.total_earned, rw.pending_commission, rw.available_balance, rw.total_withdrawn");
+        $this->db->from('referrer r');
+        $this->db->join('referral_wallet rw', 'rw.referrer_id = r.id', 'left');
+        $this->db->where("(r.hospital_id = '$hospital_id' OR r.hospital_id IS NULL)", NULL, FALSE);
+        if (!empty($referrer_id)) {
+            $this->db->where('r.id', $referrer_id);
+        }
+        $this->db->order_by('r.name', 'ASC');
+        $referrers = $this->db->get()->result();
+
+        // Invoices with referrer in period
+        $this->db->reset_query();
+        $this->db->select("p.id as invoice_id, p.referrer, p.amount as gross_amount,
+                           COALESCE(p.flat_discount, p.discount, 0) as discount_amount,
+                           p.gross_total, p.hospital_amount as hospital_share,
+                           p.referral_amount as referral_entitlement,
+                           COALESCE(p.amount_received, 0) as amount_received,
+                           p.status");
+        $this->db->from('payment p');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where("p.referrer IS NOT NULL AND p.referrer != '' AND p.referrer != '0'", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        if (!empty($referrer_id)) {
+            $this->db->where('p.referrer', $referrer_id);
+        }
+        $invoices = $this->db->get()->result();
+
+        // Wallet transactions in period
+        $this->db->reset_query();
+        $this->db->select("rwt.*");
+        $this->db->from('referral_wallet_transactions rwt');
+        $this->db->where('rwt.hospital_id', $hospital_id);
+        $this->db->where('rwt.created_at >=', $start_time);
+        $this->db->where('rwt.created_at <=', $end_time);
+        if (!empty($referrer_id)) {
+            $this->db->where('rwt.referrer_id', $referrer_id);
+        }
+        $transactions = $this->db->get()->result();
+
+        // Group transactions by referrer
+        $tx_by_ref = [];
+        $tot_credited_all = 0.00;
+        $tot_withdrawn_all = 0.00;
+        $tot_adj_all = 0.00;
+        $tot_rev_all = 0.00;
+
+        foreach ($transactions as $tx) {
+            $amt = floatval($tx->amount);
+            $r_id = $tx->referrer_id;
+            if ($tx->type === 'credit' && $tx->source === 'commission') {
+                $tx_by_ref[$r_id]['credited'] = ($tx_by_ref[$r_id]['credited'] ?? 0.00) + $amt;
+                $tot_credited_all += $amt;
+            } elseif ($tx->source === 'withdrawal') {
+                $tx_by_ref[$r_id]['withdrawn'] = ($tx_by_ref[$r_id]['withdrawn'] ?? 0.00) + $amt;
+                $tot_withdrawn_all += $amt;
+            } elseif ($tx->source === 'adjustment') {
+                $tx_by_ref[$r_id]['adjustment'] = ($tx_by_ref[$r_id]['adjustment'] ?? 0.00) + $amt;
+                $tot_adj_all += $amt;
+            } elseif ($tx->source === 'reversal') {
+                $tx_by_ref[$r_id]['reversal'] = ($tx_by_ref[$r_id]['reversal'] ?? 0.00) + $amt;
+                $tot_rev_all += $amt;
+            }
+        }
+
+        // Group invoices by referrer
+        $inv_by_ref = [];
+        foreach ($invoices as $inv) {
+            $inv_by_ref[$inv->referrer][] = $inv;
+        }
+
+        $records = [];
+        $tot_gen_all = 0.00;
+        $tot_elig_all = 0.00;
+        $tot_avail_all = 0.00;
+        $tot_pending_all = 0.00;
+        $tot_gross_all = 0.00;
+        $tot_net_all = 0.00;
+        $tot_coll_all = 0.00;
+
+        foreach ($referrers as $r) {
+            $r_id = $r->id;
+            $ref_invs = $inv_by_ref[$r_id] ?? [];
+
+            $gross_billed = 0.00;
+            $net_payable = 0.00;
+            $collected = 0.00;
+            $gen_comm = 0.00;
+            $elig_comm = 0.00;
+
+            foreach ($ref_invs as $inv) {
+                $gross_billed += floatval($inv->gross_amount);
+                $net_payable += floatval($inv->gross_total);
+                $inv_coll = floatval($inv->amount_received);
+                $collected += $inv_coll;
+
+                $r_ent = floatval($inv->referral_entitlement);
+                $h_share = floatval($inv->hospital_share);
+                $gen_comm += $r_ent;
+
+                // Hospital Share First recovery rule:
+                $surplus = max(0.00, $inv_coll - $h_share);
+                $elig_comm += min($r_ent, $surplus);
+            }
+
+            $credited = $tx_by_ref[$r_id]['credited'] ?? 0.00;
+            $withdrawn = $tx_by_ref[$r_id]['withdrawn'] ?? 0.00;
+            $avail_bal = floatval($r->available_balance);
+            $pending_comm = max(0.00, round($gen_comm - $credited, 2));
+
+            $tot_gen_all += $gen_comm;
+            $tot_elig_all += $elig_comm;
+            $tot_avail_all += $avail_bal;
+            $tot_pending_all += $pending_comm;
+            $tot_gross_all += $gross_billed;
+            $tot_net_all += $net_payable;
+            $tot_coll_all += $collected;
+
+            $records[] = [
+                'referrer_id' => $r_id,
+                'referrer_name' => $r->name,
+                'phone' => $r->phone,
+                'type' => $r->type,
+                'status' => $r->status,
+                'total_invoices' => count($ref_invs),
+                'gross_billing' => $gross_billed,
+                'net_billing' => $net_payable,
+                'total_collected' => $collected,
+                'generated_commission' => $gen_comm,
+                'eligible_commission' => $elig_comm,
+                'credited_commission' => $credited,
+                'withdrawn_commission' => $withdrawn,
+                'available_balance' => $avail_bal,
+                'pending_commission' => $pending_comm
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_generated_commission' => $tot_gen_all,
+                'total_eligible_commission' => $tot_elig_all,
+                'total_commission_credited' => $tot_credited_all,
+                'total_commission_withdrawn' => $tot_withdrawn_all,
+                'available_wallet_balance' => $tot_avail_all,
+                'pending_commission' => $tot_pending_all,
+                'commission_adjustments' => $tot_adj_all,
+                'commission_reversed' => $tot_rev_all,
+                'total_invoices' => count($invoices),
+                'total_gross_billing' => $tot_gross_all,
+                'total_net_billing' => $tot_net_all,
+                'total_collected' => $tot_coll_all
+            ]
+        ];
+    }
+
+    /**
+     * 2. REFERRER-WISE COMMISSION REPORT
+     */
+    public function getReferrerWiseCommissionReport($start_time, $end_time, $referrer_id = null, $status = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("r.*, rw.total_earned, rw.pending_commission, rw.available_balance, rw.total_withdrawn");
+        $this->db->from('referrer r');
+        $this->db->join('referral_wallet rw', 'rw.referrer_id = r.id', 'left');
+        $this->db->where("(r.hospital_id = '$hospital_id' OR r.hospital_id IS NULL)", NULL, FALSE);
+        if (!empty($referrer_id)) {
+            $this->db->where('r.id', $referrer_id);
+        }
+        if (!empty($status) && strtolower($status) !== 'all') {
+            $this->db->where('r.status', $status);
+        }
+        $this->db->order_by('r.name', 'ASC');
+        $referrers = $this->db->get()->result();
+
+        // Invoices with patient details
+        $this->db->reset_query();
+        $this->db->select("p.id as invoice_id, p.referrer, p.patient, p.amount as gross_amount,
+                           COALESCE(p.flat_discount, p.discount, 0) as discount_amount,
+                           p.gross_total, p.hospital_amount as hospital_share,
+                           p.referral_amount as referral_entitlement,
+                           COALESCE(p.amount_received, 0) as amount_received");
+        $this->db->from('payment p');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where("p.referrer IS NOT NULL AND p.referrer != '' AND p.referrer != '0'", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        $invoices = $this->db->get()->result();
+
+        // Wallet transactions
+        $this->db->reset_query();
+        $this->db->select("rwt.*");
+        $this->db->from('referral_wallet_transactions rwt');
+        $this->db->where('rwt.hospital_id', $hospital_id);
+        $this->db->where('rwt.created_at >=', $start_time);
+        $this->db->where('rwt.created_at <=', $end_time);
+        $transactions = $this->db->get()->result();
+
+        $tx_by_ref = [];
+        foreach ($transactions as $tx) {
+            $amt = floatval($tx->amount);
+            $r_id = $tx->referrer_id;
+            if ($tx->type === 'credit' && $tx->source === 'commission') {
+                $tx_by_ref[$r_id]['credited'] = ($tx_by_ref[$r_id]['credited'] ?? 0.00) + $amt;
+            } elseif ($tx->source === 'withdrawal') {
+                $tx_by_ref[$r_id]['withdrawn'] = ($tx_by_ref[$r_id]['withdrawn'] ?? 0.00) + $amt;
+            }
+        }
+
+        $inv_by_ref = [];
+        foreach ($invoices as $inv) {
+            $inv_by_ref[$inv->referrer][] = $inv;
+        }
+
+        $records = [];
+        $total_gross = 0.00;
+        $total_disc = 0.00;
+        $total_net = 0.00;
+        $total_gen = 0.00;
+        $total_elig = 0.00;
+        $total_cred = 0.00;
+        $total_wth = 0.00;
+        $total_avail = 0.00;
+
+        foreach ($referrers as $r) {
+            $r_id = $r->id;
+            $ref_invs = $inv_by_ref[$r_id] ?? [];
+
+            $patients = [];
+            $gross = 0.00;
+            $disc = 0.00;
+            $net = 0.00;
+            $gen = 0.00;
+            $elig = 0.00;
+
+            foreach ($ref_invs as $inv) {
+                if (!empty($inv->patient)) {
+                    $patients[$inv->patient] = true;
+                }
+                $gross += floatval($inv->gross_amount);
+                $disc += floatval($inv->discount_amount);
+                $net += floatval($inv->gross_total);
+                $coll = floatval($inv->amount_received);
+
+                $r_ent = floatval($inv->referral_entitlement);
+                $h_share = floatval($inv->hospital_share);
+                $gen += $r_ent;
+
+                $surplus = max(0.00, $coll - $h_share);
+                $elig += min($r_ent, $surplus);
+            }
+
+            $credited = $tx_by_ref[$r_id]['credited'] ?? 0.00;
+            $withdrawn = $tx_by_ref[$r_id]['withdrawn'] ?? 0.00;
+            $avail = floatval($r->available_balance);
+            $pending = max(0.00, round($gen - $credited, 2));
+
+            $total_gross += $gross;
+            $total_disc += $disc;
+            $total_net += $net;
+            $total_gen += $gen;
+            $total_elig += $elig;
+            $total_cred += $credited;
+            $total_wth += $withdrawn;
+            $total_avail += $avail;
+
+            $records[] = [
+                'referrer_id' => $r_id,
+                'referrer_name' => $r->name,
+                'phone' => $r->phone,
+                'type' => $r->type,
+                'status' => $r->status,
+                'total_patients' => count($patients),
+                'total_invoices' => count($ref_invs),
+                'gross_billing' => $gross,
+                'total_discount' => $disc,
+                'net_billing' => $net,
+                'generated_commission' => $gen,
+                'eligible_commission' => $elig,
+                'credited_commission' => $credited,
+                'withdrawn_commission' => $withdrawn,
+                'available_balance' => $avail,
+                'pending_commission' => $pending
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'referrers_count' => count($records),
+                'total_gross_billing' => $total_gross,
+                'total_discount' => $total_disc,
+                'total_net_billing' => $total_net,
+                'total_generated' => $total_gen,
+                'total_eligible' => $total_elig,
+                'total_credited' => $total_cred,
+                'total_withdrawn' => $total_wth,
+                'total_available' => $total_avail
+            ]
+        ];
+    }
+
+    /**
+     * 3. INVOICE-WISE REFERRAL COMMISSION REPORT
+     */
+    public function getInvoiceWiseReferralCommissionReport($start_time, $end_time, $referrer_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("p.*, r.name as ref_name, r.phone as ref_phone, r.type as ref_type");
+        $this->db->from('payment p');
+        $this->db->join('referrer r', 'r.id = p.referrer', 'inner');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        if (!empty($referrer_id)) {
+            $this->db->where('p.referrer', $referrer_id);
+        }
+        $this->db->order_by('p.id', 'DESC');
+        $invoices = $this->db->get()->result();
+
+        // Get credited amounts per invoice from referral_wallet_transactions
+        $this->db->reset_query();
+        $this->db->select("reference_id, SUM(amount) as total_credited");
+        $this->db->from('referral_wallet_transactions');
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->where('type', 'credit');
+        $this->db->where('source', 'commission');
+        $this->db->group_by('reference_id');
+        $credits = $this->db->get()->result();
+
+        $credited_by_ref_id = [];
+        foreach ($credits as $c) {
+            $credited_by_ref_id[$c->reference_id] = floatval($c->total_credited);
+        }
+
+        $records = [];
+        $tot_gross = 0.00;
+        $tot_disc = 0.00;
+        $tot_net = 0.00;
+        $tot_hosp = 0.00;
+        $tot_ent = 0.00;
+        $tot_coll = 0.00;
+        $tot_elig = 0.00;
+        $tot_cred = 0.00;
+
+        foreach ($invoices as $inv) {
+            $gross = floatval($inv->amount);
+            $disc = !empty($inv->flat_discount) ? floatval($inv->flat_discount) : floatval($inv->discount);
+            $net = floatval($inv->gross_total);
+            $h_share = floatval($inv->hospital_amount);
+            $r_ent = floatval($inv->referral_amount);
+            $coll = floatval($inv->amount_received);
+
+            // Hospital Share First Allocation:
+            $h_recovered = min($h_share, $coll);
+            $h_remaining = max(0.00, $h_share - $coll);
+            $surplus = max(0.00, $coll - $h_share);
+            $elig_comm = min($r_ent, $surplus);
+
+            // Credited so far from wallet tx
+            $ref_key = 'INV-' . $inv->id;
+            $credited = $credited_by_ref_id[$ref_key] ?? 0.00;
+            $rem_comm = max(0.00, round($r_ent - $credited, 2));
+
+            // Status label
+            if ($coll >= $net && $net > 0) {
+                $status_desc = 'Hospital Recovered & Fully Eligible';
+                $badge_class = 'success';
+            } elseif ($surplus > 0) {
+                $status_desc = 'Hospital Recovered & Partially Eligible';
+                $badge_class = 'info';
+            } elseif ($coll > 0) {
+                $status_desc = 'Hospital Share Incomplete (৳' . number_format($h_remaining, 2) . ' rem)';
+                $badge_class = 'warning';
+            } else {
+                $status_desc = 'Unpaid (Pending Collection)';
+                $badge_class = 'secondary';
+            }
+
+            $tot_gross += $gross;
+            $tot_disc += $disc;
+            $tot_net += $net;
+            $tot_hosp += $h_share;
+            $tot_ent += $r_ent;
+            $tot_coll += $coll;
+            $tot_elig += $elig_comm;
+            $tot_cred += $credited;
+
+            $records[] = [
+                'invoice_id' => $inv->id,
+                'invoice_date' => $inv->date,
+                'patient_name' => !empty($inv->patient_name) ? $inv->patient_name : 'Patient #' . $inv->patient,
+                'referrer_name' => $inv->ref_name,
+                'referrer_id' => $inv->referrer,
+                'gross_amount' => $gross,
+                'discount' => $disc,
+                'net_payable' => $net,
+                'hospital_share' => $h_share,
+                'hospital_recovered' => $h_recovered,
+                'hospital_remaining' => $h_remaining,
+                'referral_entitlement' => $r_ent,
+                'amount_collected' => $coll,
+                'eligible_commission' => $elig_comm,
+                'credited_commission' => $credited,
+                'remaining_commission' => $rem_comm,
+                'allocation_status' => $status_desc,
+                'badge_class' => $badge_class
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_invoices' => count($records),
+                'total_gross' => $tot_gross,
+                'total_discount' => $tot_disc,
+                'total_net' => $tot_net,
+                'total_hospital_share' => $tot_hosp,
+                'total_referral_entitlement' => $tot_ent,
+                'total_collected' => $tot_coll,
+                'total_eligible_commission' => $tot_elig,
+                'total_credited_commission' => $tot_cred
+            ]
+        ];
+    }
+
+    /**
+     * 4. TEST-WISE REFERRAL COMMISSION REPORT
+     */
+    public function getTestWiseReferralCommissionReport($start_time, $end_time, $referrer_id = null, $category_id = null, $status = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("pi.*, p.id as invoice_id, p.date as invoice_date, p.referrer, r.name as referrer_name,
+                           p.gross_total as invoice_net, p.amount_received as invoice_collected,
+                           p.hospital_amount as hospital_share, p.referral_amount as referral_entitlement,
+                           pc.category as test_category_name");
+        $this->db->from('payment_items pi');
+        $this->db->join('payment p', 'p.id = pi.payment_id', 'inner');
+        $this->db->join('referrer r', 'r.id = p.referrer', 'inner');
+        $this->db->join('payment_category pc', 'pc.id = pi.item_id', 'left');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+
+        if (!empty($referrer_id)) {
+            $this->db->where('p.referrer', $referrer_id);
+        }
+        if (!empty($category_id)) {
+            $this->db->where('pc.id', $category_id);
+        }
+
+        $this->db->order_by('pi.id', 'DESC');
+        $items = $this->db->get()->result();
+
+        $records = [];
+        $tot_price = 0.00;
+        $tot_gen = 0.00;
+        $tot_elig = 0.00;
+
+        foreach ($items as $it) {
+            $price = floatval($it->subtotal);
+            $rate = floatval($it->referral_commission_rate);
+            $gen = floatval($it->referral_commission_amount);
+
+            $inv_net = floatval($it->invoice_net);
+            $inv_coll = floatval($it->invoice_collected);
+            $h_share = floatval($it->hospital_share);
+            $r_ent = floatval($it->referral_entitlement);
+
+            // Pro-rated eligibility for this test based on hospital recovery
+            $surplus = max(0.00, $inv_coll - $h_share);
+            $inv_ratio = ($r_ent > 0) ? min(1.0, max(0.0, $surplus / $r_ent)) : 0.0;
+            $elig = round($gen * $inv_ratio, 2);
+            $pending = max(0.00, round($gen - $elig, 2));
+
+            if ($inv_ratio >= 0.999) {
+                $item_status = 'Fully Eligible';
+            } elseif ($inv_ratio > 0.001) {
+                $item_status = 'Partially Eligible';
+            } else {
+                $item_status = 'Pending Collection';
+            }
+
+            if (!empty($status) && strtolower($status) !== 'all' && strtolower($status) !== strtolower($item_status)) {
+                continue;
+            }
+
+            $tot_price += $price;
+            $tot_gen += $gen;
+            $tot_elig += $elig;
+
+            $records[] = [
+                'item_id' => $it->item_id,
+                'item_name' => $it->item_name,
+                'test_category' => !empty($it->test_category_name) ? $it->test_category_name : 'Diagnostic',
+                'referrer_name' => $it->referrer_name,
+                'referrer_id' => $it->referrer,
+                'invoice_id' => $it->invoice_id,
+                'invoice_date' => $it->invoice_date,
+                'test_price' => floatval($it->item_price),
+                'quantity' => floatval($it->quantity),
+                'subtotal' => $price,
+                'commission_rate' => $rate,
+                'generated_commission' => $gen,
+                'eligible_commission' => $elig,
+                'credited_commission' => 0.00,
+                'pending_commission' => $pending,
+                'commission_status' => $item_status
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_tests_billed' => count($records),
+                'total_test_amount' => $tot_price,
+                'total_generated_commission' => $tot_gen,
+                'total_eligible_commission' => $tot_elig
+            ]
+        ];
+    }
+
+    /**
+     * 5. REFERRAL COMMISSION PAYABLE REPORT
+     */
+    public function getReferralCommissionPayableReport($start_time, $end_time, $referrer_id = null, $status = null, $hospital_id = null)
+    {
+        $inv_data = $this->getInvoiceWiseReferralCommissionReport($start_time, $end_time, $referrer_id, $hospital_id);
+        $records = [];
+        $total_payable_sum = 0.00;
+        $total_elig_sum = 0.00;
+        $total_ent_sum = 0.00;
+
+        foreach ($inv_data['records'] as $r) {
+            $ent = $r['referral_entitlement'];
+            $elig = $r['eligible_commission'];
+            $cred = $r['credited_commission'];
+            $rem_payable = max(0.00, round($elig - $cred, 2));
+
+            if ($cred >= $elig && $elig > 0) {
+                $p_status = 'Fully Credited';
+            } elseif ($cred > 0) {
+                $p_status = 'Partially Credited';
+            } elseif ($elig > 0) {
+                $p_status = 'Eligible (Uncredited)';
+            } else {
+                $p_status = 'Pending Collection';
+            }
+
+            if (!empty($status) && strtolower($status) !== 'all' && strtolower($status) !== strtolower($p_status)) {
+                continue;
+            }
+
+            $total_payable_sum += $rem_payable;
+            $total_elig_sum += $elig;
+            $total_ent_sum += $ent;
+
+            $records[] = [
+                'referrer_name' => $r['referrer_name'],
+                'referrer_id' => $r['referrer_id'],
+                'invoice_id' => $r['invoice_id'],
+                'invoice_date' => $r['invoice_date'],
+                'net_invoice_amount' => $r['net_payable'],
+                'hospital_share' => $r['hospital_share'],
+                'referral_entitlement' => $ent,
+                'eligible_commission' => $elig,
+                'already_credited' => $cred,
+                'remaining_payable' => $rem_payable,
+                'status' => $p_status
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_qualifying_invoices' => count($records),
+                'total_referral_entitlement' => $total_ent_sum,
+                'total_eligible_commission' => $total_elig_sum,
+                'total_uncredited_payable' => $total_payable_sum
+            ]
+        ];
+    }
+
+    /**
+     * 6. REFERRER WALLET REPORT (RECONCILED)
+     */
+    public function getReferrerWalletAuditReport($hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("r.*, rw.total_earned, rw.pending_commission, rw.available_balance, rw.pending_withdrawal, rw.total_withdrawn");
+        $this->db->from('referrer r');
+        $this->db->join('referral_wallet rw', 'rw.referrer_id = r.id', 'left');
+        $this->db->where("(r.hospital_id = '$hospital_id' OR r.hospital_id IS NULL)", NULL, FALSE);
+        $referrers = $this->db->get()->result();
+
+        // Get ledger transaction sums per referrer
+        $this->db->reset_query();
+        $this->db->select("referrer_id,
+                           SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) as total_credits,
+                           SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) as total_debits,
+                           SUM(CASE WHEN source = 'withdrawal' THEN amount ELSE 0 END) as ledger_withdrawn,
+                           SUM(CASE WHEN source = 'adjustment' THEN amount ELSE 0 END) as ledger_adjustments,
+                           SUM(CASE WHEN source = 'reversal' THEN amount ELSE 0 END) as ledger_reversals");
+        $this->db->from('referral_wallet_transactions');
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->group_by('referrer_id');
+        $ledger_sums = $this->db->get()->result();
+
+        $sums_by_ref = [];
+        foreach ($ledger_sums as $ls) {
+            $sums_by_ref[$ls->referrer_id] = $ls;
+        }
+
+        $records = [];
+        $total_wallet_avail = 0.00;
+        $total_calculated_avail = 0.00;
+        $total_variance = 0.00;
+        $total_withdrawn_all = 0.00;
+
+        foreach ($referrers as $r) {
+            $r_id = $r->id;
+            $ls = $sums_by_ref[$r_id] ?? null;
+
+            $credits = $ls ? floatval($ls->total_credits) : 0.00;
+            $debits = $ls ? floatval($ls->total_debits) : 0.00;
+            $withdrawn = $ls ? floatval($ls->ledger_withdrawn) : floatval($r->total_withdrawn);
+            $adj = $ls ? floatval($ls->ledger_adjustments) : 0.00;
+            $rev = $ls ? floatval($ls->ledger_reversals) : 0.00;
+
+            $wallet_bal = floatval($r->available_balance);
+            $calc_bal = round($credits - $debits, 2);
+            $variance = round($wallet_bal - $calc_bal, 2);
+
+            $total_wallet_avail += $wallet_bal;
+            $total_calculated_avail += $calc_bal;
+            $total_variance += abs($variance);
+            $total_withdrawn_all += $withdrawn;
+
+            $records[] = [
+                'referrer_id' => $r_id,
+                'referrer_name' => $r->name,
+                'phone' => $r->phone,
+                'type' => $r->type,
+                'status' => $r->status,
+                'opening_balance' => 0.00,
+                'total_credits' => $credits,
+                'total_debits' => $debits,
+                'total_withdrawn' => $withdrawn,
+                'adjustments' => $adj,
+                'reversals' => $rev,
+                'available_balance' => $wallet_bal,
+                'calculated_balance' => $calc_bal,
+                'variance' => $variance,
+                'is_reconciled' => (abs($variance) < 0.01)
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total_referrers' => count($records),
+                'total_wallet_balance' => $total_wallet_avail,
+                'total_calculated_balance' => $total_calculated_avail,
+                'total_reconciliation_variance' => $total_variance,
+                'total_withdrawn' => $total_withdrawn_all
+            ]
+        ];
+    }
+
+    /**
+     * 7. REFERRAL COMMISSION LEDGER
+     */
+    public function getReferralCommissionLedgerReport($start_time, $end_time, $referrer_id = null, $source = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("rwt.*, r.name as referrer_name");
+        $this->db->from('referral_wallet_transactions rwt');
+        $this->db->join('referrer r', 'r.id = rwt.referrer_id', 'inner');
+        $this->db->where('rwt.hospital_id', $hospital_id);
+        $this->db->where('rwt.created_at >=', $start_time);
+        $this->db->where('rwt.created_at <=', $end_time);
+
+        if (!empty($referrer_id)) {
+            $this->db->where('rwt.referrer_id', $referrer_id);
+        }
+        if (!empty($source) && strtolower($source) !== 'all') {
+            $this->db->where('rwt.source', $source);
+        }
+
+        $this->db->order_by('rwt.id', 'ASC');
+        $txs = $this->db->get()->result();
+
+        return [
+            'records' => $txs,
+            'summary' => [
+                'total_entries' => count($txs)
+            ]
+        ];
+    }
+
+    /**
+     * 8. REFERRAL WITHDRAWAL REPORT
+     */
+    public function getReferralWithdrawalReport($start_time, $end_time, $referrer_id = null, $payment_method = null, $status = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("rw.*, r.name as referrer_name, r.phone as referrer_phone, u.username as processed_by_user");
+        $this->db->from('referral_withdrawals rw');
+        $this->db->join('referrer r', 'r.id = rw.referrer_id', 'inner');
+        $this->db->join('users u', 'u.id = rw.processed_by', 'left');
+        $this->db->where('rw.hospital_id', $hospital_id);
+        $this->db->where('rw.created_at >=', $start_time);
+        $this->db->where('rw.created_at <=', $end_time);
+
+        if (!empty($referrer_id)) {
+            $this->db->where('rw.referrer_id', $referrer_id);
+        }
+        if (!empty($payment_method) && strtolower($payment_method) !== 'all') {
+            $this->db->where('rw.payment_method', $payment_method);
+        }
+        if (!empty($status) && strtolower($status) !== 'all') {
+            $this->db->where('rw.status', $status);
+        }
+
+        $this->db->order_by('rw.id', 'DESC');
+        $withdrawals = $this->db->get()->result();
+
+        $tot_withdrawn = 0.00;
+        $by_method = [];
+
+        foreach ($withdrawals as $w) {
+            $amt = floatval($w->amount);
+            $tot_withdrawn += $amt;
+            $by_method[$w->payment_method] = ($by_method[$w->payment_method] ?? 0.00) + $amt;
+        }
+
+        return [
+            'records' => $withdrawals,
+            'summary' => [
+                'total_withdrawal_amount' => $tot_withdrawn,
+                'number_of_withdrawals' => count($withdrawals),
+                'by_payment_method' => $by_method
+            ]
+        ];
+    }
+
+    /**
+     * 9. REFERRAL ADJUSTMENT & REVERSAL REPORT
+     */
+    public function getReferralAdjustmentReport($start_time, $end_time, $referrer_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("rwt.*, r.name as referrer_name, u.username as processor_name");
+        $this->db->from('referral_wallet_transactions rwt');
+        $this->db->join('referrer r', 'r.id = rwt.referrer_id', 'inner');
+        $this->db->join('users u', 'u.id = rwt.created_by', 'left');
+        $this->db->where('rwt.hospital_id', $hospital_id);
+        $this->db->where_in('rwt.source', ['adjustment', 'reversal', 'withdrawal_refund']);
+        $this->db->where('rwt.created_at >=', $start_time);
+        $this->db->where('rwt.created_at <=', $end_time);
+
+        if (!empty($referrer_id)) {
+            $this->db->where('rwt.referrer_id', $referrer_id);
+        }
+
+        $this->db->order_by('rwt.id', 'DESC');
+        $adjustments = $this->db->get()->result();
+
+        $tot_adj = 0.00;
+        foreach ($adjustments as $a) {
+            $tot_adj += floatval($a->amount);
+        }
+
+        return [
+            'records' => $adjustments,
+            'summary' => [
+                'total_adjustments_count' => count($adjustments),
+                'total_adjusted_amount' => $tot_adj
+            ]
+        ];
+    }
+
+    /**
+     * 10. REFERRAL DISCOUNT RECONCILIATION REPORT
+     * Audits discount absorption rule: discount reduces referrer entitlement first.
+     */
+    public function getReferralDiscountReconciliationReport($start_time, $end_time, $referrer_id = null, $hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $this->db->reset_query();
+        $this->db->select("p.*, r.name as referrer_name");
+        $this->db->from('payment p');
+        $this->db->join('referrer r', 'r.id = p.referrer', 'left');
+        $this->db->where("(p.hospital_id = '$hospital_id' OR p.hospital_id IS NULL)", NULL, FALSE);
+        $this->db->where('p.date >=', $start_time);
+        $this->db->where('p.date <=', $end_time);
+        $this->db->group_start();
+        $this->db->where('p.flat_discount >', 0);
+        $this->db->or_where('p.discount >', 0);
+        $this->db->group_end();
+
+        if (!empty($referrer_id)) {
+            $this->db->where('p.referrer', $referrer_id);
+        }
+
+        $this->db->order_by('p.id', 'DESC');
+        $discount_invoices = $this->db->get()->result();
+
+        $records = [];
+        $tot_gross = 0.00;
+        $tot_disc = 0.00;
+        $tot_net = 0.00;
+        $tot_hosp = 0.00;
+        $tot_ref_ent = 0.00;
+
+        foreach ($discount_invoices as $inv) {
+            $gross = floatval($inv->amount);
+            $disc = !empty($inv->flat_discount) ? floatval($inv->flat_discount) : floatval($inv->discount);
+            $net = floatval($inv->gross_total);
+            $h_share = floatval($inv->hospital_amount);
+            $r_ent = floatval($inv->referral_amount);
+
+            $has_referrer = !empty($inv->referrer) && !empty($inv->referrer_name);
+            $gross_ref_comm = $has_referrer ? ($r_ent + $disc) : 0.00;
+            $disc_absorbed_by_ref = $has_referrer ? min($disc, $gross_ref_comm) : 0.00;
+
+            if ($has_referrer) {
+                if ($disc_absorbed_by_ref >= $disc) {
+                    $absorption_status = 'Fully Absorbed by Referrer';
+                    $badge = 'success';
+                } else {
+                    $absorption_status = 'Partially Absorbed by Referrer';
+                    $badge = 'warning';
+                }
+            } else {
+                $absorption_status = 'Hospital Borne (No Referrer)';
+                $badge = 'secondary';
+            }
+
+            $tot_gross += $gross;
+            $tot_disc += $disc;
+            $tot_net += $net;
+            $tot_hosp += $h_share;
+            $tot_ref_ent += $r_ent;
+
+            $records[] = [
+                'invoice_id' => $inv->id,
+                'invoice_date' => $inv->date,
+                'patient_name' => !empty($inv->patient_name) ? $inv->patient_name : 'Patient #' . $inv->patient,
+                'referrer_name' => $has_referrer ? $inv->referrer_name : 'No Referrer Selected',
+                'has_referrer' => $has_referrer,
+                'gross_amount' => $gross,
+                'discount_applied' => $disc,
+                'net_payable' => $net,
+                'hospital_share' => $h_share,
+                'gross_ref_commission' => $gross_ref_comm,
+                'discount_deducted_from_ref' => $disc_absorbed_by_ref,
+                'final_referral_entitlement' => $r_ent,
+                'absorption_status' => $absorption_status,
+                'badge_class' => $badge
+            ];
+        }
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'discount_invoices_count' => count($records),
+                'total_gross' => $tot_gross,
+                'total_discount' => $tot_disc,
+                'total_net' => $tot_net,
+                'total_hospital_share' => $tot_hosp,
+                'total_referral_entitlement' => $tot_ref_ent
+            ]
+        ];
+    }
+
+    /**
+     * 12. REFERRAL COMMISSION RECONCILIATION DASHBOARD
+     * Automated discrepancy detection engine
+     */
+    public function getReferralReconciliationDashboardData($hospital_id = null)
+    {
+        $hospital_id = $this->resolveHospitalId($hospital_id);
+
+        $wallet_audit = $this->getReferrerWalletAuditReport($hospital_id);
+        $discrepancies = [];
+
+        // 1. Check for wallet balance mismatches vs transaction ledger
+        foreach ($wallet_audit['records'] as $w) {
+            if (!$w['is_reconciled']) {
+                $discrepancies[] = [
+                    'severity' => 'HIGH',
+                    'type' => 'Wallet Balance Mismatch',
+                    'reference' => 'Referrer #' . $w['referrer_id'] . ' (' . $w['referrer_name'] . ')',
+                    'description' => "Wallet available balance (৳" . number_format($w['available_balance'], 2) . ") does not match ledger transaction sum (৳" . number_format($w['calculated_balance'], 2) . "). Variance: ৳" . number_format($w['variance'], 2) . ".",
+                    'action_needed' => 'Inspect manual adjustments or raw wallet balance updates without corresponding transaction ledger records.'
+                ];
+            }
+        }
+
+        // 2. Check for duplicate wallet credits for the same invoice
+        $this->db->reset_query();
+        $this->db->select("reference_id, referrer_id, count(*) as credit_count, sum(amount) as credited_sum");
+        $this->db->from('referral_wallet_transactions');
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->where('type', 'credit');
+        $this->db->where('source', 'commission');
+        $this->db->like('reference_id', 'INV-');
+        $this->db->group_by(['reference_id', 'referrer_id']);
+        $this->db->having('credit_count >', 1);
+        $dup_credits = $this->db->get()->result();
+
+        foreach ($dup_credits as $dc) {
+            $inv_id = str_replace('INV-', '', $dc->reference_id);
+            $pay = $this->db->get_where('payment', ['id' => $inv_id])->row();
+            $max_ent = $pay ? floatval($pay->referral_amount) : 0.00;
+            if (floatval($dc->credited_sum) > $max_ent + 0.01) {
+                $discrepancies[] = [
+                    'severity' => 'CRITICAL',
+                    'type' => 'Over-Credit Above Entitlement',
+                    'reference' => $dc->reference_id,
+                    'description' => "Invoice has {$dc->credit_count} wallet credits totaling ৳" . number_format($dc->credited_sum, 2) . ", which exceeds the invoice referral entitlement of ৳" . number_format($max_ent, 2) . ".",
+                    'action_needed' => 'Audit partial deposit credit duplication.'
+                ];
+            }
+        }
+
+        // Aggregate system totals
+        $this->db->reset_query();
+        $this->db->select_sum('referral_amount');
+        $this->db->where('hospital_id', $hospital_id);
+        $total_entitlement = floatval($this->db->get('payment')->row()->referral_amount);
+
+        $this->db->reset_query();
+        $this->db->select("SUM(CASE WHEN type='credit' THEN amount ELSE 0 END) as tot_cred,
+                           SUM(CASE WHEN type='debit' THEN amount ELSE 0 END) as tot_deb,
+                           SUM(CASE WHEN source='withdrawal' THEN amount ELSE 0 END) as tot_wth,
+                           SUM(CASE WHEN source='adjustment' THEN amount ELSE 0 END) as tot_adj,
+                           SUM(CASE WHEN source='reversal' THEN amount ELSE 0 END) as tot_rev");
+        $this->db->from('referral_wallet_transactions');
+        $this->db->where('hospital_id', $hospital_id);
+        $tx_totals = $this->db->get()->row();
+
+        return [
+            'discrepancies' => $discrepancies,
+            'summary' => [
+                'total_referral_entitlement' => $total_entitlement,
+                'total_wallet_credit' => floatval($tx_totals->tot_cred),
+                'total_wallet_debit' => floatval($tx_totals->tot_deb),
+                'total_withdrawals' => floatval($tx_totals->tot_wth),
+                'total_adjustments' => floatval($tx_totals->tot_adj),
+                'total_reversals' => floatval($tx_totals->tot_rev),
+                'total_available_wallet_balance' => $wallet_audit['summary']['total_wallet_balance'],
+                'discrepancy_count' => count($discrepancies)
+            ]
+        ];
+    }
+
 }

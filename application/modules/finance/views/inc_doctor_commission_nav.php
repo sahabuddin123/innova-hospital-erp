@@ -38,3 +38,4 @@ $current = !empty($active_report) ? $active_report : '';
         <i class="fas fa-cogs"></i> Rate Configuration
     </a>
 </div>
+

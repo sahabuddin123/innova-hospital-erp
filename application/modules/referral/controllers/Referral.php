@@ -326,11 +326,7 @@ class Referral extends MX_Controller
 
     public function wallets()
     {
-        $data['wallets'] = $this->referral_model->getWallets();
-        $data['settings'] = $this->settings_model->getSettings();
-        $this->load->view('home/dashboard');
-        $this->load->view('wallets', $data);
-        $this->load->view('home/footer');
+        return $this->walletReport();
     }
 
     public function statement()
@@ -708,6 +704,358 @@ class Referral extends MX_Controller
 
         $this->load->view('home/dashboard');
         $this->load->view('reports', $data);
+        $this->load->view('home/footer');
+    }
+
+
+    // ==========================================
+
+// Phase 5 Controller Methods for Referral.php
+
+    // ==========================================
+    // PHASE 5: REFERRAL COMMISSION & RECONCILIATION REPORTING SUITE
+    // ==========================================
+
+    /**
+     * Helper to verify authentication and access permissions
+     */
+    private function checkReportAccess()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+    }
+
+    /**
+     * 1. REFERRAL COMMISSION SUMMARY
+     */
+    public function commissionSummary()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getReferralCommissionSummaryReport($period['start_time'], $period['end_time'], $referrer_id);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['active_report'] = 'summary';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/commission_summary', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 2. REFERRER-WISE COMMISSION REPORT
+     */
+    public function referrerWiseReport()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getReferrerWiseCommissionReport($period['start_time'], $period['end_time'], $referrer_id);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['active_report'] = 'referrer_wise';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/referrer_wise_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 3. INVOICE-WISE REFERRAL COMMISSION REPORT
+     */
+    public function invoiceWiseReport()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+        $allocation_status = $this->input->get_post('allocation_status');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getInvoiceWiseReferralCommissionReport($period['start_time'], $period['end_time'], $referrer_id, $allocation_status);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['selected_status'] = $allocation_status;
+        $data['active_report'] = 'invoice_wise';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/invoice_wise_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 4. TEST-WISE REFERRAL COMMISSION REPORT
+     */
+    public function testWiseReport()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+        $category_id = $this->input->get_post('category_id');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getTestWiseReferralCommissionReport($period['start_time'], $period['end_time'], $referrer_id, $category_id);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['categories'] = $this->db->get_where('payment_category', ['hospital_id' => $hospital_id])->result();
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['selected_category'] = $category_id;
+        $data['active_report'] = 'test_wise';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/test_wise_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 5. REFERRAL COMMISSION PAYABLE REPORT
+     */
+    public function commissionPayableReport()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getReferralCommissionPayableReport($period['start_time'], $period['end_time'], $referrer_id);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['active_report'] = 'payable';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/commission_payable_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 6. REFERRER WALLET RECONCILIATION REPORT
+     */
+    public function walletReport()
+    {
+        $this->checkReportAccess();
+
+        $referrer_id = $this->input->get_post('referrer_id');
+        $report = $this->referral_model->getReferrerWalletAuditReport($referrer_id);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['selected_referrer'] = $referrer_id;
+        $data['active_report'] = 'wallets';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/wallet_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 7. REFERRAL COMMISSION LEDGER
+     */
+    public function commissionLedger()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+        $tx_type = $this->input->get_post('tx_type');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getReferralCommissionLedgerReport($period['start_time'], $period['end_time'], $referrer_id, $tx_type);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['selected_type'] = $tx_type;
+        $data['active_report'] = 'ledger';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/commission_ledger', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 8. REFERRAL WITHDRAWAL REPORT
+     */
+    public function withdrawalReport()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+        $status = $this->input->get_post('status');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getReferralWithdrawalReport($period['start_time'], $period['end_time'], $referrer_id, $status);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['selected_status'] = $status;
+        $data['active_report'] = 'withdrawals';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/withdrawal_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 9. REFERRAL ADJUSTMENT & REVERSAL REPORT
+     */
+    public function adjustmentReport()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getReferralAdjustmentReport($period['start_time'], $period['end_time'], $referrer_id);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['active_report'] = 'adjustments';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/adjustment_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 10. REFERRAL DISCOUNT RECONCILIATION REPORT
+     */
+    public function discountReconciliationReport()
+    {
+        $this->checkReportAccess();
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+        $referrer_id = $this->input->get_post('referrer_id');
+
+        $period = $this->referral_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->referral_model->getReferralDiscountReconciliationReport($period['start_time'], $period['end_time'], $referrer_id);
+
+        $hospital_id = $this->referral_model->resolveHospitalId();
+        $data['summary'] = $report['summary'];
+        $data['records'] = $report['records'];
+        $data['referrers'] = $this->referral_model->getReferrers($hospital_id);
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['selected_referrer'] = $referrer_id;
+        $data['active_report'] = 'discount_recon';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/discount_reconciliation_report', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 12. REFERRAL COMMISSION RECONCILIATION DASHBOARD
+     */
+    public function reconciliationDashboard()
+    {
+        $this->checkReportAccess();
+
+        $report = $this->referral_model->getReferralReconciliationDashboardData();
+
+        $data['summary'] = $report['summary'];
+        $data['discrepancies'] = $report['discrepancies'];
+        $data['active_report'] = 'recon_dashboard';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('referral/reconciliation_dashboard', $data);
         $this->load->view('home/footer');
     }
 }

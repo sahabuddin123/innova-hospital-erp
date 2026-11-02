@@ -2653,3 +2653,23 @@ $lang['payable_commission'] = 'Payable Commission';
 $lang['pending_commission'] = 'Pending Commission';
 $lang['commission_rate'] = 'Commission Rate';
 $lang['print_statement'] = 'Print Statement';
+
+// Phase 5: Referral Commission Reporting & Wallet Reconciliation Language Strings
+$lang['referral_commission_summary'] = 'Referral Commission Summary';
+$lang['referrer_wise_commission_report'] = 'Referrer-Wise Commission Report';
+$lang['invoice_wise_referral_report'] = 'Invoice-Wise Referral Report';
+$lang['test_wise_referral_report'] = 'Test-Wise Referral Report';
+$lang['referral_commission_payable_report'] = 'Referral Commission Payable Report';
+$lang['referrer_wallet_report'] = 'Referrer Wallet Report';
+$lang['referral_commission_ledger'] = 'Referral Commission Ledger';
+$lang['referral_withdrawal_report'] = 'Referral Withdrawal Report';
+$lang['referral_adjustment_report'] = 'Referral Adjustment & Reversal Report';
+$lang['referral_discount_reconciliation_report'] = 'Referral Discount Reconciliation Report';
+$lang['referrer_statement'] = 'Referrer Statement';
+$lang['referral_reconciliation_dashboard'] = 'Referral Reconciliation Dashboard';
+$lang['hospital_share'] = 'Hospital Share';
+$lang['referral_entitlement'] = 'Referral Entitlement';
+$lang['commission_credited'] = 'Commission Credited';
+$lang['commission_withdrawn'] = 'Commission Withdrawn';
+$lang['available_wallet_balance'] = 'Available Wallet Balance';
+$lang['discrepancy_detected'] = 'Discrepancy Detected';
