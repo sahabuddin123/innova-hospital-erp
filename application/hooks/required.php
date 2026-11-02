@@ -420,10 +420,14 @@ function required()
         // Skip background automated endpoints from human module visit counting
         $skip_methods = array('getpendingsynccount', 'checkonline', 'syncofflineinvoices', 'getauditdetailajax', 'getactivitydetailajax');
         if (!in_array($method, $skip_methods) && !$is_ajax && $class !== 'api' && $class !== 'cronjobs') {
-            if (!isset($CI->logs_model)) {
-                $CI->load->model('logs/logs_model');
+            try {
+                if (!isset($CI->logs_model)) {
+                    $CI->load->model('logs/logs_model');
+                }
+                $CI->logs_model->trackModuleAccess($class, $method, $sess_ref);
+            } catch (\Throwable $e) {
+                log_message('error', 'Hook trackModuleAccess error: ' . $e->getMessage());
             }
-            $CI->logs_model->trackModuleAccess($class, $method, $sess_ref);
         }
     }
 }

@@ -334,6 +334,7 @@ class Logs_model extends CI_model {
      * Log successful authentication
      */
     public function logLoginSuccess($user_id, $username, $full_name, $role, $session_reference) {
+        if (!$this->db->table_exists('user_login_logs')) return false;
         $now = time();
         $dt_str = date('Y-m-d H:i:s', $now);
         $agent = $this->_getUserAgentDetails();
@@ -384,6 +385,7 @@ class Logs_model extends CI_model {
      * Log failed authentication attempt
      */
     public function logLoginFailure($username_entered, $failure_reason = 'Invalid username or password') {
+        if (!$this->db->table_exists('user_login_logs')) return false;
         $now = time();
         $dt_str = date('Y-m-d H:i:s', $now);
         $agent = $this->_getUserAgentDetails();
@@ -449,6 +451,7 @@ class Logs_model extends CI_model {
      * Log user logout
      */
     public function logLogout($session_reference, $logout_type = 'MANUAL') {
+        if (!$this->db->table_exists('user_login_logs')) return false;
         if (empty($session_reference)) return false;
 
         $sess = $this->db->get_where('user_login_logs', ['session_reference' => $session_reference])->row();
@@ -488,6 +491,7 @@ class Logs_model extends CI_model {
      * Log generic user activity
      */
     public function logUserActivity($data) {
+        if (!$this->db->table_exists('user_activity_logs')) return false;
         $user_id = $data['user_id'] ?? ($this->ion_auth->get_user_id() ?: null);
         $username = $data['username'] ?? null;
         $full_name = $data['full_name'] ?? null;
@@ -569,8 +573,10 @@ class Logs_model extends CI_model {
 
         // 1. Update session heartbeat
         if ($session_reference) {
-            $this->db->where('session_reference', $session_reference)
-                ->update('user_login_logs', ['last_activity_time' => $now]);
+            if ($this->db->table_exists('user_login_logs')) {
+                $this->db->where('session_reference', $session_reference)
+                    ->update('user_login_logs', ['last_activity_time' => $now]);
+            }
         }
 
         // 2. Throttle module access logging (max 1 per module per user per 60 seconds)
