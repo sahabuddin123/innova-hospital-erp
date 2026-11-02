@@ -2673,3 +2673,23 @@ $lang['commission_credited'] = 'Commission Credited';
 $lang['commission_withdrawn'] = 'Commission Withdrawn';
 $lang['available_wallet_balance'] = 'Available Wallet Balance';
 $lang['discrepancy_detected'] = 'Discrepancy Detected';
+
+// --- Phase 6: Profit & Loss (P&L) Reports ---
+$lang['profit_loss_reports'] = 'Profit & Loss Reports';
+$lang['profit_loss_dashboard'] = 'Profit & Loss Dashboard';
+$lang['daily_profit_loss'] = 'Daily Profit & Loss';
+$lang['monthly_profit_loss'] = 'Monthly Profit & Loss';
+$lang['yearly_profit_loss'] = 'Yearly Profit & Loss';
+$lang['department_profitability'] = 'Department-Wise Profitability';
+$lang['test_profitability'] = 'Test-Wise Profitability';
+$lang['collection_based_pnl'] = 'Collection-Based Operating Performance (Cash View)';
+$lang['billing_based_pnl'] = 'Billing-Based Operating Performance (Accrual View)';
+$lang['expense_breakdown_analysis'] = 'Operating Expense Breakdown Analysis';
+$lang['commission_expense_analysis'] = 'Commission Expense Analysis';
+$lang['financial_comparison'] = 'Financial Performance Comparison';
+$lang['pnl_reconciliation'] = 'Profit & Loss Financial Reconciliation Audit';
+$lang['cash_basis'] = 'Collection (Cash) Basis';
+$lang['accrual_basis'] = 'Billing (Accrual) Basis';
+$lang['net_cash_operating_surplus'] = 'Net Cash Operating Surplus';
+$lang['net_operating_profit'] = 'Net Operating Profit';
+$lang['contribution_margin'] = 'Contribution Margin';

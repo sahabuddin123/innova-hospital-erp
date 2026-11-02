@@ -764,6 +764,30 @@ $sidebar_hidden_modules = array(
         <ul class="nav nav-treeview">
             <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossDashboard"><i class="text-secondary nav-icon fas fa-chart-pie"></i>
+                            <p><?php echo lang('profit_loss_dashboard'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/dailyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('daily_profit_loss'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/monthlyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('monthly_profit_loss'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/yearlyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('yearly_profit_loss'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/departmentProfitability"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('department_profitability'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/testProfitability"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('test_profitability'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossComparison"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('financial_comparison'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossReconciliation"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('pnl_reconciliation'); ?></p>
+                        </a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="finance/financialPerformanceReport"><i class="text-secondary nav-icon fas fa-chart-line"></i>
                             <p><?php echo lang('financial_performance_report'); ?></p>
                         </a></li>

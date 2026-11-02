@@ -6332,4 +6332,422 @@ class Finance extends MX_Controller
         $this->load->view('finance/commission_configuration_report', $data);
         $this->load->view('home/footer');
     }
+
+// Phase 6 Profit & Loss Controller Methods for Finance.php
+
+    // ==========================================
+    // PHASE 6: PROFIT & LOSS (P&L) REPORTING SUITE
+    // ==========================================
+
+    /**
+     * 1. PROFIT & LOSS EXECUTIVE DASHBOARD
+     */
+    public function profitLossDashboard()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $report = $this->finance_model->getProfitLossDashboardData($period_type, $selected_date, $date_from, $date_to, $accounting_basis);
+
+        $data = [];
+        $data['report'] = $report;
+        $data['summary'] = $report['summary'];
+        $data['charts'] = $report['charts'];
+        $data['period'] = $report['period'];
+        $data['period_type'] = $report['period']['period_type'];
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'dashboard';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_dashboard', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 2. DAILY PROFIT & LOSS REPORT
+     */
+    public function dailyProfitLoss()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $target_date = $this->input->get_post('date') ?: date('Y-m-d');
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+        $department_id = $this->input->get_post('department_id');
+        $payment_method = $this->input->get_post('payment_method');
+
+        $report = $this->finance_model->getDailyProfitLossReport($target_date, $accounting_basis, $department_id, $payment_method);
+
+        $data = [];
+        $data['report'] = $report;
+        $data['summary'] = $report['summary'];
+        $data['hourly_slots'] = $report['hourly_slots'];
+        $data['invoices'] = $report['invoices'];
+        $data['deposits'] = $report['deposits'];
+        $data['expenses'] = $report['expenses'];
+        $data['target_date'] = $target_date;
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'daily';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_daily', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 3. MONTHLY PROFIT & LOSS REPORT
+     */
+    public function monthlyProfitLoss()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $target_month = $this->input->get_post('month') ?: date('Y-m');
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+
+        $report = $this->finance_model->getMonthlyProfitLossReport($target_month, $accounting_basis);
+
+        $data = [];
+        $data['report'] = $report;
+        $data['summary'] = $report['summary'];
+        $data['prev_month'] = $report['prev_month'];
+        $data['ytd_summary'] = $report['ytd_summary'];
+        $data['daily_rows'] = $report['daily_rows'];
+        $data['target_month'] = $target_month;
+        $data['target_month_label'] = $report['target_month_label'];
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'monthly';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_monthly', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 4. YEARLY PROFIT & LOSS REPORT
+     */
+    public function yearlyProfitLoss()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $target_year = $this->input->get_post('year') ?: date('Y');
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+
+        $report = $this->finance_model->getYearlyProfitLossReport($target_year, $accounting_basis);
+
+        $data = [];
+        $data['report'] = $report;
+        $data['summary'] = $report['summary'];
+        $data['prev_year'] = $report['prev_year'];
+        $data['month_rows'] = $report['month_rows'];
+        $data['target_year'] = $target_year;
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'yearly';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_yearly', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 5. DEPARTMENT-WISE PROFITABILITY REPORT
+     */
+    public function departmentProfitability()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->finance_model->getDepartmentProfitabilityReport($period['start_time'], $period['end_time'], $accounting_basis);
+
+        $data = [];
+        $data['departments'] = $report['departments'];
+        $data['summary'] = $report['summary'];
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'department';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_department', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 6. TEST-WISE PROFITABILITY REPORT
+     */
+    public function testProfitability()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+        $category_id = $this->input->get_post('category_id');
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->finance_model->getTestProfitabilityReport($period['start_time'], $period['end_time'], $accounting_basis, $category_id);
+
+        $hospital_id = $this->finance_model->resolveHospitalId();
+        $data = [];
+        $data['records'] = $report['records'];
+        $data['summary'] = $report['summary'];
+        $data['categories'] = $this->db->get_where('payment_category', ['hospital_id' => $hospital_id])->result();
+        $data['selected_category'] = $category_id;
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'test';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_test', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 7. COLLECTION-BASED (CASH BASIS) P&L
+     */
+    public function collectionBasedPnl()
+    {
+        $_GET['accounting_basis'] = 'cash';
+        return $this->profitLossDashboard();
+    }
+
+    /**
+     * 8. BILLING-BASED (ACCRUAL BASIS) P&L
+     */
+    public function billingBasedPnl()
+    {
+        $_GET['accounting_basis'] = 'accrual';
+        return $this->profitLossDashboard();
+    }
+
+    /**
+     * 9. OPERATING EXPENSE BREAKDOWN
+     */
+    public function expenseProfitLossBreakdown()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->finance_model->getExpenseProfitLossBreakdown($period['start_time'], $period['end_time'], $accounting_basis);
+
+        $data = [];
+        $data['by_category'] = $report['by_category'];
+        $data['by_method'] = $report['by_method'];
+        $data['by_vendor'] = $report['by_vendor'];
+        $data['records'] = $report['records'];
+        $data['summary'] = $report['summary'];
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'expense_breakdown';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_expense_breakdown', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 10. COMMISSION EXPENSE ANALYSIS
+     */
+    public function commissionExpenseAnalysis()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->finance_model->getCommissionExpenseAnalysis($period['start_time'], $period['end_time']);
+
+        $data = [];
+        $data['doctor_commission'] = $report['doctor_commission'];
+        $data['referral_commission'] = $report['referral_commission'];
+        $data['summary'] = $report['summary'];
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['active_report'] = 'commission_analysis';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_commission_analysis', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 11. FINANCIAL PERFORMANCE COMPARISON
+     */
+    public function profitLossComparison()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $compare_mode = $this->input->get_post('compare_mode') ?: 'monthly';
+        $target_month = $this->input->get_post('month') ?: date('Y-m');
+        $target_year = $this->input->get_post('year') ?: date('Y');
+
+        if ($compare_mode === 'yearly') {
+            $report = $this->finance_model->getYearlyProfitLossReport($target_year);
+            $data['comparison'] = $report['prev_year'];
+            $data['current_summary'] = $report['summary'];
+            $data['current_label'] = 'Year ' . $target_year;
+            $data['compare_label'] = 'Year ' . $report['prev_year']['year'];
+        } else {
+            $report = $this->finance_model->getMonthlyProfitLossReport($target_month);
+            $data['comparison'] = $report['prev_month'];
+            $data['current_summary'] = $report['summary'];
+            $data['current_label'] = $report['target_month_label'];
+            $data['compare_label'] = $report['prev_month']['label'];
+        }
+
+        $data['compare_mode'] = $compare_mode;
+        $data['target_month'] = $target_month;
+        $data['target_year'] = $target_year;
+        $data['active_report'] = 'comparison';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_comparison', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 12. IMPROVED INCOME VS EXPENSE REPORT
+     */
+    public function incomeVsExpenseReport()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $accounting_basis = $this->input->get_post('accounting_basis') ?: 'cash';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $dashboard_data = $this->finance_model->getProfitLossDashboardData($period_type, $selected_date, $date_from, $date_to, $accounting_basis);
+        $expenses_data = $this->finance_model->getExpenseProfitLossBreakdown($period['start_time'], $period['end_time'], $accounting_basis);
+
+        $data = [];
+        $data['summary'] = $dashboard_data['summary'];
+        $data['charts'] = $dashboard_data['charts'];
+        $data['expenses'] = $expenses_data['records'];
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['accounting_basis'] = $accounting_basis;
+        $data['active_report'] = 'income_expense';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_income_vs_expense', $data);
+        $this->load->view('home/footer');
+    }
+
+    /**
+     * 13. FINANCIAL RECONCILIATION AUDIT
+     */
+    public function profitLossReconciliation()
+    {
+        if (!$this->ion_auth->logged_in()) {
+            redirect('auth/login', 'refresh');
+        }
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $period_type = $this->input->get_post('period_type') ?: 'this_month';
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $selected_date = $this->input->get_post('date');
+
+        $period = $this->finance_model->resolveReportPeriod($period_type, $date_from, $date_to, $selected_date);
+        $report = $this->finance_model->getProfitLossReconciliationData($period['start_time'], $period['end_time']);
+
+        $data = [];
+        $data['checks'] = $report['checks'];
+        $data['summary'] = $report['summary'];
+        $data['period'] = $period;
+        $data['period_type'] = $period['period_type'];
+        $data['active_report'] = 'reconciliation';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/pnl_reconciliation', $data);
+        $this->load->view('home/footer');
+    }
 }
