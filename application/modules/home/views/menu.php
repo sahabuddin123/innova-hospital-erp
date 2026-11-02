@@ -755,219 +755,261 @@ $sidebar_hidden_modules = array(
     </li>
 <?php } ?>
 
-<?php if ($this->ion_auth->in_group(array('admin', 'Nurse', 'Laboratorist', 'Doctor'))) { ?>
-    <li class="nav-item">
+<style>
+/* Phase 10: Multi-level Sidebar Menu Styling */
+.nav-sidebar .nav-treeview .nav-treeview {
+    padding-left: 8px;
+    background-color: rgba(0, 0, 0, 0.15);
+    border-left: 2px solid rgba(255, 255, 255, 0.2);
+    margin-left: 6px;
+    margin-right: 6px;
+    border-radius: 4px;
+}
+.nav-sidebar .nav-treeview .nav-treeview .nav-link {
+    font-size: 0.82rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+.nav-sidebar .nav-treeview .nav-treeview .nav-link.active {
+    background-color: rgba(32, 201, 151, 0.25) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+</style>
+
+<?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant', 'Doctor', 'Laboratorist', 'Nurse'))) { ?>
+    <li class="nav-item has-treeview">
         <a class="nav-link text-white" href="#">
-            <i class="text-secondary nav-icon fas fa-file-medical-alt"></i>
-            <p><?php echo lang('report'); ?><i class="right fas fa-angle-left"></i></p>
+            <i class="text-secondary nav-icon fas fa-chart-pie" style="color: #17a2b8 !important;"></i>
+            <p><?php echo lang('reports'); ?><i class="right fas fa-angle-left"></i></p>
         </a>
         <ul class="nav nav-treeview">
-            <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
+
+            <!-- 1. FINANCIAL DASHBOARD -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossDashboard"><i class="text-secondary nav-icon fas fa-chart-pie"></i>
-                            <p><?php echo lang('profit_loss_dashboard'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/dailyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('daily_profit_loss'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/monthlyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('monthly_profit_loss'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/yearlyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('yearly_profit_loss'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/departmentProfitability"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('department_profitability'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/testProfitability"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('test_profitability'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossComparison"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('financial_comparison'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossReconciliation"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('pnl_reconciliation'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/financialPerformanceReport"><i class="text-secondary nav-icon fas fa-chart-line"></i>
-                            <p><?php echo lang('financial_performance_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/financialReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('financial_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"> <a class="nav-link text-white" href="finance/AllUserActivityReport"> <i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('user_activity_report'); ?></p>
-                        </a></li>
-                    <!-- <li class="nav-item"><a class="nav-link text-white" href="finance/insuranceReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('insurance_report'); ?></p>
-                        </a></li> -->
+                    <li class="nav-item has-treeview">
+                        <a class="nav-link text-white" href="#">
+                            <i class="text-secondary nav-icon fas fa-tachometer-alt"></i>
+                            <p><?php echo lang('financial_dashboard'); ?><i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/financialPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('financial_performance_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/financialReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('financial_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/collectionSummaryReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('collection_summary_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/expenseVsIncome"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('expense_vs_income'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossDashboard"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('profit_loss_dashboard'); ?></p></a></li>
+                        </ul>
+                    </li>
                 <?php } ?>
             <?php } ?>
-            <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
+
+            <!-- 2. INCOME & COLLECTION REPORTS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
                 <?php if (in_array('finance', $this->modules)) { ?>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorsCommissionSummary"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('doctor_commission_summary'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('doctor_wise_commission_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/testWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('test_wise_commission_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/invoiceWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('invoice_wise_commission_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionPayableReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('commission_payable_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionPaidReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('commission_paid_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionLedger"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('doctor_commission_ledger'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionStatement"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('doctor_commission_statement'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionAdjustmentReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('commission_adjustment_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/commissionConfigurationReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('commission_configuration_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/monthly"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('monthly_sales'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/daily"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('daily_sales'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/paymentMethodReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('payment_method_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/dueReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('due_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/partialPaymentReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('partial_payment_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/advancePaymentReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('advance_payment_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/refundReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('refund_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/discountReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('discount_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/cashierReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('cashier_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/collectionSummaryReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('collection_summary_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/monthlyExpense"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('monthly_expense'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/dailyExpense"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('daily_expense'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/expenseLedgerReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('expense_ledger_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/expenseCategoryReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('expense_category_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/vendorPaymentReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('vendor_payment_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/employeeSalaryReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('employee_salary_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/utilityBillReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('utility_bill_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/assetPurchaseReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('asset_purchase_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/pettyCashReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('petty_cash_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/cashBookReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('cash_book_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/bankBookReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('bank_book_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/expenseApprovalReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('expense_approval_report'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="finance/expenseVsIncome"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('expense_vs_income'); ?></p>
-                        </a></li>
+                    <li class="nav-item has-treeview">
+                        <a class="nav-link text-white" href="#">
+                            <i class="text-secondary nav-icon fas fa-hand-holding-usd"></i>
+                            <p><?php echo lang('income_collection_reports'); ?><i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/daily"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('daily_sales'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/monthly"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('monthly_sales'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/paymentMethodReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('payment_method_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/dueReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('due_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/partialPaymentReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('partial_payment_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/advancePaymentReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('advance_payment_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/refundReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('refund_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/discountReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('discount_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/cashierReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('cashier_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/collectionSummaryReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('collection_summary_report'); ?></p></a></li>
+                        </ul>
+                    </li>
                 <?php } ?>
             <?php } ?>
-            <?php if (in_array('report', $this->modules)) { ?>
-                <li class="nav-item"><a class="nav-link text-white" href="report/birth"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('birth_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="report/operation"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('operation_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="report/expire"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('expire_report'); ?></p>
-                    </a></li>
+
+            <!-- 3. EXPENSE & ACCOUNTS REPORTS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+                <?php if (in_array('finance', $this->modules)) { ?>
+                    <li class="nav-item has-treeview">
+                        <a class="nav-link text-white" href="#">
+                            <i class="text-secondary nav-icon fas fa-receipt"></i>
+                            <p><?php echo lang('expense_accounts_reports'); ?><i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/dailyExpense"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('daily_expense'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/monthlyExpense"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('monthly_expense'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/expenseLedgerReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('expense_ledger_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/expenseCategoryReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('expense_category_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/vendorPaymentReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('vendor_payment_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/employeeSalaryReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('employee_salary_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/utilityBillReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('utility_bill_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/assetPurchaseReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('asset_purchase_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/pettyCashReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('petty_cash_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/cashBookReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('cash_book_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/bankBookReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('bank_book_report'); ?></p></a></li>
+                        </ul>
+                    </li>
+                <?php } ?>
             <?php } ?>
+
+            <!-- 4. DOCTOR COMMISSION REPORTS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+                <?php if (in_array('finance', $this->modules)) { ?>
+                    <li class="nav-item has-treeview">
+                        <a class="nav-link text-white" href="#">
+                            <i class="text-secondary nav-icon fas fa-user-md"></i>
+                            <p><?php echo lang('doctor_commission_reports'); ?><i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/doctorsCommissionSummary"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('doctor_commission_summary'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/doctorWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('doctor_wise_commission_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/testWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('test_wise_commission_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/invoiceWiseCommissionReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('invoice_wise_commission_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/commissionPayableReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('commission_payable_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/commissionPaidReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('commission_paid_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionLedger"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('doctor_commission_ledger'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionStatement"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('doctor_commission_statement'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/commissionAdjustmentReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('commission_adjustment_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/commissionConfigurationReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('commission_configuration_report'); ?></p></a></li>
+                        </ul>
+                    </li>
+                <?php } ?>
+            <?php } ?>
+
+            <!-- 5. REFERRAL COMMISSION REPORTS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+                <?php if (in_array('referral', $this->modules)) { ?>
+                    <li class="nav-item has-treeview">
+                        <a class="nav-link text-white" href="#">
+                            <i class="text-secondary nav-icon fas fa-users-cog"></i>
+                            <p><?php echo lang('referral_commission_reports'); ?><i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/commissionSummary"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referral_commission_summary'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/referrerWiseReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referrer_wise_commission'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/invoiceWiseReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('invoice_wise_referral_commission'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/testWiseReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('test_wise_referral_commission'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/commissionPayableReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referral_commission_payable'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/walletReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referrer_wallet_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/commissionLedger"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referral_commission_ledger'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/withdrawalReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referral_withdrawal_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/statement"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referrer_statement'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/adjustmentReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referral_adjustment_reversal'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="referral/discountReconciliationReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referral_reconciliation'); ?></p></a></li>
+                        </ul>
+                    </li>
+                <?php } ?>
+            <?php } ?>
+
+            <!-- 6. PROFIT & LOSS REPORTS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+                <?php if (in_array('finance', $this->modules)) { ?>
+                    <li class="nav-item has-treeview">
+                        <a class="nav-link text-white" href="#">
+                            <i class="text-secondary nav-icon fas fa-chart-pie"></i>
+                            <p><?php echo lang('profit_loss_reports'); ?><i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossDashboard"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('profit_loss_dashboard'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/dailyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('daily_profit_loss'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/monthlyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('monthly_profit_loss'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/yearlyProfitLoss"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('yearly_profit_loss'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/collectionBasedPnl"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('collection_based_operating_performance'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/departmentProfitability"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('department_profitability'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/testProfitability"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('test_profitability'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/expenseProfitLossBreakdown"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('expense_analysis'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/incomeVsExpenseReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('income_vs_expense'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossComparison"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('financial_comparison'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/profitLossReconciliation"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('pnl_reconciliation'); ?></p></a></li>
+                        </ul>
+                    </li>
+                <?php } ?>
+            <?php } ?>
+
+            <!-- 7. DIAGNOSTIC PERFORMANCE REPORTS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Doctor', 'Laboratorist', 'Accountant', 'Nurse'))) { ?>
+                <li class="nav-item has-treeview">
+                    <a class="nav-link text-white" href="#">
+                        <i class="text-secondary nav-icon fas fa-microscope"></i>
+                        <p><?php echo lang('diagnostic_performance_reports'); ?><i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <?php if (in_array('lab', $this->modules) && !$this->ion_auth->in_group(array('Nurse'))) { ?>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticDashboard"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('diagnostic_dashboard'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/dailyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('daily_diagnostic_performance'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/monthlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('monthly_diagnostic_performance'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/yearlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('yearly_diagnostic_performance'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/testPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('test_performance_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/categoryPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('category_performance_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/departmentPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('department_performance_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/sampleCollectionReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('sample_collection_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/pendingTestReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('pending_test_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/reportVerificationReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('report_verification_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/reportDeliveryReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('report_delivery_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/turnaroundTimeReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('turnaround_time_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/cancelledTestReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('cancelled_test_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/homeCollectionReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('home_sample_collection_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/doctorDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('doctor_diagnostic_performance'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticOperationalEfficiency"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('diagnostic_operational_efficiency'); ?></p></a></li>
+                        <?php } ?>
+                        <?php if (in_array('report', $this->modules)) { ?>
+                            <li class="nav-item"><a class="nav-link text-white" href="report/birth"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('birth_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="report/operation"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('operation_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="report/expire"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('expire_report'); ?></p></a></li>
+                        <?php } ?>
+                    </ul>
+                </li>
+            <?php } ?>
+
+            <!-- 8. FINANCIAL AUDIT LOGS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin', 'Accountant'))) { ?>
+                <?php if (in_array('finance', $this->modules)) { ?>
+                    <li class="nav-item has-treeview">
+                        <a class="nav-link text-white" href="#">
+                            <i class="text-secondary nav-icon fas fa-shield-alt"></i>
+                            <p><?php echo lang('financial_audit_logs'); ?><i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/financialAuditDashboard"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('financial_audit_dashboard'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/invoiceAuditReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('invoice_audit_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/paymentAuditReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('payment_audit_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/expenseAuditReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('expense_audit_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionAuditReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('doctor_commission_audit_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/referralCommissionAuditReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('referral_commission_audit_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/cashBankAuditReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('cash_bank_audit_report'); ?></p></a></li>
+                            <li class="nav-item"><a class="nav-link text-white" href="finance/financialAuditTrail"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('master_financial_audit_trail'); ?></p></a></li>
+                        </ul>
+                    </li>
+                <?php } ?>
+            <?php } ?>
+
+            <!-- 9. USER ACTIVITY REPORTS -->
+            <?php if ($this->ion_auth->in_group(array('admin', 'superadmin'))) { ?>
+                <li class="nav-item has-treeview">
+                    <a class="nav-link text-white" href="#">
+                        <i class="text-secondary nav-icon fas fa-user-shield"></i>
+                        <p><?php echo lang('user_activity_reports'); ?><i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/activityDashboard"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('activity_dashboard'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/userLoginHistory"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('user_login_history'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/userLogoutHistory"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('user_logout_history'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/failedLogins"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('failed_login_attempts'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/userActivityReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('user_activity_reports'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/moduleAccessReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('module_access_reports'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/dataEntryActivity"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('data_entry_activity'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/userSessionReport"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('user_session_history'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/printExportActivity"><i class="text-secondary nav-icon far fa-circle"></i><p><?php echo lang('print_export_activity'); ?></p></a></li>
+                        <li class="nav-item"><a class="nav-link text-white" href="logs/suspiciousActivity"><i class="text-secondary nav-icon far fa-circle text-danger"></i><p class="text-danger font-weight-bold"><?php echo lang('suspicious_activity_monitoring'); ?></p></a></li>
+                    </ul>
+                </li>
+            <?php } ?>
+
         </ul>
     </li>
 <?php } ?>
 
-<?php if ($this->ion_auth->in_group(array('admin', 'Accountant'))) { ?>
-    <?php if (in_array('finance', $this->modules)) { ?>
-        <li class="nav-item">
-            <a class="nav-link text-white" href="#">
-                <i class="text-secondary nav-icon fas fa-balance-scale"></i>
-                <p><?php echo lang('advanced_accounting_reports'); ?><i class="right fas fa-angle-left"></i></p>
-            </a>
-            <ul class="nav nav-treeview">
-                <li class="nav-item"><a class="nav-link text-white" href="finance/chartOfAccounts"><i class="text-secondary nav-icon fas fa-sitemap"></i><p><?php echo lang('chart_of_accounts'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/generalLedger"><i class="text-secondary nav-icon fas fa-book"></i><p><?php echo lang('general_ledger'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/journalEntryRegister"><i class="text-secondary nav-icon fas fa-file-invoice"></i><p><?php echo lang('journal_entry_register'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/trialBalance"><i class="text-secondary nav-icon fas fa-balance-scale-left"></i><p><?php echo lang('trial_balance'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/pnlStatement"><i class="text-secondary nav-icon fas fa-file-invoice-dollar"></i><p><?php echo lang('pnl_statement'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/balanceSheet"><i class="text-secondary nav-icon fas fa-landmark"></i><p><?php echo lang('balance_sheet'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/cashFlowStatement"><i class="text-secondary nav-icon fas fa-money-bill-wave"></i><p><?php echo lang('cash_flow_statement'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/accountsReceivable"><i class="text-secondary nav-icon fas fa-hand-holding-usd"></i><p><?php echo lang('accounts_receivable'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/accountsPayable"><i class="text-secondary nav-icon fas fa-receipt"></i><p><?php echo lang('accounts_payable'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/cashBook"><i class="text-secondary nav-icon fas fa-coins"></i><p><?php echo lang('cash_book'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/bankBook"><i class="text-secondary nav-icon fas fa-university"></i><p><?php echo lang('bank_book'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/bankReconciliation"><i class="text-secondary nav-icon fas fa-check-double"></i><p><?php echo lang('bank_reconciliation'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/openingBalanceReport"><i class="text-secondary nav-icon fas fa-hourglass-start"></i><p><?php echo lang('opening_balance_report'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/periodClosing"><i class="text-secondary nav-icon fas fa-calendar-check"></i><p><?php echo lang('financial_period_closing'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/accountingAuditTrail"><i class="text-secondary nav-icon fas fa-history"></i><p><?php echo lang('accounting_audit_trail'); ?></p></a></li>
-            </ul>
-        </li>
-    <?php } ?>
-<?php } ?>
-
-<?php if ($this->ion_auth->in_group(array('admin', 'Accountant'))) { ?>
-    <?php if (in_array('finance', $this->modules)) { ?>
-        <li class="nav-item">
-            <a class="nav-link text-white" href="#">
-                <i class="text-secondary nav-icon fas fa-shield-alt"></i>
-                <p><?php echo lang('financial_audit_logs'); ?><i class="right fas fa-angle-left"></i></p>
-            </a>
-            <ul class="nav nav-treeview">
-                <li class="nav-item"><a class="nav-link text-white" href="finance/financialAuditDashboard"><i class="text-secondary nav-icon fas fa-chart-line"></i><p><?php echo lang('financial_audit_dashboard'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/invoiceAuditReport"><i class="text-secondary nav-icon fas fa-file-invoice"></i><p><?php echo lang('invoice_audit_report'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/paymentAuditReport"><i class="text-secondary nav-icon fas fa-hand-holding-usd"></i><p><?php echo lang('payment_audit_report'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/expenseAuditReport"><i class="text-secondary nav-icon fas fa-receipt"></i><p><?php echo lang('expense_audit_report'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionAuditReport"><i class="text-secondary nav-icon fas fa-user-md"></i><p><?php echo lang('doctor_commission_audit_report'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/referralCommissionAuditReport"><i class="text-secondary nav-icon fas fa-users-cog"></i><p><?php echo lang('referral_commission_audit_report'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/cashBankAuditReport"><i class="text-secondary nav-icon fas fa-university"></i><p><?php echo lang('cash_bank_audit_report'); ?></p></a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="finance/financialAuditTrail"><i class="text-secondary nav-icon fas fa-list-alt"></i><p><?php echo lang('master_financial_audit_trail'); ?></p></a></li>
-            </ul>
-        </li>
-    <?php } ?>
-<?php } ?>
 
 <?php if ($this->ion_auth->in_group('Receptionist')) { ?>
     <?php if (in_array('appointment', $this->modules)) { ?>
@@ -1067,63 +1109,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 
 
-<?php if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Laboratorist', 'Accountant'))) { ?>
-    <li class="nav-item">
-        <a class="nav-link text-white" href="#">
-            <i class="text-secondary nav-icon fas fa-microscope"></i>
-            <p><?php echo lang('diagnostic_reports'); ?><i class="right fas fa-angle-left"></i></p>
-        </a>
-        <ul class="nav nav-treeview">
-            <?php if (in_array('lab', $this->modules)) { ?>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticDashboard"><i class="text-secondary nav-icon fas fa-chart-line"></i>
-                        <p><?php echo lang('diagnostic_dashboard'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/dailyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('daily_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/monthlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('monthly_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/yearlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('yearly_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/testPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('test_performance_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/categoryPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('category_performance_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/departmentPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('department_performance_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/sampleCollectionReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('sample_collection_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/pendingTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('pending_test_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/reportDeliveryReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('report_delivery_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/reportVerificationReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('report_verification_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/turnaroundTimeReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('turnaround_time_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/cancelledTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('cancelled_test_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/doctorDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('doctor_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticOperationalEfficiency"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('diagnostic_operational_efficiency'); ?></p>
-                    </a></li>
-            <?php } ?>
-        </ul>
-    </li>
-<?php } ?>
+
 
 <?php if (empty($sidebar_hidden_modules['bed'])) { ?>
 <?php if ($this->ion_auth->in_group(array('admin'))) { ?>
@@ -1750,50 +1736,12 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
                         <p><?php echo lang('bulk'); ?> <?php echo lang('import'); ?></p>
                     </a></li>
             <?php } ?>
-            <li class="nav-item has-treeview">
-                <a class="nav-link text-white" href="#">
-                    <i class="text-secondary nav-icon fas fa-user-shield" style="color: #20c997 !important;"></i>
-                    <p><?php echo lang('user_activity_monitoring'); ?><i class="right fas fa-angle-left"></i></p>
-                </a>
-                <ul class="nav nav-treeview">
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/activityDashboard"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('activity_dashboard'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/userLoginHistory"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('user_login_history'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/userLogoutHistory"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('user_logout_history'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/failedLogins"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('failed_login_attempts'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/userActivityReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('user_activity_reports'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/moduleAccessReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('module_access_reports'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/dataEntryActivity"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('data_entry_activity'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/userSessionReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('user_session_history'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/printExportActivity"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('print_export_activity'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs/suspiciousActivity"><i class="text-secondary nav-icon far fa-circle text-danger"></i>
-                            <p class="text-danger font-weight-bold"><?php echo lang('suspicious_activity_monitoring'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="transactionLogs"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p><?php echo lang('transaction_logs'); ?></p>
-                        </a></li>
-                    <li class="nav-item"><a class="nav-link text-white" href="logs"><i class="text-secondary nav-icon far fa-circle"></i>
-                            <p>Legacy Login Logs</p>
-                        </a></li>
-                </ul>
-            </li>
+            <li class="nav-item"><a class="nav-link text-white" href="transactionLogs"><i class="text-secondary nav-icon far fa-circle"></i>
+                    <p><?php echo lang('transaction_logs'); ?></p>
+                </a></li>
+            <li class="nav-item"><a class="nav-link text-white" href="logs"><i class="text-secondary nav-icon far fa-circle"></i>
+                    <p><?php echo lang('user'); ?> <?php echo lang('login_logs'); ?></p>
+                </a></li>
             <li class="nav-item">
                 <a class="nav-link text-white" href="settings/subscription">
                     <i class="text-secondary nav-icon far fa-user"></i>
@@ -1828,63 +1776,7 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
 
 
 
-<?php if ($this->ion_auth->in_group(array('admin', 'Doctor', 'Laboratorist', 'Accountant'))) { ?>
-    <li class="nav-item">
-        <a class="nav-link text-white" href="#">
-            <i class="text-secondary nav-icon fas fa-microscope"></i>
-            <p><?php echo lang('diagnostic_reports'); ?><i class="right fas fa-angle-left"></i></p>
-        </a>
-        <ul class="nav nav-treeview">
-            <?php if (in_array('lab', $this->modules)) { ?>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticDashboard"><i class="text-secondary nav-icon fas fa-chart-line"></i>
-                        <p><?php echo lang('diagnostic_dashboard'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/dailyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('daily_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/monthlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('monthly_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/yearlyDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('yearly_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/testPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('test_performance_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/categoryPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('category_performance_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/departmentPerformanceReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('department_performance_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/sampleCollectionReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('sample_collection_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/pendingTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('pending_test_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/reportDeliveryReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('report_delivery_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/reportVerificationReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('report_verification_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/turnaroundTimeReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('turnaround_time_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/cancelledTestReport"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('cancelled_test_report'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/doctorDiagnosticPerformance"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('doctor_diagnostic_performance'); ?></p>
-                    </a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="lab/diagnosticOperationalEfficiency"><i class="text-secondary nav-icon far fa-circle"></i>
-                        <p><?php echo lang('diagnostic_operational_efficiency'); ?></p>
-                    </a></li>
-            <?php } ?>
-        </ul>
-    </li>
-<?php } ?>
+
 
 <?php if (empty($sidebar_hidden_modules['bed'])) { ?>
 <?php if ($this->ion_auth->in_group(array('Nurse', 'Receptionist'))) { ?>

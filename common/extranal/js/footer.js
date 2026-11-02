@@ -610,8 +610,8 @@ $('ul.nav-sidebar a').filter(function () {
   return this.href == url;
 }).addClass('active');
 
-// for treeview
-$('ul.nav-treeview a').filter(function () {
+// for multi-level treeview activation (Phase 10 sidebar reorganization)
+var matchedLinks = $('ul.nav-treeview a').filter(function () {
   if (this.href == url) {
     return true;
   }
@@ -622,8 +622,17 @@ $('ul.nav-treeview a').filter(function () {
   if (currentHref.indexOf('finance/editExpenseCategory') !== -1 && this.getAttribute('href') === 'finance/expenseCategory') {
     return true;
   }
+  var linkHref = this.getAttribute('href');
+  if (linkHref && linkHref !== '#' && (currentHref.indexOf('/' + linkHref) !== -1 || currentHref.indexOf('?' + linkHref) !== -1)) {
+    return true;
+  }
   return false;
-}).parentsUntil(".nav-sidebar > .nav-treeview").addClass('menu-open').prev('a').addClass('active');
+});
+
+matchedLinks.addClass('active');
+matchedLinks.parents('ul.nav-treeview').addClass('menu-open').css('display', 'block');
+matchedLinks.parents('li.nav-item').addClass('menu-open');
+matchedLinks.parents('li.nav-item').children('a.nav-link').addClass('active');
 
 
 

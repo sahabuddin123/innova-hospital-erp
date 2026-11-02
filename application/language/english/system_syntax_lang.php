@@ -2853,3 +2853,21 @@ $lang['session_timeout'] = 'Session Timeout';
 $lang['forced_logout'] = 'Forced / Reset';
 $lang['incomplete_session'] = 'Incomplete / Historical';
 
+// --- PHASE 10: SIDEBAR 9-SUBMENU & REPORT LABELS ---
+$lang['financial_dashboard'] = 'Financial Dashboard';
+$lang['income_collection_reports'] = 'Income & Collection Reports';
+$lang['expense_accounts_reports'] = 'Expense & Accounts Reports';
+$lang['doctor_commission_reports'] = 'Doctor Commission Reports';
+$lang['referral_commission_reports'] = 'Referral Commission Reports';
+$lang['diagnostic_performance_reports'] = 'Diagnostic Performance Reports';
+$lang['referrer_wise_commission'] = 'Referrer-wise Commission';
+$lang['invoice_wise_referral_commission'] = 'Invoice-wise Referral Commission';
+$lang['test_wise_referral_commission'] = 'Test-wise Referral Commission';
+$lang['referral_commission_payable'] = 'Referral Commission Payable';
+$lang['referral_adjustment_reversal'] = 'Referral Adjustment & Reversal';
+$lang['referral_reconciliation'] = 'Referral Reconciliation';
+$lang['collection_based_operating_performance'] = 'Collection-based Performance';
+$lang['expense_analysis'] = 'Expense Analysis';
+$lang['income_vs_expense'] = 'Income vs Expense';
+$lang['home_sample_collection_report'] = 'Home Sample Collection Report';
+
