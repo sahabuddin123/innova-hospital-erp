@@ -318,6 +318,16 @@ class Patient extends MX_Controller
                     $user_row = $this->db->get_where('users', array('email' => $email))->row();
                     $ion_user_id = !empty($user_row) ? $user_row->id : null;
                     $this->patient_model->insertPatient($data);
+                    if (!isset($this->logs_model)) { $this->load->model('logs/logs_model'); }
+                    $this->logs_model->logUserActivity([
+                        'module_name' => 'patient',
+                        'action_type' => 'CREATE',
+                        'record_type' => 'patient',
+                        'record_id' => $patient_id,
+                        'record_reference' => 'PAT-#' . $patient_id,
+                        'description' => "Registered new patient: {$name} (Phone: {$phone})",
+                        'metadata' => ['patient_id' => $patient_id, 'name' => $name, 'phone' => $phone, 'sex' => $sex]
+                    ]);
                     $patient_row = $this->db->get_where('patient', array('email' => $email))->row();
                     $patient_user_id = !empty($patient_row) ? $patient_row->id : $this->db->insert_id();
                     if (!empty($ion_user_id)) {
@@ -415,6 +425,16 @@ class Patient extends MX_Controller
                     $this->patient_model->updateIonUser($username, $email, $password, $ion_user_id);
                 }
                 $this->patient_model->updatePatient($id, $data);
+                if (!isset($this->logs_model)) { $this->load->model('logs/logs_model'); }
+                $this->logs_model->logUserActivity([
+                    'module_name' => 'patient',
+                    'action_type' => 'UPDATE',
+                    'record_type' => 'patient',
+                    'record_id' => $id,
+                    'record_reference' => 'PAT-#' . ($patient_details->patient_id ?? $id),
+                    'description' => "Updated patient record: {$name} (ID: {$id})",
+                    'metadata' => ['id' => $id, 'name' => $name, 'phone' => $phone]
+                ]);
                 show_swal(lang('patient_details_updated_successfully'), 'success', lang('updated'));
             }
 

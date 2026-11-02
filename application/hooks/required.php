@@ -410,12 +410,20 @@ function required()
         $CI->lang->load('system_syntax', $CI->language);
     }
 
+    // Phase 9: Automated Module Access & Session Heartbeat Tracking
+    if ($CI->ion_auth->logged_in()) {
+        $sess_ref = $CI->session->userdata('activity_session_ref');
+        $is_ajax = $CI->input->is_ajax_request();
+        $class = strtolower($RTR->class ?? '');
+        $method = strtolower($RTR->method ?? '');
 
-    // if ($RTR->class == "site") {
-    //     if ($CI->router->fetch_method() == 'index') {
-
-    //     }
-    //     // $settings = $CI->db->get_where('settings', array('hospital_id' => $CI->session->userdata('hospital_id')))->row();
-    //     // $CI->lang->load('system_syntax', $settings->language);
-    // }
+        // Skip background automated endpoints from human module visit counting
+        $skip_methods = array('getpendingsynccount', 'checkonline', 'syncofflineinvoices', 'getauditdetailajax', 'getactivitydetailajax');
+        if (!in_array($method, $skip_methods) && !$is_ajax && $class !== 'api' && $class !== 'cronjobs') {
+            if (!isset($CI->logs_model)) {
+                $CI->load->model('logs/logs_model');
+            }
+            $CI->logs_model->trackModuleAccess($class, $method, $sess_ref);
+        }
+    }
 }

@@ -125,6 +125,11 @@ class Auth extends MX_Controller {
                     $this->load->model('logs/logs_model');
                 }
                 $this->logs_model->insertLogs($data);
+                // Phase 9: Record active user login & session
+                $sess_token = 'SESS-' . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 16));
+                $this->session->set_userdata('activity_session_ref', $sess_token);
+                $user_id = $this->ion_auth->get_user_id();
+                $this->logs_model->logLoginSuccess($user_id, $email_login, $name, $role, $sess_token);
                 $this->session->set_flashdata('message', $this->ion_auth->messages());
                 if (session_status() === PHP_SESSION_ACTIVE) {
                     session_write_close();
@@ -133,6 +138,11 @@ class Auth extends MX_Controller {
             } else {
                 //if the login was un-successful
                 //redirect them back to the login page
+                if (!isset($this->logs_model)) {
+                    $this->load->model('logs/logs_model');
+                }
+                $identity_entered = $this->input->post('identity');
+                $this->logs_model->logLoginFailure($identity_entered, 'Invalid username or password');
                 $this->session->set_flashdata('message', $this->ion_auth->errors());
                 redirect('auth/login', 'refresh');
             }
@@ -187,6 +197,13 @@ class Auth extends MX_Controller {
 
     //log the user out
     function logout() {
+        if (!isset($this->logs_model)) {
+            $this->load->model('logs/logs_model');
+        }
+        $sess_ref = $this->session->userdata('activity_session_ref');
+        if (!empty($sess_ref)) {
+            $this->logs_model->logLogout($sess_ref, 'MANUAL');
+        }
 
         ob_start();
 

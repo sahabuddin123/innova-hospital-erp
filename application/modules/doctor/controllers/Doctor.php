@@ -310,6 +310,17 @@ class Doctor extends MX_Controller
                         }
                     }
 
+                    if ($this->load->is_loaded('logs_model') || $this->load->model('logs/logs_model')) {
+                        $this->logs_model->logUserActivity(array(
+                            'module' => 'Doctor',
+                            'submodule' => 'Doctors',
+                            'action_type' => 'CREATE',
+                            'record_id' => $doctor_user_id,
+                            'record_reference' => $name,
+                            'description' => "Registered new doctor: " . $name . " (" . $email . ")",
+                            'new_data' => array('name' => $name, 'email' => $email, 'department' => $department, 'phone' => $phone)
+                        ));
+                    }
                     show_swal(lang('new_doctor_added_successfully'), 'success', lang('added'));
                 }
             } else { // Updating Doctor
@@ -359,6 +370,17 @@ class Doctor extends MX_Controller
                     }
                 }
 
+                if ($this->load->is_loaded('logs_model') || $this->load->model('logs/logs_model')) {
+                    $this->logs_model->logUserActivity(array(
+                        'module' => 'Doctor',
+                        'submodule' => 'Doctors',
+                        'action_type' => 'UPDATE',
+                        'record_id' => $id,
+                        'record_reference' => $name,
+                        'description' => "Updated doctor profile: " . $name,
+                        'new_data' => array('name' => $name, 'email' => $email, 'phone' => $phone)
+                    ));
+                }
                 show_swal(lang('doctor_details_updated'), 'success', lang('updated'));
             }
             // Loading View

@@ -489,6 +489,17 @@ class Appointment extends MX_Controller
                     $this->appointmentPayment($deposit_type, $data_for_payment, $patient, $doctor, $consultant_fee, $date, $inserted_id, $redirectlink);
                 } else {
 
+                    if ($this->load->is_loaded('logs_model') || $this->load->model('logs/logs_model')) {
+                        $this->logs_model->logUserActivity(array(
+                            'module' => 'Appointment',
+                            'submodule' => 'Appointments',
+                            'action_type' => 'CREATE',
+                            'record_id' => $appointment_id,
+                            'record_reference' => 'APP-#' . $appointment_id,
+                            'description' => "Booked appointment #" . $appointment_id . " for patient ID " . $patient . " with doctor ID " . $doctor,
+                            'new_data' => array('patient_id' => $patient, 'doctor_id' => $doctor, 'time_slot' => $time_slot, 'status' => $status)
+                        ));
+                    }
                     show_swal(lang('appointment_addded_successfully'), 'success', lang('added'));
                     if ($redirectlink == 'my_today') {
                         redirect('appointment/todays');
@@ -538,6 +549,17 @@ class Appointment extends MX_Controller
                 } else {
 
                     $this->appointment_model->updateAppointment($id, $data);
+                }
+                if ($this->load->is_loaded('logs_model') || $this->load->model('logs/logs_model')) {
+                    $this->logs_model->logUserActivity(array(
+                        'module' => 'Appointment',
+                        'submodule' => 'Appointments',
+                        'action_type' => 'UPDATE',
+                        'record_id' => $id,
+                        'record_reference' => 'APP-#' . $id,
+                        'description' => "Updated appointment #" . $id . " status to " . $status,
+                        'new_data' => array('patient_id' => $patient, 'doctor_id' => $doctor, 'status' => $status)
+                    ));
                 }
                 show_swal(lang('appointment_updated_successfully'), 'success', lang('updated'));
                 if ($redirectlink == 'my_today') {

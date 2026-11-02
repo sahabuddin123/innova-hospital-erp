@@ -1750,12 +1750,50 @@ if ($this->ion_auth->in_group(array('Receptionist'))) {
                         <p><?php echo lang('bulk'); ?> <?php echo lang('import'); ?></p>
                     </a></li>
             <?php } ?>
-            <li class="nav-item"><a class="nav-link text-white" href="transactionLogs"><i class="text-secondary nav-icon far fa-circle"></i>
-                    <p><?php echo lang('transaction_logs'); ?></p>
-                </a></li>
-            <li class="nav-item"><a class="nav-link text-white" href="logs"><i class="text-secondary nav-icon far fa-circle"></i>
-                    <p><?php echo lang('user'); ?> <?php echo lang('login_logs'); ?></p>
-                </a></li>
+            <li class="nav-item has-treeview">
+                <a class="nav-link text-white" href="#">
+                    <i class="text-secondary nav-icon fas fa-user-shield" style="color: #20c997 !important;"></i>
+                    <p><?php echo lang('user_activity_monitoring'); ?><i class="right fas fa-angle-left"></i></p>
+                </a>
+                <ul class="nav nav-treeview">
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/activityDashboard"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('activity_dashboard'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/userLoginHistory"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('user_login_history'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/userLogoutHistory"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('user_logout_history'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/failedLogins"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('failed_login_attempts'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/userActivityReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('user_activity_reports'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/moduleAccessReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('module_access_reports'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/dataEntryActivity"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('data_entry_activity'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/userSessionReport"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('user_session_history'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/printExportActivity"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('print_export_activity'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs/suspiciousActivity"><i class="text-secondary nav-icon far fa-circle text-danger"></i>
+                            <p class="text-danger font-weight-bold"><?php echo lang('suspicious_activity_monitoring'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="transactionLogs"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p><?php echo lang('transaction_logs'); ?></p>
+                        </a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="logs"><i class="text-secondary nav-icon far fa-circle"></i>
+                            <p>Legacy Login Logs</p>
+                        </a></li>
+                </ul>
+            </li>
             <li class="nav-item">
                 <a class="nav-link text-white" href="settings/subscription">
                     <i class="text-secondary nav-icon far fa-user"></i>
