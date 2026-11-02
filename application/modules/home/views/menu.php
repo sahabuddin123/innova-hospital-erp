@@ -920,6 +920,34 @@ $sidebar_hidden_modules = array(
     </li>
 <?php } ?>
 
+<?php if ($this->ion_auth->in_group(array('admin', 'Accountant'))) { ?>
+    <?php if (in_array('finance', $this->modules)) { ?>
+        <li class="nav-item">
+            <a class="nav-link text-white" href="#">
+                <i class="text-secondary nav-icon fas fa-balance-scale"></i>
+                <p><?php echo lang('advanced_accounting_reports'); ?><i class="right fas fa-angle-left"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+                <li class="nav-item"><a class="nav-link text-white" href="finance/chartOfAccounts"><i class="text-secondary nav-icon fas fa-sitemap"></i><p><?php echo lang('chart_of_accounts'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/generalLedger"><i class="text-secondary nav-icon fas fa-book"></i><p><?php echo lang('general_ledger'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/journalEntryRegister"><i class="text-secondary nav-icon fas fa-file-invoice"></i><p><?php echo lang('journal_entry_register'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/trialBalance"><i class="text-secondary nav-icon fas fa-balance-scale-left"></i><p><?php echo lang('trial_balance'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/pnlStatement"><i class="text-secondary nav-icon fas fa-file-invoice-dollar"></i><p><?php echo lang('pnl_statement'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/balanceSheet"><i class="text-secondary nav-icon fas fa-landmark"></i><p><?php echo lang('balance_sheet'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/cashFlowStatement"><i class="text-secondary nav-icon fas fa-money-bill-wave"></i><p><?php echo lang('cash_flow_statement'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/accountsReceivable"><i class="text-secondary nav-icon fas fa-hand-holding-usd"></i><p><?php echo lang('accounts_receivable'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/accountsPayable"><i class="text-secondary nav-icon fas fa-receipt"></i><p><?php echo lang('accounts_payable'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/cashBook"><i class="text-secondary nav-icon fas fa-coins"></i><p><?php echo lang('cash_book'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/bankBook"><i class="text-secondary nav-icon fas fa-university"></i><p><?php echo lang('bank_book'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/bankReconciliation"><i class="text-secondary nav-icon fas fa-check-double"></i><p><?php echo lang('bank_reconciliation'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/openingBalanceReport"><i class="text-secondary nav-icon fas fa-hourglass-start"></i><p><?php echo lang('opening_balance_report'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/periodClosing"><i class="text-secondary nav-icon fas fa-calendar-check"></i><p><?php echo lang('financial_period_closing'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/accountingAuditTrail"><i class="text-secondary nav-icon fas fa-history"></i><p><?php echo lang('accounting_audit_trail'); ?></p></a></li>
+            </ul>
+        </li>
+    <?php } ?>
+<?php } ?>
+
 <?php if ($this->ion_auth->in_group('Receptionist')) { ?>
     <?php if (in_array('appointment', $this->modules)) { ?>
         <li class="nav-item">

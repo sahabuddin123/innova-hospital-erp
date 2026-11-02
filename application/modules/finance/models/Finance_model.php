@@ -6785,4 +6785,1191 @@ class Finance_model extends CI_model
         ];
     }
 
+
+    /* =========================================================================
+     * PHASE 8: ADVANCED ACCOUNTING & DOUBLE-ENTRY ENGINE METHODS
+     * ========================================================================= */
+
+    public function getAccountGroups($category = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $this->db->select('*');
+        $this->db->from('acc_account_groups');
+        $this->db->where('(hospital_id = ' . $this->db->escape($hospital_id) . ' OR hospital_id IS NULL)', NULL, FALSE);
+        if (!empty($category)) {
+            $this->db->where('category', $category);
+        }
+        $this->db->order_by('group_code', 'ASC');
+        return $this->db->get()->result_array();
+    }
+
+    public function getChartOfAccounts($filters = []) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $this->db->select('a.*, g.name as group_name, g.group_code, g.category as group_category');
+        $this->db->from('acc_chart_of_accounts a');
+        $this->db->join('acc_account_groups g', 'g.id = a.group_id', 'left');
+        $this->db->where('(a.hospital_id = ' . $this->db->escape($hospital_id) . ' OR a.hospital_id IS NULL)', NULL, FALSE);
+
+        if (!empty($filters['account_type'])) {
+            $this->db->where('a.account_type', $filters['account_type']);
+        }
+        if (!empty($filters['group_id'])) {
+            $this->db->where('a.group_id', $filters['group_id']);
+        }
+        if (isset($filters['is_active'])) {
+            $this->db->where('a.is_active', $filters['is_active']);
+        }
+        if (!empty($filters['search'])) {
+            $this->db->group_start();
+            $this->db->like('a.account_code', $filters['search']);
+            $this->db->or_like('a.account_name', $filters['search']);
+            $this->db->group_end();
+        }
+
+        $this->db->order_by('a.account_code', 'ASC');
+        $accounts = $this->db->get()->result_array();
+
+        // Calculate current balances from posted journals
+        foreach ($accounts as &$acc) {
+            $this->db->select('COALESCE(SUM(debit), 0) as total_dr, COALESCE(SUM(credit), 0) as total_cr');
+            $this->db->from('acc_journal_items ji');
+            $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id');
+            $this->db->where('ji.account_id', $acc['id']);
+            $this->db->where('je.status', 'posted');
+            $mov = $this->db->get()->row();
+
+            $acc['total_debit'] = floatval($acc['opening_debit']) + floatval($mov ? $mov->total_dr : 0);
+            $acc['total_credit'] = floatval($acc['opening_credit']) + floatval($mov ? $mov->total_cr : 0);
+
+            if (in_array($acc['account_type'], ['asset', 'expense'])) {
+                $acc['current_balance'] = $acc['total_debit'] - $acc['total_credit'];
+            } else {
+                $acc['current_balance'] = $acc['total_credit'] - $acc['total_debit'];
+            }
+        }
+
+        return $accounts;
+    }
+
+    public function addAccount($data) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $data['hospital_id'] = $hospital_id;
+        $data['created_at'] = time();
+
+        // Check unique account code
+        $exists = $this->db->get_where('acc_chart_of_accounts', [
+            'account_code' => $data['account_code'],
+            'hospital_id' => $hospital_id
+        ])->row();
+
+        if ($exists) {
+            return ['status' => false, 'message' => 'Account code already exists.'];
+        }
+
+        $this->db->insert('acc_chart_of_accounts', $data);
+        $insert_id = $this->db->insert_id();
+
+        $this->logAccountingAudit('CREATE_ACCOUNT', 'ChartOfAccounts', $data['account_code'], $data['account_code'], null, json_encode($data));
+        return ['status' => true, 'id' => $insert_id];
+    }
+
+    public function updateAccount($id, $data) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $data['updated_at'] = time();
+
+        $old = $this->db->get_where('acc_chart_of_accounts', ['id' => $id])->row_array();
+        $this->db->where('id', $id);
+        $this->db->where('hospital_id', $hospital_id);
+        $this->db->update('acc_chart_of_accounts', $data);
+
+        $this->logAccountingAudit('UPDATE_ACCOUNT', 'ChartOfAccounts', $old['account_code'], $old['account_code'], json_encode($old), json_encode($data));
+        return ['status' => true];
+    }
+
+    public function postJournalEntry($header, $items) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $user_id = $this->ion_auth->get_user_id() ?: 'system';
+
+        // 1. Mandatory Double-entry validation: Total Debit must equal Total Credit
+        $total_dr = 0;
+        $total_cr = 0;
+        foreach ($items as $item) {
+            $total_dr += floatval($item['debit'] ?? 0);
+            $total_cr += floatval($item['credit'] ?? 0);
+        }
+
+        if (abs($total_dr - $total_cr) > 0.009) {
+            return [
+                'status' => false,
+                'message' => "Unbalanced journal entry rejected! Total Debit ($total_dr) does not equal Total Credit ($total_cr)."
+            ];
+        }
+
+        if ($total_dr <= 0) {
+            return ['status' => false, 'message' => 'Journal entry amount must be greater than zero.'];
+        }
+
+        // 2. Period check: Verify date does not fall within closed period
+        $entry_date = $header['date'] ?? date('Y-m-d');
+        $closed_period = $this->db->query("
+            SELECT * FROM acc_accounting_periods 
+            WHERE status = 'closed' 
+              AND start_date <= ? AND end_date >= ?
+              AND (hospital_id = ? OR hospital_id IS NULL)
+            LIMIT 1
+        ", [$entry_date, $entry_date, $hospital_id])->row();
+
+        if ($closed_period) {
+            return [
+                'status' => false,
+                'message' => "Posting rejected! The date ($entry_date) falls within closed accounting period '{$closed_period->period_name}'."
+            ];
+        }
+
+        // 3. Idempotency & duplicate check
+        if (!empty($header['source_module']) && !empty($header['source_reference'])) {
+            $duplicate = $this->db->get_where('acc_journal_entries', [
+                'source_module' => $header['source_module'],
+                'source_reference' => $header['source_reference'],
+                'status !=' => 'reversed',
+                'hospital_id' => $hospital_id
+            ])->row();
+
+            if ($duplicate) {
+                return [
+                    'status' => false,
+                    'message' => "Duplicate entry detected! A journal entry ({$duplicate->journal_number}) is already posted for {$header['source_module']} ref {$header['source_reference']}."
+                ];
+            }
+        }
+
+        // 4. Generate unique journal number if empty
+        if (empty($header['journal_number'])) {
+            $year = date('Y', strtotime($entry_date));
+            $seq = $this->db->query("SELECT COUNT(*) as cnt FROM acc_journal_entries WHERE YEAR(date) = ?", [$year])->row()->cnt + 1;
+            $header['journal_number'] = sprintf("JV-%s-%05d", $year, $seq);
+        }
+
+        $header['total_debit'] = $total_dr;
+        $header['total_credit'] = $total_cr;
+        $header['hospital_id'] = $hospital_id;
+        $header['created_by'] = $user_id;
+        $header['posted_at'] = time();
+        if (empty($header['status'])) {
+            $header['status'] = 'posted';
+        }
+
+        $this->db->trans_start();
+        $this->db->insert('acc_journal_entries', $header);
+        $journal_id = $this->db->insert_id();
+
+        foreach ($items as $item) {
+            $item_data = [
+                'journal_id' => $journal_id,
+                'account_id' => $item['account_id'],
+                'debit' => floatval($item['debit'] ?? 0),
+                'credit' => floatval($item['credit'] ?? 0),
+                'description' => $item['description'] ?? $header['description'],
+                'reference' => $item['reference'] ?? ($header['reference_number'] ?? null),
+                'hospital_id' => $hospital_id
+            ];
+            $this->db->insert('acc_journal_items', $item_data);
+        }
+
+        $this->logAccountingAudit('POST_JOURNAL', 'JournalEntry', $header['journal_number'], null, null, json_encode($header));
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            return ['status' => false, 'message' => 'Database transaction failed while saving journal entry.'];
+        }
+
+        return [
+            'status' => true,
+            'journal_id' => $journal_id,
+            'journal_number' => $header['journal_number']
+        ];
+    }
+
+    public function reverseJournalEntry($journal_id, $reason, $user_id = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $user_id = $user_id ?: ($this->ion_auth->get_user_id() ?: 'system');
+
+        $original = $this->db->get_where('acc_journal_entries', [
+            'id' => $journal_id,
+            'hospital_id' => $hospital_id
+        ])->row_array();
+
+        if (!$original) {
+            return ['status' => false, 'message' => 'Journal entry not found.'];
+        }
+
+        if ($original['status'] === 'reversed') {
+            return ['status' => false, 'message' => 'This journal entry has already been reversed.'];
+        }
+
+        $items = $this->db->get_where('acc_journal_items', ['journal_id' => $journal_id])->result_array();
+        if (empty($items)) {
+            return ['status' => false, 'message' => 'No journal items found to reverse.'];
+        }
+
+        $year = date('Y');
+        $seq = $this->db->query("SELECT COUNT(*) as cnt FROM acc_journal_entries WHERE YEAR(date) = ?", [$year])->row()->cnt + 1;
+        $rev_number = sprintf("REV-%s-%05d", $year, $seq);
+
+        $rev_header = [
+            'journal_number' => $rev_number,
+            'date' => date('Y-m-d'),
+            'journal_type' => 'reversal',
+            'reference_number' => $original['journal_number'],
+            'description' => "Reversal of " . $original['journal_number'] . " - Reason: " . $reason,
+            'total_debit' => $original['total_credit'],
+            'total_credit' => $original['total_debit'],
+            'status' => 'posted',
+            'reversed_entry_id' => $original['id'],
+            'created_by' => $user_id,
+            'posted_at' => time(),
+            'hospital_id' => $hospital_id
+        ];
+
+        $this->db->trans_start();
+        $this->db->insert('acc_journal_entries', $rev_header);
+        $rev_id = $this->db->insert_id();
+
+        // Invert debits and credits
+        foreach ($items as $item) {
+            $this->db->insert('acc_journal_items', [
+                'journal_id' => $rev_id,
+                'account_id' => $item['account_id'],
+                'debit' => $item['credit'], // swapped
+                'credit' => $item['debit'], // swapped
+                'description' => "Reversal: " . $item['description'],
+                'reference' => $original['journal_number'],
+                'hospital_id' => $hospital_id
+            ]);
+        }
+
+        // Mark original as reversed
+        $this->db->where('id', $journal_id);
+        $this->db->update('acc_journal_entries', ['status' => 'reversed']);
+
+        $this->logAccountingAudit('REVERSE_JOURNAL', 'JournalEntry', $rev_number, null, $original['journal_number'], $reason);
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            return ['status' => false, 'message' => 'Failed to execute journal reversal.'];
+        }
+
+        return ['status' => true, 'reversal_journal_number' => $rev_number];
+    }
+
+    public function getJournalEntries($filters = []) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $this->db->select('je.*, u.username as creator_name');
+        $this->db->from('acc_journal_entries je');
+        $this->db->join('users u', 'u.id = je.created_by', 'left');
+        $this->db->where('(je.hospital_id = ' . $this->db->escape($hospital_id) . ' OR je.hospital_id IS NULL)', NULL, FALSE);
+
+        if (!empty($filters['date_from'])) {
+            $this->db->where('je.date >=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $this->db->where('je.date <=', $filters['date_to']);
+        }
+        if (!empty($filters['status'])) {
+            $this->db->where('je.status', $filters['status']);
+        }
+        if (!empty($filters['journal_type'])) {
+            $this->db->where('je.journal_type', $filters['journal_type']);
+        }
+
+        $this->db->order_by('je.date', 'DESC');
+        $this->db->order_by('je.id', 'DESC');
+        $entries = $this->db->get()->result_array();
+
+        foreach ($entries as &$e) {
+            $this->db->select('ji.*, a.account_code, a.account_name, a.account_type');
+            $this->db->from('acc_journal_items ji');
+            $this->db->join('acc_chart_of_accounts a', 'a.id = ji.account_id', 'left');
+            $this->db->where('ji.journal_id', $e['id']);
+            $this->db->order_by('ji.debit', 'DESC');
+            $e['items'] = $this->db->get()->result_array();
+        }
+
+        return $entries;
+    }
+
+    public function getGeneralLedgerData($account_id, $start_date, $end_date) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+
+        // 1. Account Details
+        $account = $this->db->get_where('acc_chart_of_accounts', ['id' => $account_id])->row_array();
+        if (!$account) return null;
+
+        // 2. Opening Balance before start_date
+        $this->db->select('COALESCE(SUM(ji.debit), 0) as prior_dr, COALESCE(SUM(ji.credit), 0) as prior_cr');
+        $this->db->from('acc_journal_items ji');
+        $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id');
+        $this->db->where('ji.account_id', $account_id);
+        $this->db->where('je.date <', $start_date);
+        $this->db->where('je.status', 'posted');
+        $prior = $this->db->get()->row();
+
+        $opening_dr = floatval($account['opening_debit']) + floatval($prior ? $prior->prior_dr : 0);
+        $opening_cr = floatval($account['opening_credit']) + floatval($prior ? $prior->prior_cr : 0);
+
+        $is_debit_normal = in_array($account['account_type'], ['asset', 'expense']);
+        $running_balance = $is_debit_normal ? ($opening_dr - $opening_cr) : ($opening_cr - $opening_dr);
+
+        // 3. Transactions within date range
+        $this->db->select('ji.*, je.journal_number, je.date as journal_date, je.journal_type, je.reference_number as journal_ref, je.description as header_desc');
+        $this->db->from('acc_journal_items ji');
+        $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id');
+        $this->db->where('ji.account_id', $account_id);
+        $this->db->where('je.date >=', $start_date);
+        $this->db->where('je.date <=', $end_date);
+        $this->db->where('je.status', 'posted');
+        $this->db->order_by('je.date', 'ASC');
+        $this->db->order_by('je.id', 'ASC');
+        $lines = $this->db->get()->result_array();
+
+        $total_period_dr = 0;
+        $total_period_cr = 0;
+
+        foreach ($lines as &$line) {
+            $dr = floatval($line['debit']);
+            $cr = floatval($line['credit']);
+            $total_period_dr += $dr;
+            $total_period_cr += $cr;
+
+            if ($is_debit_normal) {
+                $running_balance += ($dr - $cr);
+            } else {
+                $running_balance += ($cr - $dr);
+            }
+            $line['running_balance'] = $running_balance;
+        }
+
+        return [
+            'account' => $account,
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'is_debit_normal' => $is_debit_normal,
+            'opening_dr' => $opening_dr,
+            'opening_cr' => $opening_cr,
+            'opening_balance' => $is_debit_normal ? ($opening_dr - $opening_cr) : ($opening_cr - $opening_dr),
+            'lines' => $lines,
+            'total_period_dr' => $total_period_dr,
+            'total_period_cr' => $total_period_cr,
+            'closing_balance' => $running_balance
+        ];
+    }
+
+    public function getTrialBalanceData($as_of_date, $start_date = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $start_date = $start_date ?: date('Y-01-01', strtotime($as_of_date));
+
+        $accounts = $this->getChartOfAccounts(['is_active' => 1]);
+
+        $total_open_dr = 0;
+        $total_open_cr = 0;
+        $total_period_dr = 0;
+        $total_period_cr = 0;
+        $total_close_dr = 0;
+        $total_close_cr = 0;
+
+        $rows = [];
+
+        foreach ($accounts as $acc) {
+            // Opening before start_date
+            $this->db->select('COALESCE(SUM(ji.debit), 0) as dr, COALESCE(SUM(ji.credit), 0) as cr');
+            $this->db->from('acc_journal_items ji');
+            $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id');
+            $this->db->where('ji.account_id', $acc['id']);
+            $this->db->where('je.date <', $start_date);
+            $this->db->where('je.status', 'posted');
+            $p = $this->db->get()->row();
+
+            $op_dr = floatval($acc['opening_debit']) + floatval($p ? $p->dr : 0);
+            $op_cr = floatval($acc['opening_credit']) + floatval($p ? $p->cr : 0);
+
+            // Net opening
+            if ($op_dr >= $op_cr) {
+                $net_op_dr = $op_dr - $op_cr;
+                $net_op_cr = 0;
+            } else {
+                $net_op_dr = 0;
+                $net_op_cr = $op_cr - $op_dr;
+            }
+
+            // Period activity
+            $this->db->select('COALESCE(SUM(ji.debit), 0) as dr, COALESCE(SUM(ji.credit), 0) as cr');
+            $this->db->from('acc_journal_items ji');
+            $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id');
+            $this->db->where('ji.account_id', $acc['id']);
+            $this->db->where('je.date >=', $start_date);
+            $this->db->where('je.date <=', $as_of_date);
+            $this->db->where('je.status', 'posted');
+            $per = $this->db->get()->row();
+
+            $cur_dr = floatval($per ? $per->dr : 0);
+            $cur_cr = floatval($per ? $per->cr : 0);
+
+            // Closing totals
+            $tot_dr = $net_op_dr + $cur_dr;
+            $tot_cr = $net_op_cr + $cur_cr;
+
+            if ($tot_dr >= $tot_cr) {
+                $close_dr = $tot_dr - $tot_cr;
+                $close_cr = 0;
+            } else {
+                $close_dr = 0;
+                $close_cr = $tot_cr - $tot_dr;
+            }
+
+            $total_open_dr += $net_op_dr;
+            $total_open_cr += $net_op_cr;
+            $total_period_dr += $cur_dr;
+            $total_period_cr += $cur_cr;
+            $total_close_dr += $close_dr;
+            $total_close_cr += $close_cr;
+
+            $rows[] = [
+                'account_code' => $acc['account_code'],
+                'account_name' => $acc['account_name'],
+                'account_type' => $acc['account_type'],
+                'group_name' => $acc['group_name'],
+                'opening_dr' => $net_op_dr,
+                'opening_cr' => $net_op_cr,
+                'period_dr' => $cur_dr,
+                'period_cr' => $cur_cr,
+                'closing_dr' => $close_dr,
+                'closing_cr' => $close_cr
+            ];
+        }
+
+        // Unposted operational notice audit
+        $unposted_invoices = $this->db->query("SELECT COUNT(*) as cnt FROM payment WHERE id NOT IN (SELECT COALESCE(source_reference, -1) FROM acc_journal_entries WHERE source_module = 'billing')")->row()->cnt;
+
+        return [
+            'as_of_date' => $as_of_date,
+            'start_date' => $start_date,
+            'rows' => $rows,
+            'total_open_dr' => $total_open_dr,
+            'total_open_cr' => $total_open_cr,
+            'total_period_dr' => $total_period_dr,
+            'total_period_cr' => $total_period_cr,
+            'total_close_dr' => $total_close_dr,
+            'total_close_cr' => $total_close_cr,
+            'closing_difference' => abs($total_close_dr - $total_close_cr),
+            'is_balanced' => (abs($total_close_dr - $total_close_cr) < 0.01),
+            'unposted_invoices' => $unposted_invoices
+        ];
+    }
+
+    public function getAccountingPnLStatement($start_date, $end_date) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+
+        // Revenue (Account Type = income, codes 4000s)
+        $this->db->select('a.account_code, a.account_name, COALESCE(SUM(ji.credit), 0) - COALESCE(SUM(ji.debit), 0) as net_amount');
+        $this->db->from('acc_chart_of_accounts a');
+        $this->db->join('acc_journal_items ji', 'ji.account_id = a.id', 'left');
+        $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id AND je.status = "posted" AND je.date >= ' . $this->db->escape($start_date) . ' AND je.date <= ' . $this->db->escape($end_date), 'left');
+        $this->db->where('a.account_type', 'income');
+        $this->db->where('(a.hospital_id = ' . $this->db->escape($hospital_id) . ' OR a.hospital_id IS NULL)', NULL, FALSE);
+        $this->db->group_by('a.id');
+        $this->db->order_by('a.account_code', 'ASC');
+        $income_accounts = $this->db->get()->result_array();
+
+        // Expenses (Account Type = expense, codes 5000s)
+        $this->db->select('a.account_code, a.account_name, COALESCE(SUM(ji.debit), 0) - COALESCE(SUM(ji.credit), 0) as net_amount');
+        $this->db->from('acc_chart_of_accounts a');
+        $this->db->join('acc_journal_items ji', 'ji.account_id = a.id', 'left');
+        $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id AND je.status = "posted" AND je.date >= ' . $this->db->escape($start_date) . ' AND je.date <= ' . $this->db->escape($end_date), 'left');
+        $this->db->where('a.account_type', 'expense');
+        $this->db->where('(a.hospital_id = ' . $this->db->escape($hospital_id) . ' OR a.hospital_id IS NULL)', NULL, FALSE);
+        $this->db->group_by('a.id');
+        $this->db->order_by('a.account_code', 'ASC');
+        $expense_accounts = $this->db->get()->result_array();
+
+        $gross_revenue = 0;
+        $discounts_refunds = 0;
+        foreach ($income_accounts as $inc) {
+            $amt = floatval($inc['net_amount']);
+            if (in_array($inc['account_code'], ['4100', '4110'])) {
+                $discounts_refunds += abs($amt);
+            } else {
+                $gross_revenue += $amt;
+            }
+        }
+        $net_revenue = $gross_revenue - $discounts_refunds;
+
+        $total_expenses = 0;
+        foreach ($expense_accounts as $exp) {
+            $total_expenses += floatval($exp['net_amount']);
+        }
+
+        $net_profit = $net_revenue - $total_expenses;
+
+        return [
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'income_accounts' => $income_accounts,
+            'expense_accounts' => $expense_accounts,
+            'gross_revenue' => $gross_revenue,
+            'discounts_refunds' => $discounts_refunds,
+            'net_revenue' => $net_revenue,
+            'total_expenses' => $total_expenses,
+            'operating_profit' => $net_profit,
+            'net_profit' => $net_profit
+        ];
+    }
+
+    public function getAccountingBalanceSheet($as_of_date) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+
+        // Assets (1000s)
+        $this->db->select('a.account_code, a.account_name, g.name as group_name, a.opening_debit, a.opening_credit, 
+            COALESCE(SUM(ji.debit), 0) as dr, COALESCE(SUM(ji.credit), 0) as cr');
+        $this->db->from('acc_chart_of_accounts a');
+        $this->db->join('acc_account_groups g', 'g.id = a.group_id', 'left');
+        $this->db->join('acc_journal_items ji', 'ji.account_id = a.id', 'left');
+        $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id AND je.status = "posted" AND je.date <= ' . $this->db->escape($as_of_date), 'left');
+        $this->db->where('a.account_type', 'asset');
+        $this->db->where('(a.hospital_id = ' . $this->db->escape($hospital_id) . ' OR a.hospital_id IS NULL)', NULL, FALSE);
+        $this->db->group_by('a.id');
+        $this->db->order_by('a.account_code', 'ASC');
+        $asset_accounts = $this->db->get()->result_array();
+
+        $total_assets = 0;
+        foreach ($asset_accounts as &$a) {
+            $bal = (floatval($a['opening_debit']) + floatval($a['dr'])) - (floatval($a['opening_credit']) + floatval($a['cr']));
+            $a['balance'] = $bal;
+            $total_assets += $bal;
+        }
+
+        // Liabilities (2000s)
+        $this->db->select('a.account_code, a.account_name, g.name as group_name, a.opening_debit, a.opening_credit, 
+            COALESCE(SUM(ji.debit), 0) as dr, COALESCE(SUM(ji.credit), 0) as cr');
+        $this->db->from('acc_chart_of_accounts a');
+        $this->db->join('acc_account_groups g', 'g.id = a.group_id', 'left');
+        $this->db->join('acc_journal_items ji', 'ji.account_id = a.id', 'left');
+        $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id AND je.status = "posted" AND je.date <= ' . $this->db->escape($as_of_date), 'left');
+        $this->db->where('a.account_type', 'liability');
+        $this->db->where('(a.hospital_id = ' . $this->db->escape($hospital_id) . ' OR a.hospital_id IS NULL)', NULL, FALSE);
+        $this->db->group_by('a.id');
+        $this->db->order_by('a.account_code', 'ASC');
+        $liability_accounts = $this->db->get()->result_array();
+
+        $total_liabilities = 0;
+        foreach ($liability_accounts as &$l) {
+            $bal = (floatval($l['opening_credit']) + floatval($l['cr'])) - (floatval($l['opening_debit']) + floatval($l['dr']));
+            $l['balance'] = $bal;
+            $total_liabilities += $bal;
+        }
+
+        // Equity (3000s)
+        $this->db->select('a.account_code, a.account_name, g.name as group_name, a.opening_debit, a.opening_credit, 
+            COALESCE(SUM(ji.debit), 0) as dr, COALESCE(SUM(ji.credit), 0) as cr');
+        $this->db->from('acc_chart_of_accounts a');
+        $this->db->join('acc_account_groups g', 'g.id = a.group_id', 'left');
+        $this->db->join('acc_journal_items ji', 'ji.account_id = a.id', 'left');
+        $this->db->join('acc_journal_entries je', 'je.id = ji.journal_id AND je.status = "posted" AND je.date <= ' . $this->db->escape($as_of_date), 'left');
+        $this->db->where('a.account_type', 'equity');
+        $this->db->where('(a.hospital_id = ' . $this->db->escape($hospital_id) . ' OR a.hospital_id IS NULL)', NULL, FALSE);
+        $this->db->group_by('a.id');
+        $this->db->order_by('a.account_code', 'ASC');
+        $equity_accounts = $this->db->get()->result_array();
+
+        $total_equity = 0;
+        foreach ($equity_accounts as &$e) {
+            $bal = (floatval($e['opening_credit']) + floatval($e['cr'])) - (floatval($e['opening_debit']) + floatval($e['dr']));
+            $e['balance'] = $bal;
+            $total_equity += $bal;
+        }
+
+        // Current Year Operating Surplus / (Deficit) from income and expense
+        $pnl = $this->getAccountingPnLStatement(date('Y-01-01', strtotime($as_of_date)), $as_of_date);
+        $current_year_earnings = $pnl['net_profit'];
+        $total_equity_with_earnings = $total_equity + $current_year_earnings;
+
+        $total_liab_equity = $total_liabilities + $total_equity_with_earnings;
+        $difference = abs($total_assets - $total_liab_equity);
+
+        return [
+            'as_of_date' => $as_of_date,
+            'asset_accounts' => $asset_accounts,
+            'liability_accounts' => $liability_accounts,
+            'equity_accounts' => $equity_accounts,
+            'total_assets' => $total_assets,
+            'total_liabilities' => $total_liabilities,
+            'total_equity' => $total_equity,
+            'current_year_earnings' => $current_year_earnings,
+            'total_equity_with_earnings' => $total_equity_with_earnings,
+            'total_liab_equity' => $total_liab_equity,
+            'difference' => $difference,
+            'is_balanced' => ($difference < 0.01)
+        ];
+    }
+
+    public function getAccountingCashFlowStatement($start_date, $end_date) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+
+        // Cash & Cash Equivalents accounts: 1010 (Cash in Hand), 1020, 1021 (Bank), 1030, 1031 (MFS)
+        $cash_accounts = $this->db->query("
+            SELECT id FROM acc_chart_of_accounts 
+            WHERE account_code IN ('1010', '1020', '1021', '1030', '1031')
+              AND (hospital_id = ? OR hospital_id IS NULL)
+        ", [$hospital_id])->result_array();
+        $cash_acc_ids = array_column($cash_accounts, 'id');
+
+        // Opening cash
+        $opening_cash = 0;
+        if (!empty($cash_acc_ids)) {
+            $ids_str = implode(',', array_map('intval', $cash_acc_ids));
+            $row = $this->db->query("
+                SELECT 
+                    COALESCE(SUM(a.opening_debit - a.opening_credit), 0) +
+                    COALESCE(SUM(ji.debit - ji.credit), 0) as net_cash
+                FROM acc_chart_of_accounts a
+                LEFT JOIN acc_journal_items ji ON ji.account_id = a.id
+                LEFT JOIN acc_journal_entries je ON je.id = ji.journal_id AND je.status = 'posted' AND je.date < ?
+                WHERE a.id IN ($ids_str)
+            ", [$start_date])->row();
+            $opening_cash = floatval($row ? $row->net_cash : 0);
+        }
+
+        // Operating Activities (Cash receipts & disbursements for revenue/expenses)
+        $operating_inflows = 0;
+        $operating_outflows = 0;
+        if (!empty($cash_acc_ids)) {
+            $ids_str = implode(',', array_map('intval', $cash_acc_ids));
+            // Inflows to cash from income
+            $in = $this->db->query("
+                SELECT COALESCE(SUM(ji.debit), 0) as inf
+                FROM acc_journal_items ji
+                JOIN acc_journal_entries je ON je.id = ji.journal_id
+                WHERE ji.account_id IN ($ids_str)
+                  AND je.status = 'posted'
+                  AND je.date >= ? AND je.date <= ?
+                  AND je.journal_type IN ('receipt', 'sales', 'general')
+            ", [$start_date, $end_date])->row();
+            $operating_inflows = floatval($in ? $in->inf : 0);
+
+            // Outflows from cash for expenses
+            $out = $this->db->query("
+                SELECT COALESCE(SUM(ji.credit), 0) as outf
+                FROM acc_journal_items ji
+                JOIN acc_journal_entries je ON je.id = ji.journal_id
+                WHERE ji.account_id IN ($ids_str)
+                  AND je.status = 'posted'
+                  AND je.date >= ? AND je.date <= ?
+                  AND je.journal_type IN ('payment', 'purchase')
+            ", [$start_date, $end_date])->row();
+            $operating_outflows = floatval($out ? $out->outf : 0);
+        }
+
+        $net_operating_cf = $operating_inflows - $operating_outflows;
+        $net_investing_cf = 0;
+        $net_financing_cf = 0;
+        $net_change = $net_operating_cf + $net_investing_cf + $net_financing_cf;
+        $closing_cash = $opening_cash + $net_change;
+
+        return [
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'opening_cash' => $opening_cash,
+            'operating_inflows' => $operating_inflows,
+            'operating_outflows' => $operating_outflows,
+            'net_operating_cf' => $net_operating_cf,
+            'net_investing_cf' => $net_investing_cf,
+            'net_financing_cf' => $net_financing_cf,
+            'net_change' => $net_change,
+            'closing_cash' => $closing_cash
+        ];
+    }
+
+    public function getAccountsReceivableReport($date_filter = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $now = time();
+
+        $this->db->select('
+            p.id as invoice_id,
+            p.patient,
+            p.patient_name,
+            p.patient_phone,
+            p.date as invoice_date,
+            p.gross_total,
+            (COALESCE(p.discount, 0) + COALESCE(p.flat_discount, 0)) as total_discount,
+            p.amount as net_amount,
+            p.status as invoice_status,
+            COALESCE(SUM(d.deposited_amount), 0) as total_collected
+        ');
+        $this->db->from('payment p');
+        $this->db->join('patient_deposit d', 'd.payment_id = p.id', 'left');
+        $this->db->where('(p.hospital_id = ' . $this->db->escape($hospital_id) . ' OR p.hospital_id IS NULL)', NULL, FALSE);
+        $this->db->where('(p.status IS NULL OR p.status != "cancelled")', NULL, FALSE);
+        $this->db->group_by('p.id');
+        $this->db->order_by('p.date', 'DESC');
+
+        $invoices = $this->db->get()->result_array();
+
+        $total_gross = 0;
+        $total_discount = 0;
+        $total_net = 0;
+        $total_collected = 0;
+        $total_outstanding = 0;
+
+        $aging = [
+            '0_15' => 0,
+            '16_30' => 0,
+            '31_60' => 0,
+            '61_90' => 0,
+            '90_plus' => 0
+        ];
+
+        $receivable_list = [];
+
+        foreach ($invoices as $inv) {
+            $net = floatval($inv['net_amount']);
+            $col = floatval($inv['total_collected']);
+            $due = max(0, $net - $col);
+
+            $total_gross += floatval($inv['gross_total']);
+            $total_discount += floatval($inv['total_discount']);
+            $total_net += $net;
+            $total_collected += $col;
+
+            if ($due > 0.009) {
+                $total_outstanding += $due;
+                $inv_time = is_numeric($inv['invoice_date']) ? intval($inv['invoice_date']) : strtotime($inv['invoice_date']);
+                $days = max(0, floor(($now - $inv_time) / 86400));
+
+                if ($days <= 15) {
+                    $bucket = '0_15';
+                    $badge_class = 'badge-aging-0-15';
+                    $bucket_label = '0 - 15 Days (Current)';
+                    $aging['0_15'] += $due;
+                } elseif ($days <= 30) {
+                    $bucket = '16_30';
+                    $badge_class = 'badge-aging-16-30';
+                    $bucket_label = '16 - 30 Days';
+                    $aging['16_30'] += $due;
+                } elseif ($days <= 60) {
+                    $bucket = '31_60';
+                    $badge_class = 'badge-aging-31-60';
+                    $bucket_label = '31 - 60 Days';
+                    $aging['31_60'] += $due;
+                } elseif ($days <= 90) {
+                    $bucket = '61_90';
+                    $badge_class = 'badge-aging-61-90';
+                    $bucket_label = '61 - 90 Days';
+                    $aging['61_90'] += $due;
+                } else {
+                    $bucket = '90_plus';
+                    $badge_class = 'badge-aging-90-plus';
+                    $bucket_label = 'Over 90 Days';
+                    $aging['90_plus'] += $due;
+                }
+
+                $inv['due_amount'] = $due;
+                $inv['age_days'] = $days;
+                $inv['bucket'] = $bucket;
+                $inv['bucket_label'] = $bucket_label;
+                $inv['badge_class'] = $badge_class;
+                $receivable_list[] = $inv;
+            }
+        }
+
+        $collection_rate = $total_net > 0 ? round(($total_collected / $total_net) * 100, 2) : 100.0;
+
+        return [
+            'total_invoices' => count($invoices),
+            'open_receivable_count' => count($receivable_list),
+            'total_gross' => $total_gross,
+            'total_discount' => $total_discount,
+            'total_net' => $total_net,
+            'total_collected' => $total_collected,
+            'total_outstanding' => $total_outstanding,
+            'collection_rate' => $collection_rate,
+            'aging' => $aging,
+            'receivables' => $receivable_list
+        ];
+    }
+
+    public function getAccountsPayableReport() {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+
+        // Check if any purchase orders or vendor liability records exist
+        $po_count = $this->db->query("SELECT COUNT(*) as cnt FROM purchase_orders WHERE (hospital_id = ? OR hospital_id IS NULL)", [$hospital_id])->row()->cnt;
+        $supplier_count = $this->db->query("SELECT COUNT(*) as cnt FROM suppliers WHERE (hospital_id = ? OR hospital_id IS NULL)", [$hospital_id])->row()->cnt;
+
+        return [
+            'total_payable' => 0.00,
+            'total_paid' => 0.00,
+            'outstanding_payable' => 0.00,
+            'supplier_count' => $supplier_count,
+            'po_count' => $po_count,
+            'payables' => [],
+            'notice' => 'The current hospital ERP expense module records solely cash and bank disbursements upon voucher creation. Supplier liability accrual (Accounts Payable) is currently not maintained in the operational database. Unpaid supplier credit balances are reported as 0.00 rather than fabricating fictitious liability records.'
+        ];
+    }
+
+    public function getAccountingCashBookReport($start_date, $end_date) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $start_ts = strtotime($start_date . ' 00:00:00');
+        $end_ts = strtotime($end_date . ' 23:59:59');
+
+        // Opening cash balance before start_ts
+        $prior_in = $this->db->query("
+            SELECT COALESCE(SUM(deposited_amount), 0) as amt 
+            FROM patient_deposit 
+            WHERE (deposit_type = 'Cash' OR gateway = 'Cash' OR (COALESCE(deposit_type, '') = '' AND COALESCE(gateway, '') = ''))
+              AND (hospital_id = ? OR hospital_id IS NULL)
+              AND date < ?
+        ", [$hospital_id, $start_ts])->row()->amt;
+
+        $prior_out = $this->db->query("
+            SELECT COALESCE(SUM(amount), 0) as amt 
+            FROM expense 
+            WHERE (hospital_id = ? OR hospital_id IS NULL)
+              AND (LOWER(note) NOT LIKE '%bank%' AND LOWER(note) NOT LIKE '%card%' AND LOWER(note) NOT LIKE '%bkash%')
+              AND date < ?
+        ", [$hospital_id, $start_ts])->row()->amt;
+
+        $opening_balance = floatval($prior_in) - floatval($prior_out);
+        $running_balance = $opening_balance;
+
+        // Period cash deposits
+        $deposits = $this->db->query("
+            SELECT 
+                id, date as tx_date, deposited_amount as amount, 
+                CONCAT('Patient Deposit - Invoice #', payment_id) as description,
+                payment_id as reference, 'receipt' as type
+            FROM patient_deposit
+            WHERE (deposit_type = 'Cash' OR gateway = 'Cash' OR (COALESCE(deposit_type, '') = '' AND COALESCE(gateway, '') = ''))
+              AND (hospital_id = ? OR hospital_id IS NULL)
+              AND date >= ? AND date <= ?
+            ORDER BY date ASC
+        ", [$hospital_id, $start_ts, $end_ts])->result_array();
+
+        // Period cash expenses
+        $expenses = $this->db->query("
+            SELECT 
+                id, date as tx_date, amount, 
+                CONCAT('Expense Voucher - ', category, ' (', note, ')') as description,
+                category as reference, 'payment' as type
+            FROM expense
+            WHERE (hospital_id = ? OR hospital_id IS NULL)
+              AND (LOWER(note) NOT LIKE '%bank%' AND LOWER(note) NOT LIKE '%card%' AND LOWER(note) NOT LIKE '%bkash%')
+              AND date >= ? AND date <= ?
+            ORDER BY date ASC
+        ", [$hospital_id, $start_ts, $end_ts])->result_array();
+
+        // Merge and sort chronologically
+        $transactions = array_merge($deposits, $expenses);
+        usort($transactions, function($a, $b) {
+            return intval($a['tx_date']) <=> intval($b['tx_date']);
+        });
+
+        $total_receipts = 0;
+        $total_payments = 0;
+
+        foreach ($transactions as &$tx) {
+            if ($tx['type'] === 'receipt') {
+                $tx['receipt'] = floatval($tx['amount']);
+                $tx['payment'] = 0.00;
+                $total_receipts += $tx['receipt'];
+                $running_balance += $tx['receipt'];
+            } else {
+                $tx['receipt'] = 0.00;
+                $tx['payment'] = floatval($tx['amount']);
+                $total_payments += $tx['payment'];
+                $running_balance -= $tx['payment'];
+            }
+            $tx['running_balance'] = $running_balance;
+        }
+
+        return [
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'opening_balance' => $opening_balance,
+            'transactions' => $transactions,
+            'total_receipts' => $total_receipts,
+            'total_payments' => $total_payments,
+            'closing_balance' => $running_balance
+        ];
+    }
+
+    public function getAccountingBankBookReport($start_date, $end_date, $account_id = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $start_ts = strtotime($start_date . ' 00:00:00');
+        $end_ts = strtotime($end_date . ' 23:59:59');
+
+        // Prior bank deposits
+        $prior_in = $this->db->query("
+            SELECT COALESCE(SUM(deposited_amount), 0) as amt 
+            FROM patient_deposit 
+            WHERE (deposit_type IN ('Card', 'Bank', 'Online') OR gateway IN ('Card', 'Bank', 'bKash', 'Nagad', 'Online'))
+              AND (hospital_id = ? OR hospital_id IS NULL)
+              AND date < ?
+        ", [$hospital_id, $start_ts])->row()->amt;
+
+        // Prior bank expenses
+        $prior_out = $this->db->query("
+            SELECT COALESCE(SUM(amount), 0) as amt 
+            FROM expense 
+            WHERE (hospital_id = ? OR hospital_id IS NULL)
+              AND (LOWER(note) LIKE '%bank%' OR LOWER(note) LIKE '%cheque%' OR LOWER(note) LIKE '%transfer%')
+              AND date < ?
+        ", [$hospital_id, $start_ts])->row()->amt;
+
+        $opening_balance = floatval($prior_in) - floatval($prior_out);
+        $running_balance = $opening_balance;
+
+        // Period bank deposits
+        $deposits = $this->db->query("
+            SELECT 
+                id, date as tx_date, deposited_amount as amount, 
+                CONCAT('Bank/Digital Deposit - Gateway: ', gateway, ' (Inv #', payment_id, ')') as description,
+                gateway as bank_name, payment_id as reference, 'receipt' as type
+            FROM patient_deposit
+            WHERE (deposit_type IN ('Card', 'Bank', 'Online') OR gateway IN ('Card', 'Bank', 'bKash', 'Nagad', 'Online'))
+              AND (hospital_id = ? OR hospital_id IS NULL)
+              AND date >= ? AND date <= ?
+            ORDER BY date ASC
+        ", [$hospital_id, $start_ts, $end_ts])->result_array();
+
+        // Period bank expenses
+        $expenses = $this->db->query("
+            SELECT 
+                id, date as tx_date, amount, 
+                CONCAT('Bank Expense Voucher - ', category, ' (', note, ')') as description,
+                'Hospital Main Bank' as bank_name, category as reference, 'payment' as type
+            FROM expense
+            WHERE (hospital_id = ? OR hospital_id IS NULL)
+              AND (LOWER(note) LIKE '%bank%' OR LOWER(note) LIKE '%cheque%' OR LOWER(note) LIKE '%transfer%')
+              AND date >= ? AND date <= ?
+            ORDER BY date ASC
+        ", [$hospital_id, $start_ts, $end_ts])->result_array();
+
+        $transactions = array_merge($deposits, $expenses);
+        usort($transactions, function($a, $b) {
+            return intval($a['tx_date']) <=> intval($b['tx_date']);
+        });
+
+        $total_deposits = 0;
+        $total_withdrawals = 0;
+
+        foreach ($transactions as &$tx) {
+            if ($tx['type'] === 'receipt') {
+                $tx['deposit'] = floatval($tx['amount']);
+                $tx['withdrawal'] = 0.00;
+                $total_deposits += $tx['deposit'];
+                $running_balance += $tx['deposit'];
+            } else {
+                $tx['deposit'] = 0.00;
+                $tx['withdrawal'] = floatval($tx['amount']);
+                $total_withdrawals += $tx['withdrawal'];
+                $running_balance -= $tx['withdrawal'];
+            }
+            $tx['running_balance'] = $running_balance;
+        }
+
+        return [
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'opening_balance' => $opening_balance,
+            'transactions' => $transactions,
+            'total_deposits' => $total_deposits,
+            'total_withdrawals' => $total_withdrawals,
+            'closing_balance' => $running_balance
+        ];
+    }
+
+    public function getBankReconciliationData($account_id, $as_of_date) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+
+        // Current Book Balance
+        $bank_book = $this->getAccountingBankBookReport(date('Y-01-01', strtotime($as_of_date)), $as_of_date, $account_id);
+        $book_balance = $bank_book['closing_balance'];
+
+        // Latest saved reconciliation record
+        $reconciled = $this->db->query("
+            SELECT * FROM acc_bank_reconciliations 
+            WHERE (hospital_id = ? OR hospital_id IS NULL)
+            ORDER BY statement_date DESC, id DESC LIMIT 1
+        ", [$hospital_id])->row_array();
+
+        $statement_balance = $reconciled ? floatval($reconciled['statement_balance']) : $book_balance;
+        $diff = abs($book_balance - $statement_balance);
+
+        return [
+            'as_of_date' => $as_of_date,
+            'book_balance' => $book_balance,
+            'statement_balance' => $statement_balance,
+            'reconciliation_difference' => $diff,
+            'is_reconciled' => ($diff < 0.01),
+            'last_reconciliation' => $reconciled,
+            'matched_count' => count($bank_book['transactions']),
+            'unmatched_count' => 0
+        ];
+    }
+
+    public function saveBankReconciliation($data) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $data['hospital_id'] = $hospital_id;
+        $data['reconciled_at'] = time();
+        $data['reconciled_by'] = $this->ion_auth->get_user_id() ?: 'system';
+
+        $this->db->insert('acc_bank_reconciliations', $data);
+        $this->logAccountingAudit('BANK_RECONCILIATION', 'BankReconciliation', 'Statement Date: ' . $data['statement_date'], null, null, json_encode($data));
+        return ['status' => true, 'id' => $this->db->insert_id()];
+    }
+
+    public function getOpeningBalancesReport() {
+        $accounts = $this->getChartOfAccounts(['is_active' => 1]);
+        $total_dr = 0;
+        $total_cr = 0;
+
+        foreach ($accounts as $acc) {
+            $total_dr += floatval($acc['opening_debit']);
+            $total_cr += floatval($acc['opening_credit']);
+        }
+
+        return [
+            'accounts' => $accounts,
+            'total_opening_dr' => $total_dr,
+            'total_opening_cr' => $total_cr,
+            'difference' => abs($total_dr - $total_cr),
+            'is_balanced' => (abs($total_dr - $total_cr) < 0.01)
+        ];
+    }
+
+    public function saveOpeningBalances($accounts_data, $user_id = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $user_id = $user_id ?: ($this->ion_auth->get_user_id() ?: 'system');
+
+        $total_dr = 0;
+        $total_cr = 0;
+        foreach ($accounts_data as $row) {
+            $total_dr += floatval($row['opening_debit'] ?? 0);
+            $total_cr += floatval($row['opening_credit'] ?? 0);
+        }
+
+        if (abs($total_dr - $total_cr) > 0.009) {
+            return [
+                'status' => false,
+                'message' => "Opening balance rejected! Total Opening Debit ($total_dr) must equal Total Opening Credit ($total_cr)."
+            ];
+        }
+
+        $this->db->trans_start();
+        foreach ($accounts_data as $row) {
+            $this->db->where('id', $row['account_id']);
+            $this->db->where('hospital_id', $hospital_id);
+            $this->db->update('acc_chart_of_accounts', [
+                'opening_debit' => floatval($row['opening_debit'] ?? 0),
+                'opening_credit' => floatval($row['opening_credit'] ?? 0),
+                'updated_by' => $user_id,
+                'updated_at' => time()
+            ]);
+        }
+        $this->logAccountingAudit('SAVE_OPENING_BALANCES', 'OpeningBalances', "Total Dr: $total_dr, Total Cr: $total_cr", null, null, json_encode($accounts_data));
+        $this->db->trans_complete();
+
+        return ['status' => ($this->db->trans_status() !== FALSE)];
+    }
+
+    public function getAccountingPeriods() {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $this->db->select('*');
+        $this->db->from('acc_accounting_periods');
+        $this->db->where('(hospital_id = ' . $this->db->escape($hospital_id) . ' OR hospital_id IS NULL)', NULL, FALSE);
+        $this->db->order_by('start_date', 'DESC');
+        return $this->db->get()->result_array();
+    }
+
+    public function closeAccountingPeriod($period_id, $user_id = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $user_id = $user_id ?: ($this->ion_auth->get_user_id() ?: 'system');
+
+        $period = $this->db->get_where('acc_accounting_periods', [
+            'id' => $period_id,
+            'hospital_id' => $hospital_id
+        ])->row_array();
+
+        if (!$period) return ['status' => false, 'message' => 'Accounting period not found.'];
+        if ($period['status'] === 'closed') return ['status' => false, 'message' => 'Period is already closed.'];
+
+        $this->db->where('id', $period_id);
+        $this->db->update('acc_accounting_periods', [
+            'status' => 'closed',
+            'closed_by' => $user_id,
+            'closed_at' => time()
+        ]);
+
+        $this->logAccountingAudit('CLOSE_PERIOD', 'PeriodClosing', $period['period_name'], null, 'open', 'closed');
+        return ['status' => true];
+    }
+
+    public function reopenAccountingPeriod($period_id, $reason, $user_id = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $user_id = $user_id ?: ($this->ion_auth->get_user_id() ?: 'system');
+
+        $period = $this->db->get_where('acc_accounting_periods', [
+            'id' => $period_id,
+            'hospital_id' => $hospital_id
+        ])->row_array();
+
+        if (!$period) return ['status' => false, 'message' => 'Accounting period not found.'];
+        if ($period['status'] === 'open') return ['status' => false, 'message' => 'Period is already open.'];
+
+        $this->db->where('id', $period_id);
+        $this->db->update('acc_accounting_periods', [
+            'status' => 'open',
+            'reopened_by' => $user_id,
+            'reopened_at' => time()
+        ]);
+
+        $this->logAccountingAudit('REOPEN_PERIOD', 'PeriodClosing', $period['period_name'], null, 'closed', 'open - Reason: ' . $reason);
+        return ['status' => true];
+    }
+
+    public function getAccountingAuditTrail($filters = []) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $this->db->select('a.*, u.username');
+        $this->db->from('acc_audit_trail a');
+        $this->db->join('users u', 'u.id = a.user_id', 'left');
+        $this->db->where('(a.hospital_id = ' . $this->db->escape($hospital_id) . ' OR a.hospital_id IS NULL)', NULL, FALSE);
+
+        if (!empty($filters['action'])) {
+            $this->db->where('a.action', $filters['action']);
+        }
+        if (!empty($filters['module'])) {
+            $this->db->where('a.module', $filters['module']);
+        }
+
+        $this->db->order_by('a.date_time', 'DESC');
+        $this->db->limit(200);
+        return $this->db->get()->result_array();
+    }
+
+    public function logAccountingAudit($action, $module, $ref = null, $account_code = null, $old_val = null, $new_val = null, $reason = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $user_id = $this->ion_auth->get_user_id() ?: 'system';
+        $ip = $this->input->ip_address();
+
+        $this->db->insert('acc_audit_trail', [
+            'date_time' => time(),
+            'user_id' => $user_id,
+            'action' => $action,
+            'module' => $module,
+            'journal_reference' => $ref,
+            'account_code' => $account_code,
+            'previous_value' => $old_val,
+            'new_value' => $new_val,
+            'reason' => $reason,
+            'ip_address' => $ip,
+            'hospital_id' => $hospital_id
+        ]);
+    }
 }

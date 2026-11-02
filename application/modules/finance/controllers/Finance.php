@@ -6750,4 +6750,480 @@ class Finance extends MX_Controller
         $this->load->view('finance/pnl_reconciliation', $data);
         $this->load->view('home/footer');
     }
+
+    /* =========================================================================
+     * PHASE 8: ADVANCED ACCOUNTING CONTROLLER ACTIONS
+     * ========================================================================= */
+
+    public function chartOfAccounts() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $type = $this->input->get('type');
+        $group_id = $this->input->get('group_id');
+        $search = $this->input->get('search');
+
+        $filters = [];
+        if (!empty($type)) $filters['account_type'] = $type;
+        if (!empty($group_id)) $filters['group_id'] = $group_id;
+        if (!empty($search)) $filters['search'] = $search;
+
+        $data = [];
+        $data['accounts'] = $this->finance_model->getChartOfAccounts($filters);
+        $data['groups'] = $this->finance_model->getAccountGroups();
+        $data['filters'] = $filters;
+        $data['active_report'] = 'chart_of_accounts';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_chart_of_accounts', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function addAccount() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $code = trim($this->input->post('account_code'));
+        $name = trim($this->input->post('account_name'));
+        $type = trim($this->input->post('account_type'));
+        $group_id = intval($this->input->post('group_id'));
+        $op_dr = floatval($this->input->post('opening_debit'));
+        $op_cr = floatval($this->input->post('opening_credit'));
+        $desc = trim($this->input->post('description'));
+
+        if (empty($code) || empty($name) || empty($type) || empty($group_id)) {
+            echo json_encode(['status' => false, 'message' => 'Please fill in all required fields.']);
+            return;
+        }
+
+        $res = $this->finance_model->addAccount([
+            'account_code' => $code,
+            'account_name' => $name,
+            'account_type' => $type,
+            'group_id' => $group_id,
+            'opening_debit' => $op_dr,
+            'opening_credit' => $op_cr,
+            'description' => $desc,
+            'created_by' => $this->ion_auth->get_user_id()
+        ]);
+
+        echo json_encode($res);
+    }
+
+    public function generalLedger() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $account_id = $this->input->get_post('account_id');
+        $date_from = $this->input->get_post('date_from') ?: date('Y-m-01');
+        $date_to = $this->input->get_post('date_to') ?: date('Y-m-d');
+
+        $accounts = $this->finance_model->getChartOfAccounts(['is_active' => 1]);
+        if (empty($account_id) && !empty($accounts)) {
+            $account_id = $accounts[0]['id'];
+        }
+
+        $ledger_data = $account_id ? $this->finance_model->getGeneralLedgerData($account_id, $date_from, $date_to) : null;
+
+        $data = [];
+        $data['accounts'] = $accounts;
+        $data['selected_account_id'] = $account_id;
+        $data['date_from'] = $date_from;
+        $data['date_to'] = $date_to;
+        $data['ledger'] = $ledger_data;
+        $data['active_report'] = 'general_ledger';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_general_ledger', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function journalEntryRegister() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $date_from = $this->input->get_post('date_from');
+        $date_to = $this->input->get_post('date_to');
+        $status = $this->input->get_post('status');
+        $journal_type = $this->input->get_post('journal_type');
+
+        $filters = [];
+        if (!empty($date_from)) $filters['date_from'] = $date_from;
+        if (!empty($date_to)) $filters['date_to'] = $date_to;
+        if (!empty($status)) $filters['status'] = $status;
+        if (!empty($journal_type)) $filters['journal_type'] = $journal_type;
+
+        $data = [];
+        $data['entries'] = $this->finance_model->getJournalEntries($filters);
+        $data['accounts'] = $this->finance_model->getChartOfAccounts(['is_active' => 1]);
+        $data['filters'] = $filters;
+        $data['active_report'] = 'journal_register';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_journal_register', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function createJournalEntry() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $date = $this->input->post('date') ?: date('Y-m-d');
+        $journal_type = $this->input->post('journal_type') ?: 'general';
+        $ref = $this->input->post('reference_number');
+        $desc = trim($this->input->post('description'));
+
+        $items_raw = $this->input->post('items'); // JSON or array
+        if (is_string($items_raw)) {
+            $items = json_decode($items_raw, true);
+        } else {
+            $items = $items_raw;
+        }
+
+        if (empty($desc)) {
+            echo json_encode(['status' => false, 'message' => 'Please enter a description for this journal voucher.']);
+            return;
+        }
+
+        if (empty($items) || !is_array($items)) {
+            echo json_encode(['status' => false, 'message' => 'Please add at least two balanced debit and credit line items.']);
+            return;
+        }
+
+        $header = [
+            'date' => $date,
+            'journal_type' => $journal_type,
+            'reference_number' => $ref,
+            'description' => $desc,
+            'source_module' => 'manual',
+            'source_reference' => $ref ?: ('MANUAL-' . time())
+        ];
+
+        $res = $this->finance_model->postJournalEntry($header, $items);
+        echo json_encode($res);
+    }
+
+    public function reverseJournalEntryAction() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $journal_id = intval($this->input->post('journal_id'));
+        $reason = trim($this->input->post('reason'));
+
+        if (empty($journal_id) || empty($reason)) {
+            echo json_encode(['status' => false, 'message' => 'Journal ID and reversal reason are required.']);
+            return;
+        }
+
+        $res = $this->finance_model->reverseJournalEntry($journal_id, $reason);
+        echo json_encode($res);
+    }
+
+    public function trialBalance() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $as_of_date = $this->input->get_post('as_of_date') ?: date('Y-m-d');
+        $start_date = $this->input->get_post('start_date') ?: date('Y-01-01', strtotime($as_of_date));
+
+        $data = [];
+        $data['report'] = $this->finance_model->getTrialBalanceData($as_of_date, $start_date);
+        $data['as_of_date'] = $as_of_date;
+        $data['start_date'] = $start_date;
+        $data['active_report'] = 'trial_balance';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_trial_balance', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function pnlStatement() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01');
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $data = [];
+        $data['report'] = $this->finance_model->getAccountingPnLStatement($start_date, $end_date);
+        $data['start_date'] = $start_date;
+        $data['end_date'] = $end_date;
+        $data['active_report'] = 'pnl_statement';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_pnl_statement', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function balanceSheet() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $as_of_date = $this->input->get_post('as_of_date') ?: date('Y-m-d');
+
+        $data = [];
+        $data['report'] = $this->finance_model->getAccountingBalanceSheet($as_of_date);
+        $data['as_of_date'] = $as_of_date;
+        $data['active_report'] = 'balance_sheet';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_balance_sheet', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function cashFlowStatement() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01');
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $data = [];
+        $data['report'] = $this->finance_model->getAccountingCashFlowStatement($start_date, $end_date);
+        $data['start_date'] = $start_date;
+        $data['end_date'] = $end_date;
+        $data['active_report'] = 'cash_flow';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_cash_flow', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function accountsReceivable() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $data = [];
+        $data['report'] = $this->finance_model->getAccountsReceivableReport();
+        $data['active_report'] = 'accounts_receivable';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_receivable', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function accountsPayable() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $data = [];
+        $data['report'] = $this->finance_model->getAccountsPayableReport();
+        $data['active_report'] = 'accounts_payable';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_payable', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function cashBook() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01');
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $data = [];
+        $data['report'] = $this->finance_model->getAccountingCashBookReport($start_date, $end_date);
+        $data['start_date'] = $start_date;
+        $data['end_date'] = $end_date;
+        $data['active_report'] = 'cash_book';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_cash_book', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function bankBook() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01');
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $data = [];
+        $data['report'] = $this->finance_model->getAccountingBankBookReport($start_date, $end_date);
+        $data['start_date'] = $start_date;
+        $data['end_date'] = $end_date;
+        $data['active_report'] = 'bank_book';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_bank_book', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function bankReconciliation() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $as_of_date = $this->input->get_post('as_of_date') ?: date('Y-m-d');
+        $account_id = $this->input->get_post('account_id') ?: null;
+
+        $data = [];
+        $data['report'] = $this->finance_model->getBankReconciliationData($account_id, $as_of_date);
+        $data['as_of_date'] = $as_of_date;
+        $data['active_report'] = 'bank_reconciliation';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_bank_reconciliation', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function saveBankReconciliationAction() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $stmt_date = $this->input->post('statement_date') ?: date('Y-m-d');
+        $stmt_bal = floatval($this->input->post('statement_balance'));
+        $book_bal = floatval($this->input->post('book_balance'));
+        $notes = trim($this->input->post('notes'));
+
+        $diff = abs($book_bal - $stmt_bal);
+
+        $res = $this->finance_model->saveBankReconciliation([
+            'account_id' => 1020,
+            'statement_date' => $stmt_date,
+            'statement_balance' => $stmt_bal,
+            'book_balance' => $book_bal,
+            'reconciliation_difference' => $diff,
+            'status' => ($diff < 0.01) ? 'reconciled' : 'pending',
+            'notes' => $notes
+        ]);
+
+        echo json_encode($res);
+    }
+
+    public function openingBalanceReport() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $data = [];
+        $data['report'] = $this->finance_model->getOpeningBalancesReport();
+        $data['active_report'] = 'opening_balance';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_opening_balance', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function saveOpeningBalancesAction() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $accounts_raw = $this->input->post('accounts');
+        if (is_string($accounts_raw)) {
+            $accounts_data = json_decode($accounts_raw, true);
+        } else {
+            $accounts_data = $accounts_raw;
+        }
+
+        if (empty($accounts_data) || !is_array($accounts_data)) {
+            echo json_encode(['status' => false, 'message' => 'No accounts data submitted.']);
+            return;
+        }
+
+        $res = $this->finance_model->saveOpeningBalances($accounts_data);
+        echo json_encode($res);
+    }
+
+    public function periodClosing() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $data = [];
+        $data['periods'] = $this->finance_model->getAccountingPeriods();
+        $data['active_report'] = 'period_closing';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_period_closing', $data);
+        $this->load->view('home/footer');
+    }
+
+    public function closePeriodAction() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $period_id = intval($this->input->post('period_id'));
+        $res = $this->finance_model->closeAccountingPeriod($period_id);
+        echo json_encode($res);
+    }
+
+    public function reopenPeriodAction() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $period_id = intval($this->input->post('period_id'));
+        $reason = trim($this->input->post('reason'));
+        if (empty($reason)) {
+            echo json_encode(['status' => false, 'message' => 'Reopening reason is required.']);
+            return;
+        }
+
+        $res = $this->finance_model->reopenAccountingPeriod($period_id, $reason);
+        echo json_encode($res);
+    }
+
+    public function accountingAuditTrail() {
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+            redirect('home/permission');
+        }
+
+        $action = $this->input->get_post('action');
+        $module = $this->input->get_post('module');
+
+        $filters = [];
+        if (!empty($action)) $filters['action'] = $action;
+        if (!empty($module)) $filters['module'] = $module;
+
+        $data = [];
+        $data['logs'] = $this->finance_model->getAccountingAuditTrail($filters);
+        $data['filters'] = $filters;
+        $data['active_report'] = 'audit_trail';
+        $data['settings'] = $this->settings_model->getSettings();
+
+        $this->load->view('home/dashboard');
+        $this->load->view('finance/acc_audit_trail', $data);
+        $this->load->view('home/footer');
+    }
 }
