@@ -277,3 +277,66 @@
         border-bottom: 1px solid #ddd !important;
     }
 }
+
+
+/* Financial Audit Logs Styles */
+.badge-action-create { background-color: #28a745; color: #fff; }
+.badge-action-update { background-color: #007bff; color: #fff; }
+.badge-action-delete { background-color: #dc3545; color: #fff; }
+.badge-action-approve { background-color: #20c997; color: #fff; }
+.badge-action-reject { background-color: #fd7e14; color: #fff; }
+.badge-action-cancel { background-color: #e83e8c; color: #fff; }
+.badge-action-refund { background-color: #6f42c1; color: #fff; }
+.badge-action-reversal { background-color: #721c24; color: #f8d7da; border: 1px solid #f5c6cb; }
+.badge-action-payment { background-color: #17a2b8; color: #fff; }
+.badge-action-adjustment { background-color: #ffc107; color: #212529; }
+.badge-action-status_change { background-color: #6c757d; color: #fff; }
+
+.badge-suspicious {
+    background-color: #dc3545;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    animation: pulse-suspicious 2s infinite;
+}
+
+@keyframes pulse-suspicious {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.badge-historical {
+    background-color: #e2e3e5;
+    color: #383d41;
+    border: 1px solid #d6d8db;
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 3px;
+}
+
+.diff-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.diff-table th, .diff-table td {
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+    font-size: 13px;
+}
+.diff-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+.diff-old {
+    background-color: #fff5f5;
+    color: #c53030;
+    text-decoration: line-through;
+}
+.diff-new {
+    background-color: #f0fff4;
+    color: #276749;
+    font-weight: 600;
+}

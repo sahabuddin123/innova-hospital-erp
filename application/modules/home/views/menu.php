@@ -948,6 +948,27 @@ $sidebar_hidden_modules = array(
     <?php } ?>
 <?php } ?>
 
+<?php if ($this->ion_auth->in_group(array('admin', 'Accountant'))) { ?>
+    <?php if (in_array('finance', $this->modules)) { ?>
+        <li class="nav-item">
+            <a class="nav-link text-white" href="#">
+                <i class="text-secondary nav-icon fas fa-shield-alt"></i>
+                <p><?php echo lang('financial_audit_logs'); ?><i class="right fas fa-angle-left"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+                <li class="nav-item"><a class="nav-link text-white" href="finance/financialAuditDashboard"><i class="text-secondary nav-icon fas fa-chart-line"></i><p><?php echo lang('financial_audit_dashboard'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/invoiceAuditReport"><i class="text-secondary nav-icon fas fa-file-invoice"></i><p><?php echo lang('invoice_audit_report'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/paymentAuditReport"><i class="text-secondary nav-icon fas fa-hand-holding-usd"></i><p><?php echo lang('payment_audit_report'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/expenseAuditReport"><i class="text-secondary nav-icon fas fa-receipt"></i><p><?php echo lang('expense_audit_report'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/doctorCommissionAuditReport"><i class="text-secondary nav-icon fas fa-user-md"></i><p><?php echo lang('doctor_commission_audit_report'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/referralCommissionAuditReport"><i class="text-secondary nav-icon fas fa-users-cog"></i><p><?php echo lang('referral_commission_audit_report'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/cashBankAuditReport"><i class="text-secondary nav-icon fas fa-university"></i><p><?php echo lang('cash_bank_audit_report'); ?></p></a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="finance/financialAuditTrail"><i class="text-secondary nav-icon fas fa-list-alt"></i><p><?php echo lang('master_financial_audit_trail'); ?></p></a></li>
+            </ul>
+        </li>
+    <?php } ?>
+<?php } ?>
+
 <?php if ($this->ion_auth->in_group('Receptionist')) { ?>
     <?php if (in_array('appointment', $this->modules)) { ?>
         <li class="nav-item">

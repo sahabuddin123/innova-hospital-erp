@@ -7971,5 +7971,321 @@ class Finance_model extends CI_model
             'ip_address' => $ip,
             'hospital_id' => $hospital_id
         ]);
+
+        // Mirror to Unified Financial Audit Logs
+        $act_type = 'UPDATE';
+        if (stripos($action, 'create') !== false || stripos($action, 'post') !== false) $act_type = 'CREATE';
+        elseif (stripos($action, 'reverse') !== false) $act_type = 'REVERSAL';
+        elseif (stripos($action, 'reconcil') !== false) $act_type = 'RECONCILIATION';
+
+        $this->logFinancialActivity([
+            'transaction_reference' => $ref,
+            'module_name' => 'accounting',
+            'action_type' => $act_type,
+            'record_id' => $ref,
+            'previous_value' => $old_val,
+            'new_value' => $new_val,
+            'change_description' => "Accounting event: {$action} on {$module}" . ($ref ? " ({$ref})" : ""),
+            'reason_for_change' => $reason,
+            'is_suspicious' => ($act_type === 'REVERSAL') ? 1 : 0,
+            'suspicious_reason' => ($act_type === 'REVERSAL') ? 'Journal Entry Reversal' : null,
+            'user_id' => $user_id,
+            'ip_address' => $ip,
+            'hospital_id' => $hospital_id
+        ]);
+    }
+
+    // =========================================================================
+    // PHASE 8 - FINANCIAL AUDIT LOGS ENGINE
+    // =========================================================================
+
+    /**
+     * Unified Financial Audit Logging Engine
+     * Phase 8 - Financial Audit Logs
+     */
+    public function logFinancialActivity($data) {
+        $hospital_id = $data['hospital_id'] ?? ($this->session->userdata('hospital_id') ?: 1);
+        $user_id = $data['user_id'] ?? ($this->ion_auth->get_user_id() ?: 'system');
+        $username = $data['username'] ?? null;
+        if (empty($username) && $user_id !== 'system') {
+            $user_obj = $this->ion_auth->user($user_id)->row();
+            $username = $user_obj ? $user_obj->username : 'User #' . $user_id;
+        } elseif (empty($username)) {
+            $username = 'system';
+        }
+
+        $now = time();
+        $date_str = date('Y-m-d H:i:s', $now);
+        $module = $data['module_name'] ?? 'billing';
+        $action = strtoupper($data['action_type'] ?? 'CREATE');
+        $record_id = $data['record_id'] ?? null;
+        $amount = isset($data['amount']) ? floatval($data['amount']) : 0.00;
+        $ip = $data['ip_address'] ?? ($this->input->ip_address() ?: '127.0.0.1');
+        $session_ref = $data['session_reference'] ?? session_id();
+
+        // 1. Prevent duplicate audit events within 3 seconds
+        $dup_check = $this->db->select('id')
+            ->from('financial_audit_logs')
+            ->where('module_name', $module)
+            ->where('action_type', $action)
+            ->where('record_id', $record_id)
+            ->where('user_id', (string)$user_id)
+            ->where('date_time >=', $now - 3)
+            ->get()->row();
+        if ($dup_check) {
+            return $dup_check->id;
+        }
+
+        // 2. Suspicion Detection Logic
+        $is_suspicious = intval($data['is_suspicious'] ?? 0);
+        $suspicious_reason = $data['suspicious_reason'] ?? null;
+
+        if (!$is_suspicious) {
+            if (in_array($action, ['REFUND', 'CANCEL', 'REVERSAL', 'DELETE'])) {
+                $is_suspicious = 1;
+                $suspicious_reason = 'Critical financial action: ' . $action;
+            }
+            $hour = intval(date('H', $now));
+            if ($hour >= 23 || $hour < 6) {
+                $is_suspicious = 1;
+                $suspicious_reason = ($suspicious_reason ? $suspicious_reason . ' | ' : '') . 'After-hours transaction (' . date('h:i A', $now) . ')';
+            }
+            if ($amount >= 50000 && in_array($module, ['expense', 'expenses', 'refund', 'adjustments'])) {
+                $is_suspicious = 1;
+                $suspicious_reason = ($suspicious_reason ? $suspicious_reason . ' | ' : '') . 'High-value transaction (>= 50,000 BDT)';
+            }
+            if (!empty($data['discount_percent']) && floatval($data['discount_percent']) > 30) {
+                $is_suspicious = 1;
+                $suspicious_reason = ($suspicious_reason ? $suspicious_reason . ' | ' : '') . 'High discount rate (> 30%)';
+            }
+        }
+
+        $prev_val = is_array($data['previous_value'] ?? null) ? json_encode($data['previous_value'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : ($data['previous_value'] ?? null);
+        $new_val = is_array($data['new_value'] ?? null) ? json_encode($data['new_value'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : ($data['new_value'] ?? null);
+
+        $uuid = $data['audit_uuid'] ?? ('AUD-' . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 16)));
+
+        $insert_data = [
+            'audit_uuid' => $uuid,
+            'transaction_reference' => $data['transaction_reference'] ?? null,
+            'module_name' => $module,
+            'action_type' => $action,
+            'record_id' => $record_id,
+            'patient_id' => $data['patient_id'] ?? null,
+            'amount' => $amount,
+            'previous_value' => $prev_val,
+            'new_value' => $new_val,
+            'change_description' => $data['change_description'] ?? ($action . ' in ' . $module),
+            'reason_for_change' => $data['reason_for_change'] ?? null,
+            'is_suspicious' => $is_suspicious,
+            'suspicious_reason' => $suspicious_reason,
+            'is_historical' => intval($data['is_historical'] ?? 0),
+            'user_id' => (string)$user_id,
+            'username' => $username,
+            'date_time' => $now,
+            'created_at_formatted' => $date_str,
+            'ip_address' => $ip,
+            'session_reference' => $session_ref,
+            'hospital_id' => $hospital_id
+        ];
+
+        $this->db->insert('financial_audit_logs', $insert_data);
+        return $this->db->insert_id();
+    }
+
+    /**
+     * Build WHERE query conditions for Financial Audit Logs
+     */
+    private function _buildFinancialAuditQuery($filters = []) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $this->db->where('(hospital_id = ' . $this->db->escape($hospital_id) . ' OR hospital_id IS NULL)', NULL, FALSE);
+
+        if (!empty($filters['module_name'])) {
+            if (is_array($filters['module_name'])) {
+                $this->db->where_in('module_name', $filters['module_name']);
+            } else {
+                $this->db->where('module_name', $filters['module_name']);
+            }
+        }
+        if (!empty($filters['action_type'])) {
+            if (is_array($filters['action_type'])) {
+                $this->db->where_in('action_type', $filters['action_type']);
+            } else {
+                $this->db->where('action_type', $filters['action_type']);
+            }
+        }
+        if (!empty($filters['user_id'])) {
+            $this->db->where('user_id', (string)$filters['user_id']);
+        }
+        if (!empty($filters['transaction_reference'])) {
+            $this->db->like('transaction_reference', $filters['transaction_reference']);
+        }
+        if (!empty($filters['record_id'])) {
+            $this->db->where('record_id', $filters['record_id']);
+        }
+        if (!empty($filters['patient_id'])) {
+            $this->db->where('patient_id', $filters['patient_id']);
+        }
+        if (isset($filters['is_suspicious']) && $filters['is_suspicious'] !== '') {
+            $this->db->where('is_suspicious', intval($filters['is_suspicious']));
+        }
+        if (isset($filters['is_historical']) && $filters['is_historical'] !== '') {
+            $this->db->where('is_historical', intval($filters['is_historical']));
+        }
+        if (!empty($filters['amount_min'])) {
+            $this->db->where('amount >=', floatval($filters['amount_min']));
+        }
+        if (!empty($filters['amount_max'])) {
+            $this->db->where('amount <=', floatval($filters['amount_max']));
+        }
+        if (!empty($filters['start_date'])) {
+            $start_ts = strtotime($filters['start_date'] . ' 00:00:00');
+            if ($start_ts) {
+                $this->db->where('date_time >=', $start_ts);
+            }
+        }
+        if (!empty($filters['end_date'])) {
+            $end_ts = strtotime($filters['end_date'] . ' 23:59:59');
+            if ($end_ts) {
+                $this->db->where('date_time <=', $end_ts);
+            }
+        }
+        if (!empty($filters['search'])) {
+            $term = $filters['search'];
+            $this->db->group_start();
+            $this->db->like('transaction_reference', $term);
+            $this->db->or_like('record_id', $term);
+            $this->db->or_like('patient_id', $term);
+            $this->db->or_like('username', $term);
+            $this->db->or_like('change_description', $term);
+            $this->db->or_like('reason_for_change', $term);
+            $this->db->group_end();
+        }
+    }
+
+    /**
+     * Get paginated Financial Audit Logs
+     */
+    public function getFinancialAuditLogs($filters = [], $limit = 50, $offset = 0) {
+        $this->db->from('financial_audit_logs');
+        $this->_buildFinancialAuditQuery($filters);
+        $this->db->order_by('date_time', 'DESC');
+        $this->db->order_by('id', 'DESC');
+        if ($limit > 0) {
+            $this->db->limit($limit, $offset);
+        }
+        return $this->db->get()->result_array();
+    }
+
+    /**
+     * Count Financial Audit Logs for pagination
+     */
+    public function countFinancialAuditLogs($filters = []) {
+        $this->db->from('financial_audit_logs');
+        $this->_buildFinancialAuditQuery($filters);
+        return $this->db->count_all_results();
+    }
+
+    /**
+     * Get single Financial Audit Log by ID or UUID
+     */
+    public function getAuditLogById($id) {
+        $this->db->from('financial_audit_logs');
+        if (is_numeric($id)) {
+            $this->db->where('id', $id);
+        } else {
+            $this->db->where('audit_uuid', $id);
+        }
+        $row = $this->db->get()->row_array();
+        if ($row) {
+            $row['previous_value_decoded'] = json_decode($row['previous_value'], true);
+            $row['new_value_decoded'] = json_decode($row['new_value'], true);
+        }
+        return $row;
+    }
+
+    /**
+     * Get Summary Metrics and Trend Data for Financial Audit Dashboard
+     */
+    public function getFinancialAuditDashboardData($start_date = null, $end_date = null) {
+        $hospital_id = $this->session->userdata('hospital_id') ?: 1;
+        $where_hosp = '(hospital_id = ' . $this->db->escape($hospital_id) . ' OR hospital_id IS NULL)';
+
+        $start_ts = $start_date ? strtotime($start_date . ' 00:00:00') : strtotime('-30 days 00:00:00');
+        $end_ts = $end_date ? strtotime($end_date . ' 23:59:59') : time();
+
+        // 1. KPI Cards
+        $this->db->select("
+            COUNT(*) as total_events,
+            SUM(CASE WHEN module_name IN ('billing', 'invoices') THEN 1 ELSE 0 END) as invoice_events,
+            SUM(CASE WHEN module_name IN ('payments', 'due_collection') OR action_type = 'PAYMENT' THEN 1 ELSE 0 END) as payment_events,
+            SUM(CASE WHEN action_type = 'REFUND' THEN 1 ELSE 0 END) as refund_events,
+            SUM(CASE WHEN module_name IN ('expense', 'expenses') THEN 1 ELSE 0 END) as expense_events,
+            SUM(CASE WHEN module_name IN ('doctor_commission', 'referral_commission') THEN 1 ELSE 0 END) as commission_events,
+            SUM(CASE WHEN module_name IN ('referral_wallet', 'wallet', 'referral_withdrawal') THEN 1 ELSE 0 END) as wallet_events,
+            SUM(CASE WHEN action_type = 'REVERSAL' THEN 1 ELSE 0 END) as reversal_events,
+            SUM(CASE WHEN is_suspicious = 1 THEN 1 ELSE 0 END) as suspicious_events,
+            SUM(amount) as total_audited_volume
+        ");
+        $this->db->from('financial_audit_logs');
+        $this->db->where($where_hosp, NULL, FALSE);
+        $this->db->where('date_time >=', $start_ts);
+        $this->db->where('date_time <=', $end_ts);
+        $kpi = $this->db->get()->row_array();
+
+        // 2. Daily Trend (Date-wise events and volume)
+        $this->db->select("
+            DATE(created_at_formatted) as event_date,
+            COUNT(*) as event_count,
+            SUM(amount) as total_amount,
+            SUM(CASE WHEN is_suspicious = 1 THEN 1 ELSE 0 END) as suspicious_count
+        ");
+        $this->db->from('financial_audit_logs');
+        $this->db->where($where_hosp, NULL, FALSE);
+        $this->db->where('date_time >=', $start_ts);
+        $this->db->where('date_time <=', $end_ts);
+        $this->db->group_by('DATE(created_at_formatted)');
+        $this->db->order_by('DATE(created_at_formatted)', 'ASC');
+        $daily_trend = $this->db->get()->result_array();
+
+        // 3. Module Distribution
+        $this->db->select("module_name, COUNT(*) as count, SUM(amount) as amount");
+        $this->db->from('financial_audit_logs');
+        $this->db->where($where_hosp, NULL, FALSE);
+        $this->db->where('date_time >=', $start_ts);
+        $this->db->where('date_time <=', $end_ts);
+        $this->db->group_by('module_name');
+        $this->db->order_by('count', 'DESC');
+        $module_dist = $this->db->get()->result_array();
+
+        // 4. Action Distribution
+        $this->db->select("action_type, COUNT(*) as count");
+        $this->db->from('financial_audit_logs');
+        $this->db->where($where_hosp, NULL, FALSE);
+        $this->db->where('date_time >=', $start_ts);
+        $this->db->where('date_time <=', $end_ts);
+        $this->db->group_by('action_type');
+        $this->db->order_by('count', 'DESC');
+        $action_dist = $this->db->get()->result_array();
+
+        // 5. Recent Suspicious Events (up to 10)
+        $this->db->from('financial_audit_logs');
+        $this->db->where($where_hosp, NULL, FALSE);
+        $this->db->where('is_suspicious', 1);
+        $this->db->where('date_time >=', $start_ts);
+        $this->db->where('date_time <=', $end_ts);
+        $this->db->order_by('date_time', 'DESC');
+        $this->db->limit(10);
+        $suspicious_list = $this->db->get()->result_array();
+
+        return [
+            'kpi' => $kpi,
+            'daily_trend' => $daily_trend,
+            'module_dist' => $module_dist,
+            'action_dist' => $action_dist,
+            'suspicious_list' => $suspicious_list,
+            'start_date' => date('Y-m-d', $start_ts),
+            'end_date' => date('Y-m-d', $end_ts)
+        ];
     }
 }

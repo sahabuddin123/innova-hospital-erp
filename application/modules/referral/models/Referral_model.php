@@ -1511,6 +1511,52 @@ class Referral_model extends CI_Model
             'created_at' => time()
         );
         $this->db->insert('referral_audit_log', $data);
+
+        // Mirror into financial_audit_logs for Unified Financial Audit Trails
+        if ($this->db->table_exists('financial_audit_logs')) {
+            $action_type = 'STATUS_CHANGE';
+            if (stripos($action, 'reject') !== false) $action_type = 'REJECT';
+            elseif (stripos($action, 'paid') !== false) $action_type = 'PAYMENT';
+            elseif (stripos($action, 'approved') !== false) $action_type = 'APPROVE';
+            elseif (stripos($action, 'credit') !== false || stripos($action, 'earned') !== false) $action_type = 'PAYMENT';
+            elseif (stripos($action, 'reversed') !== false) $action_type = 'REVERSAL';
+            elseif (stripos($action, 'created') !== false || stripos($action, 'requested') !== false) $action_type = 'CREATE';
+            elseif (stripos($action, 'adjustment') !== false) $action_type = 'ADJUSTMENT';
+
+            $mod = 'referral_commission';
+            if (stripos($action, 'wallet') !== false || stripos($action, 'withdrawal') !== false) {
+                $mod = 'referral_wallet';
+            }
+
+            $user_id = $this->ion_auth->get_user_id() ? $this->ion_auth->get_user_id() : 'system';
+            $user_obj = $this->ion_auth->user($user_id)->row();
+            $username = $user_obj ? $user_obj->username : 'Referral Admin';
+
+            $now = time();
+            $is_suspicious = in_array($action_type, ['REVERSAL', 'REJECT']) ? 1 : 0;
+            $suspicious_reason = $is_suspicious ? ('Referral ' . $action_type) : null;
+
+            $this->db->insert('financial_audit_logs', array(
+                'audit_uuid' => 'AUD-REF-' . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 16)),
+                'transaction_reference' => $reference,
+                'module_name' => $mod,
+                'action_type' => $action_type,
+                'record_id' => $reference,
+                'previous_value' => is_array($old_value) ? json_encode($old_value) : $old_value,
+                'new_value' => is_array($new_value) ? json_encode($new_value) : $new_value,
+                'change_description' => 'Referral Event: ' . $action . ($reference ? ' (' . $reference . ')' : ''),
+                'reason_for_change' => $action,
+                'is_suspicious' => $is_suspicious,
+                'suspicious_reason' => $suspicious_reason,
+                'is_historical' => 0,
+                'user_id' => (string)$user_id,
+                'username' => $username,
+                'date_time' => $now,
+                'created_at_formatted' => date('Y-m-d H:i:s', $now),
+                'ip_address' => $this->input->ip_address(),
+                'hospital_id' => $hospital_id ?: 1
+            ));
+        }
     }
 
     // ==========================================

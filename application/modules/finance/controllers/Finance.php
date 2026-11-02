@@ -708,6 +708,25 @@ class Finance extends MX_Controller
 
                 $this->finance_model->insertPayment($data);
                 $inserted_id = $this->db->insert_id();
+                $this->finance_model->logFinancialActivity([
+                    'transaction_reference' => 'INV-#' . $inserted_id,
+                    'module_name' => 'billing',
+                    'action_type' => 'CREATE',
+                    'record_id' => $inserted_id,
+                    'patient_id' => $patient,
+                    'amount' => $gross_total,
+                    'new_value' => [
+                        'sub_total' => $sub_total,
+                        'discount' => $discount,
+                        'flat_discount' => $flat_discount,
+                        'gross_total' => $gross_total,
+                        'amount_received' => $amount_received,
+                        'deposit_type' => $deposit_type
+                    ],
+                    'discount_percent' => ($sub_total > 0) ? round(($flat_discount / $sub_total) * 100, 2) : 0,
+                    'change_description' => "Invoice #{$inserted_id} created for patient {$patient_name}. Gross: {$gross_total}, Paid: {$amount_received}",
+                    'hospital_id' => $this->session->userdata('hospital_id')
+                ]);
 
                 $this->referral_model->recordInvoiceCommissions($inserted_id, $invoice_items_data, $referrer, $doctor, $this->session->userdata('hospital_id'));
 
@@ -1090,7 +1109,51 @@ class Finance extends MX_Controller
                     $this->finance_model->insertDeposit($data1);
                 }
 
+                $old_payment = $this->finance_model->getPaymentById($id);
                 $this->finance_model->updatePayment($id, $data);
+                $this->finance_model->logFinancialActivity([
+                    'transaction_reference' => 'INV-#' . $id,
+                    'module_name' => 'billing',
+                    'action_type' => 'UPDATE',
+                    'record_id' => $id,
+                    'patient_id' => $patient,
+                    'amount' => $gross_total,
+                    'previous_value' => [
+                        'sub_total' => $old_payment->amount ?? 0,
+                        'discount' => $old_payment->discount ?? 0,
+                        'flat_discount' => $old_payment->flat_discount ?? 0,
+                        'gross_total' => $old_payment->gross_total ?? 0,
+                        'amount_received' => $old_payment->amount_received ?? 0
+                    ],
+                    'new_value' => [
+                        'sub_total' => $sub_total,
+                        'discount' => $discount,
+                        'flat_discount' => $flat_discount,
+                        'gross_total' => $gross_total,
+                        'amount_received' => $amount_received
+                    ],
+                    'discount_percent' => ($sub_total > 0) ? round(($flat_discount / $sub_total) * 100, 2) : 0,
+                    'change_description' => "Invoice #{$id} updated. Gross changed from " . ($old_payment->gross_total ?? 0) . " to {$gross_total}. Discount: {$flat_discount}",
+                    'reason_for_change' => $this->input->post('edit_reason') ?: 'Invoice updated via POS editor',
+                    'hospital_id' => $this->session->userdata('hospital_id')
+                ]);
+
+                if (isset($old_payment->flat_discount) && floatval($old_payment->flat_discount) != floatval($flat_discount)) {
+                    $this->finance_model->logFinancialActivity([
+                        'transaction_reference' => 'DISC-INV-#' . $id,
+                        'module_name' => 'billing',
+                        'action_type' => 'ADJUSTMENT',
+                        'record_id' => $id,
+                        'patient_id' => $patient,
+                        'amount' => $flat_discount,
+                        'previous_value' => ['flat_discount' => $old_payment->flat_discount],
+                        'new_value' => ['flat_discount' => $flat_discount],
+                        'discount_percent' => ($sub_total > 0) ? round(($flat_discount / $sub_total) * 100, 2) : 0,
+                        'change_description' => "Discount adjusted on Invoice #{$id} from {$old_payment->flat_discount} to {$flat_discount}",
+                        'reason_for_change' => $this->input->post('edit_reason') ?: 'Discount revised',
+                        'hospital_id' => $this->session->userdata('hospital_id')
+                    ]);
+                }
 
                 // AUDIT-001 FIX: Synchronize payment items, referral commissions, and wallet balances
                 $this->referral_model->syncInvoiceCommissions($id, $invoice_items_data, $referrer, $doctor, $this->session->userdata('hospital_id'));
@@ -1758,9 +1821,33 @@ class Finance extends MX_Controller
             }
             if (empty($id)) {
                 $inserted_id = $this->finance_model->insertExpense($data);
+                $this->finance_model->logFinancialActivity([
+                    'transaction_reference' => 'EXP-#' . $inserted_id,
+                    'module_name' => 'expense',
+                    'action_type' => 'CREATE',
+                    'record_id' => $inserted_id,
+                    'amount' => $amount,
+                    'new_value' => $data,
+                    'change_description' => "Expense #{$inserted_id} created for {$category}: {$amount} BDT to {$pay_to}",
+                    'reason_for_change' => $note,
+                    'hospital_id' => $this->session->userdata('hospital_id')
+                ]);
                 show_swal(lang('new_expense_added_successfully'), 'success', lang('added'));
                 redirect('finance/expenseInvoice?id=' . $inserted_id);
             } else {
+                $old_expense = $this->finance_model->getExpenseById($id);
+                $this->finance_model->logFinancialActivity([
+                    'transaction_reference' => 'EXP-#' . $id,
+                    'module_name' => 'expense',
+                    'action_type' => 'UPDATE',
+                    'record_id' => $id,
+                    'amount' => $amount,
+                    'previous_value' => (array)$old_expense,
+                    'new_value' => $data,
+                    'change_description' => "Expense #{$id} updated: amount from " . ($old_expense->amount ?? '') . " to {$amount} BDT",
+                    'reason_for_change' => $note,
+                    'hospital_id' => $this->session->userdata('hospital_id')
+                ]);
                 $this->finance_model->updateExpense($id, $data);
                 show_swal(lang('expense_updated_succcessfully'), 'success', lang('updated'));
                 redirect('finance/expenseInvoice?id=' . $id);
@@ -1802,6 +1889,21 @@ class Finance extends MX_Controller
             }
         }
 
+        if (!empty($id)) {
+            $old_exp = $this->finance_model->getExpenseById($id);
+            $this->finance_model->logFinancialActivity([
+                'transaction_reference' => 'EXP-#' . $id,
+                'module_name' => 'expense',
+                'action_type' => 'DELETE',
+                'record_id' => $id,
+                'amount' => $old_exp->amount ?? 0,
+                'previous_value' => (array)$old_exp,
+                'change_description' => "Expense #{$id} deleted (Amount: " . ($old_exp->amount ?? 0) . " BDT)",
+                'is_suspicious' => 1,
+                'suspicious_reason' => 'Expense deletion/cancellation',
+                'hospital_id' => $this->session->userdata('hospital_id')
+            ]);
+        }
         $this->finance_model->deleteExpense($id);
         redirect('finance/expense');
     }
@@ -7226,4 +7328,625 @@ class Finance extends MX_Controller
         $this->load->view('finance/acc_audit_trail', $data);
         $this->load->view('home/footer');
     }
+
+
+    // =========================================================================
+
+    // PHASE 8 - FINANCIAL AUDIT LOGS
+
+    // =========================================================================
+
+
+
+    /**
+
+     * Financial Audit Dashboard
+
+     */
+
+    public function financialAuditDashboard() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+
+
+        $data = [];
+
+        $data['dashboard'] = $this->finance_model->getFinancialAuditDashboardData($start_date, $end_date);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['active_report'] = 'audit_dashboard';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_dashboard', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * Invoice Audit Report
+
+     */
+
+    public function invoiceAuditReport() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $action_type = $this->input->get_post('action_type');
+
+        $is_suspicious = $this->input->get_post('is_suspicious');
+
+        $search = $this->input->get_post('search');
+
+
+
+        $filters = [
+
+            'module_name' => 'billing',
+
+            'start_date' => $start_date,
+
+            'end_date' => $end_date
+
+        ];
+
+        if (!empty($action_type)) $filters['action_type'] = $action_type;
+
+        if ($is_suspicious !== null && $is_suspicious !== '') $filters['is_suspicious'] = $is_suspicious;
+
+        if (!empty($search)) $filters['search'] = $search;
+
+
+
+        $data = [];
+
+        $data['logs'] = $this->finance_model->getFinancialAuditLogs($filters, 500, 0);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['filters'] = $filters;
+
+        $data['active_report'] = 'audit_invoices';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_invoices', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * Payment Audit Report
+
+     */
+
+    public function paymentAuditReport() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $action_type = $this->input->get_post('action_type');
+
+        $is_suspicious = $this->input->get_post('is_suspicious');
+
+        $search = $this->input->get_post('search');
+
+
+
+        $filters = [
+
+            'module_name' => ['payments', 'due_collection'],
+
+            'start_date' => $start_date,
+
+            'end_date' => $end_date
+
+        ];
+
+        if (!empty($action_type)) $filters['action_type'] = $action_type;
+
+        if ($is_suspicious !== null && $is_suspicious !== '') $filters['is_suspicious'] = $is_suspicious;
+
+        if (!empty($search)) $filters['search'] = $search;
+
+
+
+        $data = [];
+
+        $data['logs'] = $this->finance_model->getFinancialAuditLogs($filters, 500, 0);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['filters'] = $filters;
+
+        $data['active_report'] = 'audit_payments';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_payments', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * Expense Audit Report
+
+     */
+
+    public function expenseAuditReport() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $action_type = $this->input->get_post('action_type');
+
+        $is_suspicious = $this->input->get_post('is_suspicious');
+
+        $search = $this->input->get_post('search');
+
+
+
+        $filters = [
+
+            'module_name' => ['expense', 'expenses'],
+
+            'start_date' => $start_date,
+
+            'end_date' => $end_date
+
+        ];
+
+        if (!empty($action_type)) $filters['action_type'] = $action_type;
+
+        if ($is_suspicious !== null && $is_suspicious !== '') $filters['is_suspicious'] = $is_suspicious;
+
+        if (!empty($search)) $filters['search'] = $search;
+
+
+
+        $data = [];
+
+        $data['logs'] = $this->finance_model->getFinancialAuditLogs($filters, 500, 0);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['filters'] = $filters;
+
+        $data['active_report'] = 'audit_expenses';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_expenses', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * Doctor Commission Audit Report
+
+     */
+
+    public function doctorCommissionAuditReport() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $action_type = $this->input->get_post('action_type');
+
+        $search = $this->input->get_post('search');
+
+
+
+        $filters = [
+
+            'module_name' => 'doctor_commission',
+
+            'start_date' => $start_date,
+
+            'end_date' => $end_date
+
+        ];
+
+        if (!empty($action_type)) $filters['action_type'] = $action_type;
+
+        if (!empty($search)) $filters['search'] = $search;
+
+
+
+        $data = [];
+
+        $data['logs'] = $this->finance_model->getFinancialAuditLogs($filters, 500, 0);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['filters'] = $filters;
+
+        $data['active_report'] = 'audit_doctor_commissions';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_doctor_commissions', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * Referral Commission Audit Report
+
+     */
+
+    public function referralCommissionAuditReport() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $action_type = $this->input->get_post('action_type');
+
+        $is_suspicious = $this->input->get_post('is_suspicious');
+
+        $search = $this->input->get_post('search');
+
+
+
+        $filters = [
+
+            'module_name' => ['referral_commission', 'referral_wallet'],
+
+            'start_date' => $start_date,
+
+            'end_date' => $end_date
+
+        ];
+
+        if (!empty($action_type)) $filters['action_type'] = $action_type;
+
+        if ($is_suspicious !== null && $is_suspicious !== '') $filters['is_suspicious'] = $is_suspicious;
+
+        if (!empty($search)) $filters['search'] = $search;
+
+
+
+        $data = [];
+
+        $data['logs'] = $this->finance_model->getFinancialAuditLogs($filters, 500, 0);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['filters'] = $filters;
+
+        $data['active_report'] = 'audit_referral_commissions';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_referral_commissions', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * Cash & Bank Audit Report
+
+     */
+
+    public function cashBankAuditReport() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $action_type = $this->input->get_post('action_type');
+
+        $search = $this->input->get_post('search');
+
+
+
+        $filters = [
+
+            'module_name' => ['accounting', 'cash_bank', 'reconciliation'],
+
+            'start_date' => $start_date,
+
+            'end_date' => $end_date
+
+        ];
+
+        if (!empty($action_type)) $filters['action_type'] = $action_type;
+
+        if (!empty($search)) $filters['search'] = $search;
+
+
+
+        $data = [];
+
+        $data['logs'] = $this->finance_model->getFinancialAuditLogs($filters, 500, 0);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['filters'] = $filters;
+
+        $data['active_report'] = 'audit_cash_bank';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_cash_bank', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * Master Financial Audit Trail
+
+     */
+
+    public function financialAuditTrail() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            redirect('home/permission');
+
+        }
+
+
+
+        $start_date = $this->input->get_post('start_date') ?: date('Y-m-01', strtotime('-1 month'));
+
+        $end_date = $this->input->get_post('end_date') ?: date('Y-m-d');
+
+        $module_name = $this->input->get_post('module_name');
+
+        $action_type = $this->input->get_post('action_type');
+
+        $is_suspicious = $this->input->get_post('is_suspicious');
+
+        $is_historical = $this->input->get_post('is_historical');
+
+        $search = $this->input->get_post('search');
+
+        $amount_min = $this->input->get_post('amount_min');
+
+        $amount_max = $this->input->get_post('amount_max');
+
+
+
+        $filters = [
+
+            'start_date' => $start_date,
+
+            'end_date' => $end_date
+
+        ];
+
+        if (!empty($module_name)) $filters['module_name'] = $module_name;
+
+        if (!empty($action_type)) $filters['action_type'] = $action_type;
+
+        if ($is_suspicious !== null && $is_suspicious !== '') $filters['is_suspicious'] = $is_suspicious;
+
+        if ($is_historical !== null && $is_historical !== '') $filters['is_historical'] = $is_historical;
+
+        if (!empty($amount_min)) $filters['amount_min'] = $amount_min;
+
+        if (!empty($amount_max)) $filters['amount_max'] = $amount_max;
+
+        if (!empty($search)) $filters['search'] = $search;
+
+
+
+        $data = [];
+
+        $data['logs'] = $this->finance_model->getFinancialAuditLogs($filters, 1000, 0);
+
+        $data['start_date'] = $start_date;
+
+        $data['end_date'] = $end_date;
+
+        $data['filters'] = $filters;
+
+        $data['active_report'] = 'audit_trail';
+
+        $data['settings'] = $this->settings_model->getSettings();
+
+
+
+        $this->load->view('home/dashboard');
+
+        $this->load->view('finance/fin_audit_trail', $data);
+
+        $this->load->view('home/footer');
+
+    }
+
+
+
+    /**
+
+     * AJAX Endpoint for Before & After Value Comparison Viewer
+
+     */
+
+    public function getAuditDetailAjax() {
+
+        if (!$this->ion_auth->in_group(array('admin', 'Accountant', 'superadmin'))) {
+
+            header('Content-Type: application/json');
+
+            echo json_encode(['status' => false, 'message' => 'Unauthorized']);
+
+            return;
+
+        }
+
+
+
+        $id = $this->input->get_post('id');
+
+        if (empty($id)) {
+
+            header('Content-Type: application/json');
+
+            echo json_encode(['status' => false, 'message' => 'Audit ID required']);
+
+            return;
+
+        }
+
+
+
+        $log = $this->finance_model->getAuditLogById($id);
+
+        if (!$log) {
+
+            header('Content-Type: application/json');
+
+            echo json_encode(['status' => false, 'message' => 'Audit record not found']);
+
+            return;
+
+        }
+
+
+
+        header('Content-Type: application/json');
+
+        echo json_encode(['status' => true, 'data' => $log]);
+
+    }
+
 }
+
